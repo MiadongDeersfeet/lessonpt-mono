@@ -1,0 +1,16 @@
+# 자동 통합 테스트용 Oracle Schema다.
+# 개발이나 시연에 쓰는 Schema와 섞지 않는다.
+# LESSONPT_DB_URL, LESSONPT_DB_USERNAME, LESSONPT_DB_PASSWORD 가 있을 때만 연결 테스트를 실행한다.
+
+spring:
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: ${LESSONPT_DB_URL}
+    username: ${LESSONPT_DB_USERNAME}
+    password: ${LESSONPT_DB_PASSWORD}
+    hikari:
+      initialization-fail-timeout: -1
+
+logging:
+  level:
+    com.yunki.lessonpt.common.health.SmokeMapper: debug

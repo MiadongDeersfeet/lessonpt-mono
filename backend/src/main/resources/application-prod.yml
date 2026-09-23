@@ -1,0 +1,21 @@
+# 배포 환경이다. 접속 정보는 전부 환경변수로 받는다.
+# LESSONPT_DB_URL, LESSONPT_DB_USERNAME, LESSONPT_DB_PASSWORD
+
+spring:
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: ${LESSONPT_DB_URL}
+    username: ${LESSONPT_DB_USERNAME}
+    password: ${LESSONPT_DB_PASSWORD}
+    hikari:
+      initialization-fail-timeout: -1
+
+management:
+  endpoint:
+    health:
+      # 예외 내용이 응답에 나가지 않게 상태값만 남긴다.
+      show-details: never
+
+logging:
+  level:
+    com.yunki.lessonpt.common.health.SmokeMapper: info

@@ -1,0 +1,4 @@
+target/
+application-local.yml
+.env
+.env.*

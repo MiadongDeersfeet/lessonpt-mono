@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.common.health.SmokeMapper">
+
+    <!-- Oracle 연결 확인용. 테이블을 읽지 않는다. -->
+    <select id="selectOne" resultType="int">
+        SELECT 1 FROM DUAL
+    </select>
+
+</mapper>

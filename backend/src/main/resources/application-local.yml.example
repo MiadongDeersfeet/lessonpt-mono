@@ -1,0 +1,22 @@
+# 로컬에서 실제 Oracle 개발 Schema에 붙을 때 쓰는 설정이다.
+# 이 파일을 application-local.yml 로 복사하고, 아래 환경변수를 채운 뒤 실행한다.
+# application-local.yml 은 Git에 넣지 않는다.
+#
+# LESSONPT_DB_URL      예: jdbc:oracle:thin:@//localhost:1521/FREEPDB1
+# LESSONPT_DB_USERNAME
+# LESSONPT_DB_PASSWORD
+
+spring:
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: ${LESSONPT_DB_URL}
+    username: ${LESSONPT_DB_USERNAME}
+    password: ${LESSONPT_DB_PASSWORD}
+    hikari:
+      # 접속이 실패해도 프로세스는 유지하고, 결과는 /actuator/health 의 oracle 항목으로 본다.
+      initialization-fail-timeout: -1
+
+logging:
+  level:
+    # SmokeMapper SQL을 로컬에서만 본다.
+    com.yunki.lessonpt.common.health.SmokeMapper: debug

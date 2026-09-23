@@ -1,0 +1,31 @@
+# LessonPT 공통 설정.
+# 스키마 접속 정보는 프로파일 파일로 나누고, 비밀번호는 환경변수로만 받는다.
+
+spring:
+  application:
+    name: lessonpt
+  profiles:
+    # 기본은 로컬 개발. 테스트와 배포는 LESSONPT_PROFILE=test|prod 로 바꾼다.
+    active: ${LESSONPT_PROFILE:local}
+  autoconfigure:
+    exclude:
+      # 생성된 메모리 사용자와 임시 비밀번호를 쓰지 않는다. Teacher JWT는 이후 단계에서 붙인다.
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+      # URL이 없을 때도 Hikari를 만들려다 기동이 멈추지 않게, 풀은 OracleDataSourceConfig에서만 만든다.
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+
+mybatis:
+  # 도메인 Mapper XML은 기능을 추가할 때 mapper 아래에 둔다.
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      # 로컬과 테스트에서 oracle 항목을 바로 보게 한다. prod는 상세를 숨긴다.
+      show-details: always
