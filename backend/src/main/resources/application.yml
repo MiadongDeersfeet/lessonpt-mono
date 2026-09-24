@@ -22,6 +22,7 @@ lessonpt:
 mybatis:
   # 도메인 Mapper XML은 기능을 추가할 때 mapper 아래에 둔다.
   mapper-locations: classpath:mapper/**/*.xml
+  type-handlers-package: com.yunki.lessonpt.common.mybatis.typehandler
   configuration:
     map-underscore-to-camel-case: true
 
