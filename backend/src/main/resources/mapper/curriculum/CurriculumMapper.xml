@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.curriculum.mapper.CurriculumMapper">
+
+    <resultMap id="curriculumResultMap" type="com.yunki.lessonpt.curriculum.domain.Curriculum">
+        <id column="CURRICULUM_ID" property="curriculumId"/>
+        <result column="TEACHER_ID" property="teacherId"/>
+        <result column="NAME" property="name"/>
+        <result column="DISPLAY_ORDER" property="displayOrder"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="curriculumColumns">
+        CURRICULUM_ID, TEACHER_ID, NAME, DISPLAY_ORDER,
+        CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <sql id="activeCurriculum">
+        STATUS = 'Y' AND DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectCurriculumById" resultMap="curriculumResultMap">
+        SELECT <include refid="curriculumColumns"/>
+        FROM TB_CURRICULUM
+        WHERE CURRICULUM_ID = #{curriculumId}
+    </select>
+
+    <select id="selectActiveCurriculumById" resultMap="curriculumResultMap">
+        SELECT <include refid="curriculumColumns"/>
+        FROM TB_CURRICULUM
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND <include refid="activeCurriculum"/>
+    </select>
+
+    <select id="selectActiveCurriculumByIdAndTeacherId" resultMap="curriculumResultMap">
+        SELECT <include refid="curriculumColumns"/>
+        FROM TB_CURRICULUM
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND TEACHER_ID = #{teacherId}
+          AND <include refid="activeCurriculum"/>
+    </select>
+
+    <select id="selectActiveCurriculumsByTeacherId" resultMap="curriculumResultMap">
+        SELECT <include refid="curriculumColumns"/>
+        FROM TB_CURRICULUM
+        WHERE TEACHER_ID = #{teacherId}
+          AND <include refid="activeCurriculum"/>
+        ORDER BY DISPLAY_ORDER ASC, CURRICULUM_ID ASC
+    </select>
+
+    <insert id="insertCurriculum">
+        <selectKey keyProperty="curriculumId" resultType="long" order="BEFORE">
+            SELECT SEQ_CURRICULUM.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_CURRICULUM (
+            CURRICULUM_ID, TEACHER_ID, NAME, DISPLAY_ORDER, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{curriculumId},
+            #{teacherId},
+            #{name},
+            #{displayOrder},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateCurriculum">
+        UPDATE TB_CURRICULUM
+        SET NAME = #{name},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteCurriculum">
+        UPDATE TB_CURRICULUM
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreCurriculum">
+        UPDATE TB_CURRICULUM
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            DISPLAY_ORDER = #{displayOrder},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND TEACHER_ID = #{teacherId}
+          AND STATUS = 'N'
+    </update>
+
+    <select id="lockCurriculumById" resultMap="curriculumResultMap">
+        SELECT <include refid="curriculumColumns"/>
+        FROM TB_CURRICULUM
+        WHERE CURRICULUM_ID = #{curriculumId}
+        FOR UPDATE WAIT 3
+    </select>
+
+    <select id="selectMaxDisplayOrderByTeacherId" resultType="java.lang.Integer">
+        SELECT MAX(DISPLAY_ORDER)
+        FROM TB_CURRICULUM
+        WHERE TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <update id="shiftActiveDisplayOrdersDown">
+        UPDATE TB_CURRICULUM
+        SET DISPLAY_ORDER = DISPLAY_ORDER - 1,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+          AND DISPLAY_ORDER &gt; #{displayOrder}
+    </update>
+</mapper>
