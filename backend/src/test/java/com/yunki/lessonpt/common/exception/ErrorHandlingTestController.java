@@ -1,5 +1,10 @@
 package com.yunki.lessonpt.common.exception;
 
+import java.util.Set;
+
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,8 +21,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/test/errors")
 public class ErrorHandlingTestController {
 
+    private final Validator validator;
+
+    public ErrorHandlingTestController(Validator validator) {
+        this.validator = validator;
+    }
+
     @PostMapping("/validation")
     public void validation(@RequestBody @jakarta.validation.Valid SampleRequest request) {
+    }
+
+    @PostMapping("/constraints")
+    public void constraints(@RequestBody SampleRequest request) {
+        Set<ConstraintViolation<SampleRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
     }
 
     @GetMapping("/not-found")
@@ -36,7 +55,8 @@ public class ErrorHandlingTestController {
     }
 
     public record SampleRequest(
-            @NotBlank @Email(message = "이메일 형식이 올바르지 않습니다.") String email
+            @NotBlank @Email(message = "이메일 형식이 올바르지 않습니다.") String email,
+            @NotBlank(message = "이름은 필수입니다.") String name
     ) {
     }
 }

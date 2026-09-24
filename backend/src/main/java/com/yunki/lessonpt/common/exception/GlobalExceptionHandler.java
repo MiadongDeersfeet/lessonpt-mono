@@ -1,5 +1,7 @@
 package com.yunki.lessonpt.common.exception;
 
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -12,7 +14,6 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.validation.FieldError;
 
 /**
  * REST API에서 발생한 예외를 동일한 형식으로 변환한다.
@@ -25,23 +26,28 @@ import org.springframework.validation.FieldError;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String VALIDATION_MESSAGE = "입력값을 확인해주세요.";
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleInvalidBody(
             MethodArgumentNotValidException exception,
             HttpServletRequest request) {
-        String message = representativeFieldMessage(exception);
-        logClientError(request, ErrorCode.COMMON_INVALID_INPUT, message);
-        return respond(ErrorCode.COMMON_INVALID_INPUT, message, request);
+        List<ValidationFieldError> fieldErrors = exception.getBindingResult().getFieldErrors().stream()
+                .map(error -> new ValidationFieldError(error.getField(), error.getDefaultMessage()))
+                .toList();
+        logClientError(request, ErrorCode.COMMON_INVALID_INPUT, VALIDATION_MESSAGE);
+        return respond(ErrorCode.COMMON_INVALID_INPUT, VALIDATION_MESSAGE, request, fieldErrors);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(
             ConstraintViolationException exception,
             HttpServletRequest request) {
-        String message = representativeConstraintMessage(exception);
-        logClientError(request, ErrorCode.COMMON_INVALID_INPUT, message);
-        return respond(ErrorCode.COMMON_INVALID_INPUT, message, request);
+        List<ValidationFieldError> fieldErrors = exception.getConstraintViolations().stream()
+                .map(violation -> new ValidationFieldError(fieldName(violation), violation.getMessage()))
+                .toList();
+        logClientError(request, ErrorCode.COMMON_INVALID_INPUT, VALIDATION_MESSAGE);
+        return respond(ErrorCode.COMMON_INVALID_INPUT, VALIDATION_MESSAGE, request, fieldErrors);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -83,7 +89,16 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ErrorResponse> respond(ErrorCode errorCode, String message, HttpServletRequest request) {
-        ErrorResponse body = ErrorResponse.of(errorCode, message, request.getRequestURI(), currentTraceId());
+        return respond(errorCode, message, request, List.of());
+    }
+
+    private ResponseEntity<ErrorResponse> respond(
+            ErrorCode errorCode,
+            String message,
+            HttpServletRequest request,
+            List<ValidationFieldError> fieldErrors) {
+        ErrorResponse body = ErrorResponse.of(
+                errorCode, message, request.getRequestURI(), currentTraceId(), fieldErrors);
         return ResponseEntity.status(errorCode.status()).body(body);
     }
 
@@ -97,26 +112,9 @@ public class GlobalExceptionHandler {
         return traceId == null ? "" : traceId;
     }
 
-    /**
-     * 여러 필드가 동시에 실패해도 대표 오류 하나만 본문에 담는다.
-     * 필드 목록이 필요해지면 이 선택 지점만 바꾸면 된다.
-     */
-    private String representativeFieldMessage(MethodArgumentNotValidException exception) {
-        FieldError fieldError = exception.getBindingResult().getFieldError();
-        if (fieldError == null || fieldError.getDefaultMessage() == null) {
-            return ErrorCode.COMMON_INVALID_INPUT.message();
-        }
-        return fieldError.getField() + ": " + fieldError.getDefaultMessage();
-    }
-
-    private String representativeConstraintMessage(ConstraintViolationException exception) {
-        ConstraintViolation<?> violation = exception.getConstraintViolations().stream().findFirst().orElse(null);
-        if (violation == null) {
-            return ErrorCode.COMMON_INVALID_INPUT.message();
-        }
+    private String fieldName(ConstraintViolation<?> violation) {
         String path = violation.getPropertyPath().toString();
         int separator = path.lastIndexOf('.');
-        String field = separator >= 0 ? path.substring(separator + 1) : path;
-        return field + ": " + violation.getMessage();
+        return separator >= 0 ? path.substring(separator + 1) : path;
     }
 }
