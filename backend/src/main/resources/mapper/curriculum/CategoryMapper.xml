@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.curriculum.mapper.CategoryMapper">
+
+    <resultMap id="categoryResultMap" type="com.yunki.lessonpt.curriculum.domain.Category">
+        <id column="CATEGORY_ID" property="categoryId"/>
+        <result column="CURRICULUM_ID" property="curriculumId"/>
+        <result column="NAME" property="name"/>
+        <result column="DISPLAY_ORDER" property="displayOrder"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="categoryColumns">
+        CATEGORY_ID, CURRICULUM_ID, NAME, DISPLAY_ORDER,
+        CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <sql id="activeCategory">
+        STATUS = 'Y' AND DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectCategoryById" resultMap="categoryResultMap">
+        SELECT <include refid="categoryColumns"/>
+        FROM TB_CATEGORY
+        WHERE CATEGORY_ID = #{categoryId}
+    </select>
+
+    <select id="selectActiveCategoryById" resultMap="categoryResultMap">
+        SELECT <include refid="categoryColumns"/>
+        FROM TB_CATEGORY
+        WHERE CATEGORY_ID = #{categoryId}
+          AND <include refid="activeCategory"/>
+    </select>
+
+    <select id="selectActiveCategoryByIdAndCurriculumId" resultMap="categoryResultMap">
+        SELECT <include refid="categoryColumns"/>
+        FROM TB_CATEGORY
+        WHERE CATEGORY_ID = #{categoryId}
+          AND CURRICULUM_ID = #{curriculumId}
+          AND <include refid="activeCategory"/>
+    </select>
+
+    <select id="selectActiveCategoriesByCurriculumId" resultMap="categoryResultMap">
+        SELECT <include refid="categoryColumns"/>
+        FROM TB_CATEGORY
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND <include refid="activeCategory"/>
+        ORDER BY DISPLAY_ORDER ASC, CATEGORY_ID ASC
+    </select>
+
+    <insert id="insertCategory">
+        <selectKey keyProperty="categoryId" resultType="long" order="BEFORE">
+            SELECT SEQ_CATEGORY.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_CATEGORY (
+            CATEGORY_ID, CURRICULUM_ID, NAME, DISPLAY_ORDER, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{categoryId},
+            #{curriculumId},
+            #{name},
+            #{displayOrder},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateCategory">
+        UPDATE TB_CATEGORY
+        SET NAME = #{name},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CATEGORY_ID = #{categoryId}
+          AND CURRICULUM_ID = #{curriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteCategory">
+        UPDATE TB_CATEGORY
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CATEGORY_ID = #{categoryId}
+          AND CURRICULUM_ID = #{curriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreCategory">
+        UPDATE TB_CATEGORY
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            DISPLAY_ORDER = #{displayOrder},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CATEGORY_ID = #{categoryId}
+          AND CURRICULUM_ID = #{curriculumId}
+          AND STATUS = 'N'
+    </update>
+
+    <select id="lockCategoryById" resultMap="categoryResultMap">
+        SELECT <include refid="categoryColumns"/>
+        FROM TB_CATEGORY
+        WHERE CATEGORY_ID = #{categoryId}
+        FOR UPDATE WAIT 3
+    </select>
+
+    <select id="selectMaxDisplayOrderByCurriculumId" resultType="java.lang.Integer">
+        SELECT MAX(DISPLAY_ORDER)
+        FROM TB_CATEGORY
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <update id="shiftActiveDisplayOrdersDown">
+        UPDATE TB_CATEGORY
+        SET DISPLAY_ORDER = DISPLAY_ORDER - 1,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+          AND DISPLAY_ORDER &gt; #{displayOrder}
+    </update>
+</mapper>

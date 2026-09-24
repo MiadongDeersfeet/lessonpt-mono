@@ -14,6 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
+import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
@@ -50,6 +51,9 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private CurriculumMapper curriculumMapper;
+
+    @MockitoBean
+    private CategoryMapper categoryMapper;
 
     @MockitoBean
     private TeacherAuthSessionMapper teacherAuthSessionMapper;

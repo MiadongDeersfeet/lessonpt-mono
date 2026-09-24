@@ -27,6 +27,7 @@ import com.yunki.lessonpt.auth.dto.AuthTokenResponse;
 import com.yunki.lessonpt.auth.jwt.IssuedToken;
 import com.yunki.lessonpt.auth.jwt.JwtProvider;
 import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
+import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.auth.service.TeacherAuthService;
 import com.yunki.lessonpt.common.model.RecordStatus;
@@ -65,6 +66,9 @@ class TeacherAuthSecurityTest {
 
     @MockitoBean
     private CurriculumMapper curriculumMapper;
+
+    @MockitoBean
+    private CategoryMapper categoryMapper;
 
     @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;
