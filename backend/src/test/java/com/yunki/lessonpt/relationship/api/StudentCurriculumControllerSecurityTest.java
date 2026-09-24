@@ -40,6 +40,7 @@ import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.relationship.domain.StudentCurriculum;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
+import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
@@ -99,6 +100,9 @@ class StudentCurriculumControllerSecurityTest {
 
     @MockitoBean
     private HomeworkMapper homeworkMapper;
+
+    @MockitoBean
+    private ProgressQueryMapper progressQueryMapper;
 
     @MockitoBean
     private StudentCurriculumService studentCurriculumService;

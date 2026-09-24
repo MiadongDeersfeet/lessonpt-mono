@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper">
+
+    <resultMap id="studentCurriculumProgressResultMap"
+               type="com.yunki.lessonpt.relationship.query.StudentCurriculumProgressView">
+        <id column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="COMPLETED_COUNT" property="completedCount"/>
+        <result column="TOTAL_COUNT" property="totalCount"/>
+    </resultMap>
+
+    <sql id="progressFrom">
+        SELECT
+            sc.STUDENT_CURRICULUM_ID,
+            SUM(
+                CASE
+                    WHEN m.MONITORING_ID IS NOT NULL
+                     AND m.PROGRESS_STATUS = 'Completed'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS COMPLETED_COUNT,
+            COUNT(cd.CONTENT_DETAIL_ID) AS TOTAL_COUNT
+        FROM TB_STUDENT_CURRICULUM sc
+        LEFT JOIN TB_CATEGORY c
+               ON c.CURRICULUM_ID = sc.CURRICULUM_ID
+        LEFT JOIN TB_CONTENT_DETAIL cd
+               ON cd.CATEGORY_ID = c.CATEGORY_ID
+              AND cd.STATUS = 'Y'
+              AND cd.DELETED_AT IS NULL
+        LEFT JOIN TB_STUDENT_MONITORING m
+               ON m.STUDENT_CURRICULUM_ID = sc.STUDENT_CURRICULUM_ID
+              AND m.CONTENT_DETAIL_ID = cd.CONTENT_DETAIL_ID
+              AND m.STATUS = 'Y'
+              AND m.DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectProgressByStudentCurriculumId" resultMap="studentCurriculumProgressResultMap">
+        <include refid="progressFrom"/>
+        WHERE sc.STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND sc.STATUS = 'Y'
+          AND sc.DELETED_AT IS NULL
+        GROUP BY sc.STUDENT_CURRICULUM_ID
+    </select>
+
+    <select id="selectProgressByStudentCurriculumIds" resultMap="studentCurriculumProgressResultMap">
+        <include refid="progressFrom"/>
+        WHERE sc.STATUS = 'Y'
+          AND sc.DELETED_AT IS NULL
+        <choose>
+            <when test="studentCurriculumIds != null and studentCurriculumIds.size() &gt; 0">
+                AND sc.STUDENT_CURRICULUM_ID IN
+                <foreach collection="studentCurriculumIds" item="studentCurriculumId" open="(" separator="," close=")">
+                    #{studentCurriculumId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        GROUP BY sc.STUDENT_CURRICULUM_ID
+        ORDER BY sc.STUDENT_CURRICULUM_ID
+    </select>
+
+    <select id="selectOwnedActiveStudentCurriculumIds" resultType="long">
+        SELECT sc.STUDENT_CURRICULUM_ID
+        FROM TB_STUDENT_CURRICULUM sc
+        JOIN TB_TEACHER_STUDENT_LOCATION tsl
+          ON tsl.TEACHER_STUDENT_LOCATION_ID = sc.TEACHER_STUDENT_LOCATION_ID
+         AND tsl.STATUS = 'Y'
+         AND tsl.DELETED_AT IS NULL
+        JOIN TB_TEACHER_STUDENT ts
+          ON ts.TEACHER_STUDENT_ID = tsl.TEACHER_STUDENT_ID
+         AND ts.TEACHER_ID = #{teacherId}
+         AND ts.STATUS = 'Y'
+         AND ts.DELETED_AT IS NULL
+        JOIN TB_CURRICULUM cu
+          ON cu.CURRICULUM_ID = sc.CURRICULUM_ID
+         AND cu.TEACHER_ID = #{teacherId}
+         AND cu.STATUS = 'Y'
+         AND cu.DELETED_AT IS NULL
+        WHERE sc.STATUS = 'Y'
+          AND sc.DELETED_AT IS NULL
+        <choose>
+            <when test="studentCurriculumIds != null and studentCurriculumIds.size() &gt; 0">
+                AND sc.STUDENT_CURRICULUM_ID IN
+                <foreach collection="studentCurriculumIds" item="studentCurriculumId" open="(" separator="," close=")">
+                    #{studentCurriculumId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        ORDER BY sc.STUDENT_CURRICULUM_ID
+    </select>
+</mapper>

@@ -18,6 +18,7 @@ import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
+import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
@@ -70,6 +71,9 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private HomeworkMapper homeworkMapper;
+
+    @MockitoBean
+    private ProgressQueryMapper progressQueryMapper;
 
     @MockitoBean
     private TeacherAuthSessionMapper teacherAuthSessionMapper;
