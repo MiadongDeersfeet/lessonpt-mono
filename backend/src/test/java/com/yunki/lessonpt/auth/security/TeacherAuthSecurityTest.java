@@ -30,6 +30,7 @@ import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.auth.service.TeacherAuthService;
 import com.yunki.lessonpt.common.model.RecordStatus;
@@ -77,6 +78,9 @@ class TeacherAuthSecurityTest {
 
     @MockitoBean
     private StudentCurriculumMapper studentCurriculumMapper;
+
+    @MockitoBean
+    private StudentMonitoringMapper studentMonitoringMapper;
 
     @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;

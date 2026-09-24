@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper">
+
+    <resultMap id="studentMonitoringResultMap" type="com.yunki.lessonpt.relationship.domain.StudentMonitoring">
+        <id column="MONITORING_ID" property="monitoringId"/>
+        <result column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="CONTENT_DETAIL_ID" property="contentDetailId"/>
+        <result column="DISPLAY_ORDER" property="displayOrder"/>
+        <result column="CURRENT_BPM" property="currentBpm"/>
+        <result column="PROGRESS_STATUS" property="progressStatus" jdbcType="VARCHAR"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.ProgressStatusTypeHandler"/>
+        <result column="MEMO" property="memo" jdbcType="CLOB"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="studentMonitoringColumns">
+        MONITORING_ID, STUDENT_CURRICULUM_ID, CONTENT_DETAIL_ID, DISPLAY_ORDER,
+        CURRENT_BPM, PROGRESS_STATUS, MEMO, CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <sql id="activeStudentMonitoring">
+        STATUS = 'Y' AND DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectStudentMonitoringById" resultMap="studentMonitoringResultMap">
+        SELECT <include refid="studentMonitoringColumns"/>
+        FROM TB_STUDENT_MONITORING
+        WHERE MONITORING_ID = #{monitoringId}
+    </select>
+
+    <select id="selectActiveStudentMonitoringById" resultMap="studentMonitoringResultMap">
+        SELECT <include refid="studentMonitoringColumns"/>
+        FROM TB_STUDENT_MONITORING
+        WHERE MONITORING_ID = #{monitoringId}
+          AND <include refid="activeStudentMonitoring"/>
+    </select>
+
+    <select id="selectByStudentCurriculumIdAndContentDetailId" resultMap="studentMonitoringResultMap">
+        SELECT <include refid="studentMonitoringColumns"/>
+        FROM TB_STUDENT_MONITORING
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND CONTENT_DETAIL_ID = #{contentDetailId}
+    </select>
+
+    <select id="selectActiveByStudentCurriculumIdAndContentDetailId" resultMap="studentMonitoringResultMap">
+        SELECT <include refid="studentMonitoringColumns"/>
+        FROM TB_STUDENT_MONITORING
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND CONTENT_DETAIL_ID = #{contentDetailId}
+          AND <include refid="activeStudentMonitoring"/>
+    </select>
+
+    <select id="selectActiveStudentMonitoringsByStudentCurriculumId" resultMap="studentMonitoringResultMap">
+        SELECT <include refid="studentMonitoringColumns"/>
+        FROM TB_STUDENT_MONITORING
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND <include refid="activeStudentMonitoring"/>
+        ORDER BY DISPLAY_ORDER ASC, MONITORING_ID ASC
+    </select>
+
+    <insert id="insertStudentMonitoring">
+        <selectKey keyProperty="monitoringId" resultType="long" order="BEFORE">
+            SELECT SEQ_MONITORING.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_STUDENT_MONITORING (
+            MONITORING_ID, STUDENT_CURRICULUM_ID, CONTENT_DETAIL_ID, DISPLAY_ORDER,
+            CURRENT_BPM, PROGRESS_STATUS, MEMO, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{monitoringId},
+            #{studentCurriculumId},
+            #{contentDetailId},
+            #{displayOrder},
+            #{currentBpm,jdbcType=NUMERIC},
+            #{progressStatus,jdbcType=VARCHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.ProgressStatusTypeHandler},
+            #{memo,jdbcType=CLOB},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateStudentMonitoring">
+        UPDATE TB_STUDENT_MONITORING
+        SET CURRENT_BPM = #{currentBpm,jdbcType=NUMERIC},
+            PROGRESS_STATUS = #{progressStatus,jdbcType=VARCHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.ProgressStatusTypeHandler},
+            MEMO = #{memo,jdbcType=CLOB},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE MONITORING_ID = #{monitoringId}
+          AND STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteStudentMonitoring">
+        UPDATE TB_STUDENT_MONITORING
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE MONITORING_ID = #{monitoringId}
+          AND STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreStudentMonitoring">
+        UPDATE TB_STUDENT_MONITORING
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            DISPLAY_ORDER = #{displayOrder},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE MONITORING_ID = #{monitoringId}
+          AND STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND STATUS = 'N'
+          AND DELETED_AT IS NOT NULL
+    </update>
+
+    <select id="lockStudentMonitoringById" resultMap="studentMonitoringResultMap">
+        SELECT <include refid="studentMonitoringColumns"/>
+        FROM TB_STUDENT_MONITORING
+        WHERE MONITORING_ID = #{monitoringId}
+        FOR UPDATE WAIT 3
+    </select>
+
+    <select id="selectMaxDisplayOrderByStudentCurriculumId" resultType="java.lang.Integer">
+        SELECT MAX(DISPLAY_ORDER)
+        FROM TB_STUDENT_MONITORING
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <update id="shiftActiveDisplayOrdersDown">
+        UPDATE TB_STUDENT_MONITORING
+        SET DISPLAY_ORDER = DISPLAY_ORDER - 1,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+          AND DISPLAY_ORDER &gt; #{displayOrder}
+    </update>
+</mapper>
