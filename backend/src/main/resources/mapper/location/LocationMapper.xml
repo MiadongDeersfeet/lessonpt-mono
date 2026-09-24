@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.location.mapper.LocationMapper">
+
+    <resultMap id="locationResultMap" type="com.yunki.lessonpt.location.domain.Location">
+        <id column="LOCATION_ID" property="locationId"/>
+        <result column="TEACHER_ID" property="teacherId"/>
+        <result column="NAME" property="name"/>
+        <result column="DISPLAY_ORDER" property="displayOrder"/>
+        <result column="ADDRESS" property="address"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="locationColumns">
+        LOCATION_ID, TEACHER_ID, NAME, DISPLAY_ORDER, ADDRESS,
+        CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <sql id="activeLocation">
+        STATUS = 'Y' AND DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectLocationById" resultMap="locationResultMap">
+        SELECT <include refid="locationColumns"/>
+        FROM TB_LOCATION
+        WHERE LOCATION_ID = #{locationId}
+    </select>
+
+    <select id="selectActiveLocationById" resultMap="locationResultMap">
+        SELECT <include refid="locationColumns"/>
+        FROM TB_LOCATION
+        WHERE LOCATION_ID = #{locationId}
+          AND <include refid="activeLocation"/>
+    </select>
+
+    <select id="selectLocationByIdAndTeacherId" resultMap="locationResultMap">
+        SELECT <include refid="locationColumns"/>
+        FROM TB_LOCATION
+        WHERE LOCATION_ID = #{locationId}
+          AND TEACHER_ID = #{teacherId}
+    </select>
+
+    <select id="selectActiveLocationByIdAndTeacherId" resultMap="locationResultMap">
+        SELECT <include refid="locationColumns"/>
+        FROM TB_LOCATION
+        WHERE LOCATION_ID = #{locationId}
+          AND TEACHER_ID = #{teacherId}
+          AND <include refid="activeLocation"/>
+    </select>
+
+    <select id="selectActiveLocationsByTeacherId" resultMap="locationResultMap">
+        SELECT <include refid="locationColumns"/>
+        FROM TB_LOCATION
+        WHERE TEACHER_ID = #{teacherId}
+          AND <include refid="activeLocation"/>
+        ORDER BY DISPLAY_ORDER ASC
+    </select>
+
+    <insert id="insertLocation">
+        <selectKey keyProperty="locationId" resultType="long" order="BEFORE">
+            SELECT SEQ_LOCATION.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_LOCATION (
+            LOCATION_ID, TEACHER_ID, NAME, DISPLAY_ORDER, ADDRESS, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{locationId},
+            #{teacherId},
+            #{name},
+            #{displayOrder},
+            #{address,jdbcType=VARCHAR},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateLocation">
+        UPDATE TB_LOCATION
+        SET NAME = #{name},
+            ADDRESS = #{address,jdbcType=VARCHAR},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE LOCATION_ID = #{locationId}
+          AND TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteLocation">
+        UPDATE TB_LOCATION
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE LOCATION_ID = #{locationId}
+          AND TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreLocation">
+        UPDATE TB_LOCATION
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            DISPLAY_ORDER = #{displayOrder},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE LOCATION_ID = #{locationId}
+          AND TEACHER_ID = #{teacherId}
+          AND STATUS = 'N'
+    </update>
+
+    <select id="selectMaxDisplayOrderByTeacherId" resultType="java.lang.Integer">
+        SELECT MAX(DISPLAY_ORDER)
+        FROM TB_LOCATION
+        WHERE TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <update id="shiftActiveDisplayOrdersDown">
+        UPDATE TB_LOCATION
+        SET DISPLAY_ORDER = DISPLAY_ORDER - 1,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+          AND DISPLAY_ORDER &gt; #{displayOrder}
+    </update>
+</mapper>

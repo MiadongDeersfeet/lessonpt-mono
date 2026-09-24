@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
+import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,6 +34,9 @@ class LessonPtApplicationTests {
 
     @MockitoBean
     private TeacherAuthSessionMapper teacherAuthSessionMapper;
+
+    @MockitoBean
+    private LocationMapper locationMapper;
 
     @Autowired
     private MockMvc mockMvc;

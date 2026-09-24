@@ -31,6 +31,7 @@ import com.yunki.lessonpt.auth.service.TeacherAuthService;
 import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.dto.TeacherSignupResponse;
+import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 import com.yunki.lessonpt.teacher.service.TeacherService;
 
@@ -63,6 +64,9 @@ class TeacherAuthSecurityTest {
 
     @MockitoBean
     private TeacherAuthService teacherAuthService;
+
+    @MockitoBean
+    private LocationMapper locationMapper;
 
     @Test
     void passwordEncoderBeanIsBcryptAndSignupStoresHash() {
