@@ -3,6 +3,8 @@ package com.yunki.lessonpt;
 import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
+
+import com.yunki.lessonpt.common.diagnostic.SchemaV3Tables;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -43,5 +45,36 @@ class LessonPtApplicationTests {
                     .contains("namespace=\"com.yunki.lessonpt.common.health.SmokeMapper\"")
                     .contains("SELECT 1 FROM DUAL");
         }
+    }
+
+    @Test
+    void diagnosticSqlChecksContextAndNamedTables() throws Exception {
+        try (var input = getClass().getResourceAsStream("/mapper/common/OracleDiagnosticMapper.xml")) {
+            assertThat(input).isNotNull();
+            String xml = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            assertThat(xml)
+                    .contains("namespace=\"com.yunki.lessonpt.common.diagnostic.OracleDiagnosticMapper\"")
+                    .contains("SYS_CONTEXT('USERENV', 'DB_NAME')")
+                    .contains("SYS_CONTEXT('USERENV', 'CON_NAME')")
+                    .contains("SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')")
+                    .contains("FROM USER_TABLES")
+                    .contains("collection=\"tableNames\"");
+        }
+        assertThat(SchemaV3Tables.NAMES).containsExactly(
+                "TB_TEACHER",
+                "TB_TEACHER_AUTH_SESSION",
+                "TB_LOCATION",
+                "TB_STUDENT",
+                "TB_TEACHER_STUDENT",
+                "TB_TEACHER_STUDENT_ACCESS",
+                "TB_STUDENT_EMAIL_VERIFICATION",
+                "TB_STUDENT_ACCESS_SESSION",
+                "TB_TEACHER_STUDENT_LOCATION",
+                "TB_CURRICULUM",
+                "TB_CATEGORY",
+                "TB_CONTENT_DETAIL",
+                "TB_STUDENT_CURRICULUM",
+                "TB_STUDENT_MONITORING",
+                "TB_HOMEWORK");
     }
 }

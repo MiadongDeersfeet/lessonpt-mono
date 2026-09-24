@@ -14,6 +14,11 @@ spring:
       # URL이 없을 때도 Hikari를 만들려다 기동이 멈추지 않게, 풀은 OracleDataSourceConfig에서만 만든다.
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
 
+lessonpt:
+  oracle:
+    # 지금 개발 Schema 이름이다. 다른 계정이면 LESSONPT_DB_EXPECTED_SCHEMA 로 바꾼다.
+    expected-schema: ${LESSONPT_DB_EXPECTED_SCHEMA:DRUMMER_LMS}
+
 mybatis:
   # 도메인 Mapper XML은 기능을 추가할 때 mapper 아래에 둔다.
   mapper-locations: classpath:mapper/**/*.xml

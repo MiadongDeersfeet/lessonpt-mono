@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.common.diagnostic.OracleDiagnosticMapper">
+
+    <!-- 접속 주소는 읽지 않는다. DB, PDB, Schema 이름만 확인한다. -->
+    <select id="selectContext" resultType="com.yunki.lessonpt.common.diagnostic.OracleContext">
+        SELECT
+            SYS_CONTEXT('USERENV', 'DB_NAME') AS DB_NAME,
+            SYS_CONTEXT('USERENV', 'CON_NAME') AS CONTAINER_NAME,
+            SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS CURRENT_SCHEMA
+        FROM DUAL
+    </select>
+
+    <select id="countExistingTables" resultType="int">
+        SELECT COUNT(*)
+        FROM USER_TABLES
+        WHERE TABLE_NAME IN
+        <foreach collection="tableNames" item="name" open="(" separator="," close=")">
+            #{name}
+        </foreach>
+    </select>
+
+</mapper>

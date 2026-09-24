@@ -50,6 +50,13 @@
             <artifactId>ojdbc17</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Autonomous DB Wallet(mTLS)의 SSO 키 저장소. ojdbc17과 같은 Oracle 버전을 쓴다. -->
+        <dependency>
+            <groupId>com.oracle.database.security</groupId>
+            <artifactId>oraclepki</artifactId>
+            <version>${oracle-database.version}</version>
+            <scope>runtime</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
