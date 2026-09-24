@@ -21,6 +21,7 @@ import com.yunki.lessonpt.relationship.domain.StudentCurriculum;
 import com.yunki.lessonpt.relationship.domain.StudentMonitoring;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
+import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
@@ -36,6 +37,7 @@ public class StudentMonitoringService {
     private static final int MAX_BPM = 240;
 
     private final StudentMonitoringMapper studentMonitoringMapper;
+    private final HomeworkMapper homeworkMapper;
     private final StudentCurriculumMapper studentCurriculumMapper;
     private final TeacherStudentLocationMapper teacherStudentLocationMapper;
     private final TeacherStudentMapper teacherStudentMapper;
@@ -112,14 +114,15 @@ public class StudentMonitoringService {
     }
 
     /**
-     * 모니터링 행만 비활성화하고, 같은 수강 안의 뒤 순서를 당긴다.
-     * TODO: Homework가 구현되면 활성 과제도 같은 트랜잭션에서 soft delete한다. 복구 때 과제는 자동 복구하지 않는다.
+     * 활성 과제를 먼저 비활성화한 뒤 모니터링을 지우고, 같은 수강의 뒤 순서를 당긴다.
+     * 과제가 없어도 정상이다. 모니터링을 복구해도 과제는 자동으로 복구하지 않는다.
      */
     @Transactional
     public void deleteStudentMonitoring(Long teacherId, Long studentCurriculumId, Long monitoringId) {
         requireOwnedEnrollment(teacherId, studentCurriculumId);
         lockEnrollment(studentCurriculumId);
         StudentMonitoring monitoring = requireActiveMonitoring(studentCurriculumId, monitoringId);
+        homeworkMapper.softDeleteActiveHomeworksByMonitoringId(monitoringId);
         expectOne(studentMonitoringMapper.softDeleteStudentMonitoring(monitoringId, studentCurriculumId));
         studentMonitoringMapper.shiftActiveDisplayOrdersDown(studentCurriculumId, monitoring.getDisplayOrder());
     }

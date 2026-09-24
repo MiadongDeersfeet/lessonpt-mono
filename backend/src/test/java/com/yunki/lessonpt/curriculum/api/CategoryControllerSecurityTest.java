@@ -33,6 +33,7 @@ import com.yunki.lessonpt.curriculum.domain.Category;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.curriculum.dto.CategoryUpdateRequest;
@@ -94,6 +95,9 @@ class CategoryControllerSecurityTest {
 
     @MockitoBean
     private StudentMonitoringMapper studentMonitoringMapper;
+
+    @MockitoBean
+    private HomeworkMapper homeworkMapper;
 
     private String bearerToken;
 

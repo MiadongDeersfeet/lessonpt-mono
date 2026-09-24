@@ -35,6 +35,7 @@ import com.yunki.lessonpt.relationship.domain.StudentCurriculum;
 import com.yunki.lessonpt.relationship.domain.StudentMonitoring;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
+import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
@@ -45,6 +46,9 @@ class StudentMonitoringServiceTest {
 
     @Mock
     private StudentMonitoringMapper studentMonitoringMapper;
+
+    @Mock
+    private HomeworkMapper homeworkMapper;
 
     @Mock
     private StudentCurriculumMapper studentCurriculumMapper;
@@ -70,6 +74,7 @@ class StudentMonitoringServiceTest {
     void setUp() {
         studentMonitoringService = new StudentMonitoringService(
                 studentMonitoringMapper,
+                homeworkMapper,
                 studentCurriculumMapper,
                 teacherStudentLocationMapper,
                 teacherStudentMapper,
@@ -348,17 +353,24 @@ class StudentMonitoringServiceTest {
         stubOwnedEnrollment(50L, 40L);
         when(studentCurriculumMapper.lockStudentCurriculumById(50L)).thenReturn(enrollment(50L, 40L));
         when(studentMonitoringMapper.selectActiveStudentMonitoringById(90L)).thenReturn(saved(90L, 50L, 70L, 2));
+        when(homeworkMapper.softDeleteActiveHomeworksByMonitoringId(90L)).thenReturn(2);
         when(studentMonitoringMapper.softDeleteStudentMonitoring(90L, 50L)).thenReturn(1);
 
         studentMonitoringService.deleteStudentMonitoring(8L, 50L, 90L);
 
-        InOrder order = inOrder(studentCurriculumMapper, studentMonitoringMapper);
+        InOrder order = inOrder(studentCurriculumMapper, studentMonitoringMapper, homeworkMapper);
         order.verify(studentCurriculumMapper).lockStudentCurriculumById(50L);
         order.verify(studentMonitoringMapper).selectActiveStudentMonitoringById(90L);
+        order.verify(homeworkMapper).softDeleteActiveHomeworksByMonitoringId(90L);
         order.verify(studentMonitoringMapper).softDeleteStudentMonitoring(90L, 50L);
         order.verify(studentMonitoringMapper).shiftActiveDisplayOrdersDown(50L, 2);
+        verify(homeworkMapper, never()).softDeleteActiveHomeworksByMonitoringId(91L);
         verifyNoInteractions(contentDetailMapper);
         verify(studentMonitoringMapper, never()).shiftActiveDisplayOrdersDown(org.mockito.ArgumentMatchers.eq(51L), any());
+
+        when(studentMonitoringMapper.selectActiveStudentMonitoringById(99L)).thenReturn(null);
+        assertCode(ErrorCode.COMMON_NOT_FOUND, () -> studentMonitoringService.deleteStudentMonitoring(8L, 50L, 99L));
+        verify(homeworkMapper, never()).softDeleteActiveHomeworksByMonitoringId(99L);
     }
 
     @Test
@@ -366,8 +378,10 @@ class StudentMonitoringServiceTest {
         stubOwnedEnrollment(50L, 40L);
         when(studentCurriculumMapper.lockStudentCurriculumById(50L)).thenReturn(enrollment(50L, 40L));
         when(studentMonitoringMapper.selectActiveStudentMonitoringById(90L)).thenReturn(saved(90L, 50L, 70L, 1));
+        when(homeworkMapper.softDeleteActiveHomeworksByMonitoringId(90L)).thenReturn(0);
         when(studentMonitoringMapper.softDeleteStudentMonitoring(90L, 50L)).thenReturn(1);
         studentMonitoringService.deleteStudentMonitoring(8L, 50L, 90L);
+        verify(homeworkMapper).softDeleteActiveHomeworksByMonitoringId(90L);
         verifyNoInteractions(contentDetailMapper);
 
         when(studentMonitoringMapper.softDeleteStudentMonitoring(90L, 50L)).thenReturn(0);
@@ -402,6 +416,7 @@ class StudentMonitoringServiceTest {
         assertThat(inactive.getContentDetailId()).isEqualTo(70L);
         assertThat(restored.getDisplayOrder()).isEqualTo(5);
         verify(studentMonitoringMapper, never()).updateStudentMonitoring(any());
+        verifyNoInteractions(homeworkMapper);
     }
 
     @Test

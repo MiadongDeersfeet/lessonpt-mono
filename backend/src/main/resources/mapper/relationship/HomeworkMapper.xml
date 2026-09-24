@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.HomeworkMapper">
+
+    <resultMap id="homeworkResultMap" type="com.yunki.lessonpt.relationship.domain.Homework">
+        <id column="HOMEWORK_ID" property="homeworkId"/>
+        <result column="MONITORING_ID" property="monitoringId"/>
+        <result column="HOMEWORK_CONTENT" property="homeworkContent" jdbcType="CLOB"/>
+        <result column="DEADLINE" property="deadline"/>
+        <result column="IS_COMPLETED" property="completed" jdbcType="CHAR"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler"/>
+        <result column="FEEDBACK" property="feedback" jdbcType="CLOB"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="homeworkColumns">
+        HOMEWORK_ID, MONITORING_ID, HOMEWORK_CONTENT, DEADLINE, IS_COMPLETED,
+        FEEDBACK, CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <sql id="activeHomework">
+        STATUS = 'Y' AND DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectHomeworkById" resultMap="homeworkResultMap">
+        SELECT <include refid="homeworkColumns"/>
+        FROM TB_HOMEWORK
+        WHERE HOMEWORK_ID = #{homeworkId}
+    </select>
+
+    <select id="selectActiveHomeworkById" resultMap="homeworkResultMap">
+        SELECT <include refid="homeworkColumns"/>
+        FROM TB_HOMEWORK
+        WHERE HOMEWORK_ID = #{homeworkId}
+          AND <include refid="activeHomework"/>
+    </select>
+
+    <select id="selectActiveHomeworkByIdAndMonitoringId" resultMap="homeworkResultMap">
+        SELECT <include refid="homeworkColumns"/>
+        FROM TB_HOMEWORK
+        WHERE HOMEWORK_ID = #{homeworkId}
+          AND MONITORING_ID = #{monitoringId}
+          AND <include refid="activeHomework"/>
+    </select>
+
+    <select id="selectActiveHomeworksByMonitoringId" resultMap="homeworkResultMap">
+        SELECT <include refid="homeworkColumns"/>
+        FROM TB_HOMEWORK
+        WHERE MONITORING_ID = #{monitoringId}
+          AND <include refid="activeHomework"/>
+        ORDER BY CREATED_AT ASC, HOMEWORK_ID ASC
+    </select>
+
+    <insert id="insertHomework">
+        <selectKey keyProperty="homeworkId" resultType="long" order="BEFORE">
+            SELECT SEQ_HOMEWORK.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_HOMEWORK (
+            HOMEWORK_ID, MONITORING_ID, HOMEWORK_CONTENT, DEADLINE, IS_COMPLETED,
+            FEEDBACK, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{homeworkId},
+            #{monitoringId},
+            #{homeworkContent,jdbcType=CLOB},
+            #{deadline,jdbcType=TIMESTAMP},
+            #{completed,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler},
+            #{feedback,jdbcType=CLOB},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateHomework">
+        UPDATE TB_HOMEWORK
+        SET HOMEWORK_CONTENT = #{homeworkContent,jdbcType=CLOB},
+            DEADLINE = #{deadline,jdbcType=TIMESTAMP},
+            IS_COMPLETED = #{completed,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler},
+            FEEDBACK = #{feedback,jdbcType=CLOB},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE HOMEWORK_ID = #{homeworkId}
+          AND MONITORING_ID = #{monitoringId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteHomework">
+        UPDATE TB_HOMEWORK
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE HOMEWORK_ID = #{homeworkId}
+          AND MONITORING_ID = #{monitoringId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteActiveHomeworksByMonitoringId">
+        UPDATE TB_HOMEWORK
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE MONITORING_ID = #{monitoringId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreHomework">
+        UPDATE TB_HOMEWORK
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE HOMEWORK_ID = #{homeworkId}
+          AND MONITORING_ID = #{monitoringId}
+          AND STATUS = 'N'
+          AND DELETED_AT IS NOT NULL
+    </update>
+
+    <select id="lockHomeworkById" resultMap="homeworkResultMap">
+        SELECT <include refid="homeworkColumns"/>
+        FROM TB_HOMEWORK
+        WHERE HOMEWORK_ID = #{homeworkId}
+        FOR UPDATE WAIT 3
+    </select>
+</mapper>
