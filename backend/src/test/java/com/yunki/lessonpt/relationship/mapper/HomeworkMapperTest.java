@@ -76,6 +76,9 @@ class HomeworkMapperTest {
         assertThat(list).contains("MONITORING_ID = ?", "STATUS = 'Y'", "DELETED_AT IS NULL");
         assertThat(list).contains("ORDER BY CREATED_AT ASC, HOMEWORK_ID ASC");
         assertThat(list).doesNotContain("SELECT *");
+        String count = sql(NAMESPACE + ".countActiveHomeworksByMonitoringId");
+        assertThat(count).contains("COUNT(*)", "MONITORING_ID = ?", "STATUS = 'Y'", "DELETED_AT IS NULL");
+        assertThat(count).doesNotContain("SELECT *");
     }
 
     @Test

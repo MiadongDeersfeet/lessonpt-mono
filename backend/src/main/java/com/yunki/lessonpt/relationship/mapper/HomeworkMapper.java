@@ -20,6 +20,8 @@ public interface HomeworkMapper {
 
     List<Homework> selectActiveHomeworksByMonitoringId(Long monitoringId);
 
+    int countActiveHomeworksByMonitoringId(Long monitoringId);
+
     int insertHomework(Homework homework);
 
     int updateHomework(Homework homework);

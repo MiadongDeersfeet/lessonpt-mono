@@ -1,6 +1,7 @@
 package com.yunki.lessonpt.relationship.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -12,6 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.yunki.lessonpt.common.exception.BusinessException;
+import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.ProgressStatus;
 import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.curriculum.domain.Category;
@@ -23,6 +26,7 @@ import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.location.domain.Location;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.relationship.domain.Homework;
+import com.yunki.lessonpt.relationship.service.HomeworkService;
 import com.yunki.lessonpt.relationship.service.StudentMonitoringService;
 import com.yunki.lessonpt.relationship.domain.StudentCurriculum;
 import com.yunki.lessonpt.relationship.domain.StudentMonitoring;
@@ -78,6 +82,9 @@ class HomeworkMapperOracleTest {
 
     @Autowired
     private StudentMonitoringService studentMonitoringService;
+
+    @Autowired
+    private HomeworkService homeworkService;
 
     @Test
     void storesSeveralHomeworksAndRestoresWithoutChangingContent() {
@@ -277,6 +284,75 @@ class HomeworkMapperOracleTest {
         assertThat(restored.getDisplayOrder()).isEqualTo(3);
         assertThat(homeworkMapper.selectHomeworkById(homeworkA1.getHomeworkId()).getStatus()).isEqualTo(RecordStatus.INACTIVE);
         assertThat(homeworkMapper.selectHomeworkById(homeworkA2.getHomeworkId()).getStatus()).isEqualTo(RecordStatus.INACTIVE);
+    }
+
+    @Test
+    void rejectsAFourthActiveHomeworkAndARestoreThatWouldExceedThree() {
+        Teacher teacher = teacher();
+        teacherMapper.insertTeacher(teacher);
+        Student student = new Student();
+        student.setName("임시학생");
+        student.setStatus(RecordStatus.ACTIVE);
+        studentMapper.insertStudent(student);
+        TeacherStudent relation = new TeacherStudent();
+        relation.setTeacherId(teacher.getTeacherId());
+        relation.setStudentId(student.getStudentId());
+        relation.setStatus(RecordStatus.ACTIVE);
+        teacherStudentMapper.insertTeacherStudent(relation);
+        Location location = new Location();
+        location.setTeacherId(teacher.getTeacherId());
+        location.setName("연습실");
+        location.setDisplayOrder(1);
+        location.setStatus(RecordStatus.ACTIVE);
+        locationMapper.insertLocation(location);
+        TeacherStudentLocation link = new TeacherStudentLocation();
+        link.setTeacherStudentId(relation.getTeacherStudentId());
+        link.setLocationId(location.getLocationId());
+        link.setStatus(RecordStatus.ACTIVE);
+        teacherStudentLocationMapper.insertTeacherStudentLocation(link);
+        Curriculum curriculum = new Curriculum();
+        curriculum.setTeacherId(teacher.getTeacherId());
+        curriculum.setName("기초");
+        curriculum.setDisplayOrder(1);
+        curriculum.setStatus(RecordStatus.ACTIVE);
+        curriculumMapper.insertCurriculum(curriculum);
+        Category category = new Category();
+        category.setCurriculumId(curriculum.getCurriculumId());
+        category.setName("준비");
+        category.setDisplayOrder(1);
+        category.setStatus(RecordStatus.ACTIVE);
+        categoryMapper.insertCategory(category);
+        ContentDetail detail = detail(category.getCategoryId(), "A1", 1);
+        contentDetailMapper.insertContentDetail(detail);
+        StudentCurriculum enrollment = new StudentCurriculum();
+        enrollment.setTeacherStudentLocationId(link.getTeacherStudentLocationId());
+        enrollment.setCurriculumId(curriculum.getCurriculumId());
+        enrollment.setReenrolled(false);
+        enrollment.setStatus(RecordStatus.ACTIVE);
+        studentCurriculumMapper.insertStudentCurriculum(enrollment);
+        StudentMonitoring monitoring = monitoring(enrollment.getStudentCurriculumId(), detail.getContentDetailId(), 1);
+        studentMonitoringMapper.insertStudentMonitoring(monitoring);
+
+        Long teacherId = teacher.getTeacherId();
+        Long monitoringId = monitoring.getMonitoringId();
+        Homework first = homeworkService.createHomework(teacherId, monitoringId, "하나", null, null);
+        homeworkService.createHomework(teacherId, monitoringId, "둘", null, null);
+        homeworkService.createHomework(teacherId, monitoringId, "셋", null, null);
+        assertThatThrownBy(() -> homeworkService.createHomework(teacherId, monitoringId, "넷", null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).errorCode())
+                .isEqualTo(ErrorCode.COMMON_CONFLICT);
+        assertThat(homeworkMapper.countActiveHomeworksByMonitoringId(monitoringId)).isEqualTo(3);
+
+        homeworkMapper.softDeleteHomework(first.getHomeworkId(), monitoringId);
+        homeworkService.createHomework(teacherId, monitoringId, "다시", null, null);
+        assertThat(homeworkMapper.countActiveHomeworksByMonitoringId(monitoringId)).isEqualTo(3);
+        assertThatThrownBy(() -> homeworkService.restoreHomework(teacherId, monitoringId, first.getHomeworkId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).errorCode())
+                .isEqualTo(ErrorCode.COMMON_CONFLICT);
+        assertThat(homeworkMapper.countActiveHomeworksByMonitoringId(monitoringId)).isEqualTo(3);
+        assertThat(homeworkMapper.selectHomeworkById(first.getHomeworkId()).getStatus()).isEqualTo(RecordStatus.INACTIVE);
     }
 
     private Teacher teacher() {

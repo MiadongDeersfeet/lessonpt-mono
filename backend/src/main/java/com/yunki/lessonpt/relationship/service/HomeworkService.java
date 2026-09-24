@@ -28,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class HomeworkService {
 
+    private static final int MAX_ACTIVE_HOMEWORKS = 3;
+
     private final HomeworkMapper homeworkMapper;
     private final StudentMonitoringMapper studentMonitoringMapper;
     private final StudentCurriculumMapper studentCurriculumMapper;
@@ -43,6 +45,8 @@ public class HomeworkService {
             String feedback) {
         requireOwnedMonitoring(teacherId, monitoringId);
         requireContent(homeworkContent);
+        requireActiveLockedMonitoring(monitoringId);
+        requireRoomForAnother(monitoringId);
 
         Homework created = new Homework();
         created.setMonitoringId(monitoringId);
@@ -98,6 +102,7 @@ public class HomeworkService {
     @Transactional
     public Homework restoreHomework(Long teacherId, Long monitoringId, Long homeworkId) {
         requireOwnedMonitoring(teacherId, monitoringId);
+        requireActiveLockedMonitoring(monitoringId);
         Homework existing = homeworkMapper.selectHomeworkById(homeworkId);
         if (existing == null || !monitoringId.equals(existing.getMonitoringId())) {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
@@ -105,6 +110,7 @@ public class HomeworkService {
         if (existing.getStatus() == RecordStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.COMMON_CONFLICT);
         }
+        requireRoomForAnother(monitoringId);
         Homework locked = lockHomework(homeworkId);
         if (!monitoringId.equals(locked.getMonitoringId()) || locked.getStatus() == RecordStatus.ACTIVE) {
             throw new BusinessException(locked.getStatus() == RecordStatus.ACTIVE
@@ -165,6 +171,36 @@ public class HomeworkService {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
         return homework;
+    }
+
+    private void requireActiveLockedMonitoring(Long monitoringId) {
+        StudentMonitoring locked = lockMonitoring(monitoringId);
+        if (locked.getStatus() != RecordStatus.ACTIVE || locked.getDeletedAt() != null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+        }
+    }
+
+    private void requireRoomForAnother(Long monitoringId) {
+        if (homeworkMapper.countActiveHomeworksByMonitoringId(monitoringId) >= MAX_ACTIVE_HOMEWORKS) {
+            throw new BusinessException(ErrorCode.COMMON_CONFLICT);
+        }
+    }
+
+    private StudentMonitoring lockMonitoring(Long monitoringId) {
+        try {
+            StudentMonitoring locked = studentMonitoringMapper.lockStudentMonitoringById(monitoringId);
+            if (locked == null) {
+                throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+            }
+            return locked;
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            if (isLockTimeout(exception)) {
+                throw new BusinessException(ErrorCode.ORDER_CONFLICT);
+            }
+            throw exception;
+        }
     }
 
     private Homework lockHomework(Long homeworkId) {

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.CannotAcquireLockException;
@@ -68,6 +70,7 @@ class HomeworkServiceTest {
     @Test
     void createStoresIncompleteHomeworkAndAllowsAnotherOnTheSameMonitoring() {
         stubOwnedMonitoring();
+        stubParentLock();
         when(homeworkMapper.insertHomework(any())).thenAnswer(invocation -> {
             Homework created = invocation.getArgument(0);
             created.setHomeworkId(created.getFeedback() == null ? 90L : 91L);
@@ -97,6 +100,7 @@ class HomeworkServiceTest {
         stubOwnedMonitoring();
         assertCode(ErrorCode.COMMON_INVALID_INPUT, () -> homeworkService.createHomework(8L, 70L, null, null, null));
         assertCode(ErrorCode.COMMON_INVALID_INPUT, () -> homeworkService.createHomework(8L, 70L, "  ", null, null));
+        stubParentLock();
         when(homeworkMapper.insertHomework(any())).thenReturn(0);
         assertCode(ErrorCode.COMMON_INTERNAL_ERROR,
                 () -> homeworkService.createHomework(8L, 70L, "연습", null, null));
@@ -122,6 +126,55 @@ class HomeworkServiceTest {
 
         when(teacherStudentMapper.selectTeacherStudentById(20L)).thenReturn(relation(9L, RecordStatus.ACTIVE));
         assertCode(ErrorCode.COMMON_NOT_FOUND, () -> homeworkService.createHomework(8L, 70L, "연습", null, null));
+        verify(homeworkMapper, never()).insertHomework(any());
+        verify(studentMonitoringMapper, never()).lockStudentMonitoringById(any());
+    }
+
+    @Test
+    void createAllowsUpToThreeActiveHomeworksAfterTheMonitoringLock() {
+        stubOwnedMonitoring();
+        stubParentLock();
+        when(homeworkMapper.countActiveHomeworksByMonitoringId(70L)).thenReturn(0, 1, 2);
+        when(homeworkMapper.insertHomework(any())).thenAnswer(invocation -> {
+            invocation.<Homework>getArgument(0).setHomeworkId(90L);
+            return 1;
+        });
+        when(homeworkMapper.selectActiveHomeworkByIdAndMonitoringId(90L, 70L))
+                .thenReturn(saved(90L, 70L, "연습", null, false, null));
+
+        homeworkService.createHomework(8L, 70L, "연습", null, null);
+        homeworkService.createHomework(8L, 70L, "연습", null, null);
+        homeworkService.createHomework(8L, 70L, "연습", null, null);
+
+        InOrder order = inOrder(studentMonitoringMapper, homeworkMapper);
+        order.verify(studentMonitoringMapper).lockStudentMonitoringById(70L);
+        order.verify(homeworkMapper).countActiveHomeworksByMonitoringId(70L);
+        order.verify(homeworkMapper).insertHomework(any());
+        verify(homeworkMapper, org.mockito.Mockito.times(3)).insertHomework(any());
+    }
+
+    @Test
+    void createRejectsAFourthActiveHomework() {
+        stubOwnedMonitoring();
+        stubParentLock();
+        when(homeworkMapper.countActiveHomeworksByMonitoringId(70L)).thenReturn(3);
+
+        assertCode(ErrorCode.COMMON_CONFLICT, () -> homeworkService.createHomework(8L, 70L, "연습", null, null));
+
+        when(homeworkMapper.countActiveHomeworksByMonitoringId(70L)).thenReturn(4);
+        assertCode(ErrorCode.COMMON_CONFLICT, () -> homeworkService.createHomework(8L, 70L, "연습", null, null));
+        verify(homeworkMapper, never()).insertHomework(any());
+        verify(homeworkMapper, never()).selectActiveHomeworkByIdAndMonitoringId(any(), any());
+    }
+
+    @Test
+    void createMapsMonitoringLockTimeoutToOrderConflict() {
+        stubOwnedMonitoring();
+        doThrow(new CannotAcquireLockException("ORA-30006"))
+                .when(studentMonitoringMapper).lockStudentMonitoringById(70L);
+
+        assertCode(ErrorCode.ORDER_CONFLICT, () -> homeworkService.createHomework(8L, 70L, "연습", null, null));
+        verify(homeworkMapper, never()).countActiveHomeworksByMonitoringId(any());
         verify(homeworkMapper, never()).insertHomework(any());
     }
 
@@ -215,6 +268,7 @@ class HomeworkServiceTest {
     @Test
     void restoreKeepsStoredFieldsAndRejectsActiveOrForeignRows() {
         stubOwnedMonitoring();
+        stubParentLock();
         Homework inactive = saved(90L, 70L, "싱글 스트로크 10분", DEADLINE, true, "좋음");
         inactive.setStatus(RecordStatus.INACTIVE);
         when(homeworkMapper.selectHomeworkById(90L)).thenReturn(inactive);
@@ -248,6 +302,7 @@ class HomeworkServiceTest {
     @Test
     void restoreRejectsBadWriteCount() {
         stubOwnedMonitoring();
+        stubParentLock();
         Homework inactive = saved(90L, 70L, "연습", DEADLINE, true, "좋음");
         inactive.setStatus(RecordStatus.INACTIVE);
         when(homeworkMapper.selectHomeworkById(90L)).thenReturn(inactive);
@@ -271,6 +326,45 @@ class HomeworkServiceTest {
         assertCode(ErrorCode.ORDER_CONFLICT, () -> homeworkService.deleteHomework(8L, 70L, 90L));
         verify(homeworkMapper, never()).updateHomework(any());
         verify(homeworkMapper, never()).softDeleteHomework(any(), any());
+    }
+
+    @Test
+    void restoreAllowsAnInactiveHomeworkWhenFewerThanThreeAreActive() {
+        stubOwnedMonitoring();
+        stubParentLock();
+        Homework inactive = saved(90L, 70L, "연습", null, false, null);
+        inactive.setStatus(RecordStatus.INACTIVE);
+        when(homeworkMapper.selectHomeworkById(90L)).thenReturn(inactive);
+        when(homeworkMapper.countActiveHomeworksByMonitoringId(70L)).thenReturn(2);
+        when(homeworkMapper.lockHomeworkById(90L)).thenReturn(inactive);
+        when(homeworkMapper.restoreHomework(inactive)).thenReturn(1);
+        when(homeworkMapper.selectActiveHomeworkByIdAndMonitoringId(90L, 70L))
+                .thenReturn(saved(90L, 70L, "연습", null, false, null));
+
+        assertThat(homeworkService.restoreHomework(8L, 70L, 90L).getHomeworkId()).isEqualTo(90L);
+
+        InOrder order = inOrder(studentMonitoringMapper, homeworkMapper);
+        order.verify(studentMonitoringMapper).lockStudentMonitoringById(70L);
+        order.verify(homeworkMapper).countActiveHomeworksByMonitoringId(70L);
+        order.verify(homeworkMapper).restoreHomework(inactive);
+    }
+
+    @Test
+    void restoreRejectsWhenThreeHomeworksAreAlreadyActive() {
+        stubOwnedMonitoring();
+        stubParentLock();
+        Homework inactive = saved(90L, 70L, "연습", null, false, null);
+        inactive.setStatus(RecordStatus.INACTIVE);
+        when(homeworkMapper.selectHomeworkById(90L)).thenReturn(inactive);
+        when(homeworkMapper.countActiveHomeworksByMonitoringId(70L)).thenReturn(3);
+
+        assertCode(ErrorCode.COMMON_CONFLICT, () -> homeworkService.restoreHomework(8L, 70L, 90L));
+        verify(homeworkMapper, never()).restoreHomework(any());
+        verify(homeworkMapper, never()).lockHomeworkById(any());
+    }
+
+    private void stubParentLock() {
+        when(studentMonitoringMapper.lockStudentMonitoringById(70L)).thenReturn(monitoring(50L));
     }
 
     private void stubOwnedMonitoring() {

@@ -56,6 +56,13 @@
         ORDER BY CREATED_AT ASC, HOMEWORK_ID ASC
     </select>
 
+    <select id="countActiveHomeworksByMonitoringId" resultType="int">
+        SELECT COUNT(*)
+        FROM TB_HOMEWORK
+        WHERE MONITORING_ID = #{monitoringId}
+          AND <include refid="activeHomework"/>
+    </select>
+
     <insert id="insertHomework">
         <selectKey keyProperty="homeworkId" resultType="long" order="BEFORE">
             SELECT SEQ_HOMEWORK.NEXTVAL FROM DUAL
