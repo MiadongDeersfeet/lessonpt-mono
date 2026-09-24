@@ -1,6 +1,7 @@
 package com.yunki.lessonpt.student.service;
 
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -12,7 +13,10 @@ import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
+import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
 import com.yunki.lessonpt.relationship.dto.ActiveTeacherStudent;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.domain.Student;
 import com.yunki.lessonpt.student.dto.StudentCreateRequest;
@@ -29,6 +33,8 @@ public class StudentService {
 
     private final StudentMapper studentMapper;
     private final TeacherStudentMapper teacherStudentMapper;
+    private final TeacherStudentLocationMapper teacherStudentLocationMapper;
+    private final StudentCurriculumMapper studentCurriculumMapper;
     private final TeacherMapper teacherMapper;
 
     @Transactional
@@ -108,6 +114,12 @@ public class StudentService {
         return requireLinked(teacherId, studentId);
     }
 
+    /**
+     * 관계와 그 장소 연결, 수강만 비활성화한다.
+     * Student, Monitoring, Homework는 유지한다.
+     * 복구는 이 관계 행만 다시 활성화한다.
+     * TODO: Student Passwordless가 생기면 이 해제에서 접근권한과 조회 세션도 폐기한다.
+     */
     @Transactional
     public void releaseStudent(Long teacherId, Long studentId) {
         TeacherStudent relation = teacherStudentMapper.selectActiveByTeacherIdAndStudentId(teacherId, studentId);
@@ -115,6 +127,17 @@ public class StudentService {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
         lockRelation(relation.getTeacherStudentId());
+        List<TeacherStudentLocation> links = teacherStudentLocationMapper
+                .selectActiveByTeacherStudentId(relation.getTeacherStudentId())
+                .stream()
+                .sorted(Comparator.comparing(TeacherStudentLocation::getTeacherStudentLocationId))
+                .toList();
+        for (TeacherStudentLocation link : links) {
+            lockLink(link.getTeacherStudentLocationId());
+            studentCurriculumMapper.softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(
+                    link.getTeacherStudentLocationId());
+        }
+        teacherStudentLocationMapper.softDeleteActiveByTeacherStudentId(relation.getTeacherStudentId());
         teacherStudentMapper.softDeleteTeacherStudent(teacherId, studentId);
     }
 
@@ -142,6 +165,25 @@ public class StudentService {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
         return toResponse(linked);
+    }
+
+    private void lockLink(Long teacherStudentLocationId) {
+        try {
+            TeacherStudentLocation locked = teacherStudentLocationMapper.lockTeacherStudentLocationById(
+                    teacherStudentLocationId);
+            if (locked == null
+                    || locked.getStatus() != RecordStatus.ACTIVE
+                    || locked.getDeletedAt() != null) {
+                throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+            }
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            if (isLockTimeout(exception)) {
+                throw new BusinessException(ErrorCode.COMMON_CONFLICT);
+            }
+            throw exception;
+        }
     }
 
     private void lockRelation(Long teacherStudentId) {

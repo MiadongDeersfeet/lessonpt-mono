@@ -102,6 +102,16 @@
           AND DELETED_AT IS NULL
     </update>
 
+    <update id="softDeleteActiveStudentCurriculumsByTeacherStudentLocationId">
+        UPDATE TB_STUDENT_CURRICULUM
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
     <update id="restoreStudentCurriculum">
         UPDATE TB_STUDENT_CURRICULUM
         SET STATUS = 'Y',

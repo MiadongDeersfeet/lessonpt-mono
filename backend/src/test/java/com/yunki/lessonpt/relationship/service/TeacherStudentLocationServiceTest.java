@@ -25,6 +25,7 @@ import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
 import com.yunki.lessonpt.relationship.dto.TeacherStudentLocationView;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 
@@ -40,11 +41,15 @@ class TeacherStudentLocationServiceTest {
     @Mock
     private TeacherStudentLocationMapper teacherStudentLocationMapper;
 
+    @Mock
+    private StudentCurriculumMapper studentCurriculumMapper;
+
     private TeacherStudentLocationService service;
 
     @BeforeEach
     void setUp() {
-        service = new TeacherStudentLocationService(teacherStudentMapper, locationMapper, teacherStudentLocationMapper);
+        service = new TeacherStudentLocationService(
+                teacherStudentMapper, locationMapper, teacherStudentLocationMapper, studentCurriculumMapper);
     }
 
     @Test
@@ -123,14 +128,30 @@ class TeacherStudentLocationServiceTest {
         stubOwnedRows(8L, 8L);
         when(teacherStudentLocationMapper.selectActiveByTeacherStudentIdAndLocationId(70L, 30L))
                 .thenReturn(link(90L, RecordStatus.ACTIVE));
+        when(teacherStudentLocationMapper.lockTeacherStudentLocationById(90L)).thenReturn(link(90L, RecordStatus.ACTIVE));
         when(teacherStudentLocationMapper.softDeleteTeacherStudentLocation(90L)).thenReturn(1);
 
         service.releaseLocation(8L, 41L, 30L);
 
-        InOrder order = inOrder(teacherStudentMapper, locationMapper, teacherStudentLocationMapper);
+        InOrder order = inOrder(teacherStudentMapper, locationMapper, teacherStudentLocationMapper, studentCurriculumMapper);
         order.verify(teacherStudentMapper).lockTeacherStudentById(70L);
         order.verify(locationMapper).lockLocationById(30L);
+        order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(90L);
+        order.verify(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(90L);
         order.verify(teacherStudentLocationMapper).softDeleteTeacherStudentLocation(90L);
+    }
+
+    @Test
+    void restoreDoesNotRestoreEnrollments() {
+        stubOwnedRows(8L, 8L);
+        when(teacherStudentLocationMapper.selectByTeacherStudentIdAndLocationId(70L, 30L))
+                .thenReturn(link(90L, RecordStatus.INACTIVE));
+        when(teacherStudentLocationMapper.restoreTeacherStudentLocation(90L)).thenReturn(1);
+        when(teacherStudentLocationMapper.selectActiveViewById(90L)).thenReturn(view(90L, "Main Studio", "Seoul"));
+
+        service.restoreLocation(8L, 41L, 30L);
+
+        verify(studentCurriculumMapper, never()).restoreStudentCurriculum(any());
     }
 
     @Test

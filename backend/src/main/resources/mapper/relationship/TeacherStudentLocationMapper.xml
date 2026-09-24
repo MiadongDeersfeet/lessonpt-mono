@@ -65,6 +65,15 @@
         ORDER BY CREATED_AT ASC, TEACHER_STUDENT_LOCATION_ID ASC
     </select>
 
+    <select id="selectActiveByLocationId" resultMap="teacherStudentLocationResultMap">
+        SELECT <include refid="teacherStudentLocationColumns"/>
+        FROM TB_TEACHER_STUDENT_LOCATION
+        WHERE LOCATION_ID = #{locationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+        ORDER BY TEACHER_STUDENT_LOCATION_ID ASC
+    </select>
+
     <sql id="activeLocationLink">
         FROM TB_TEACHER_STUDENT_LOCATION tsl
         JOIN TB_LOCATION loc ON loc.LOCATION_ID = tsl.LOCATION_ID
@@ -115,6 +124,26 @@
             DELETED_AT = SYSTIMESTAMP,
             UPDATED_AT = SYSTIMESTAMP
         WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteActiveByTeacherStudentId">
+        UPDATE TB_TEACHER_STUDENT_LOCATION
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteActiveByLocationId">
+        UPDATE TB_TEACHER_STUDENT_LOCATION
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE LOCATION_ID = #{locationId}
           AND STATUS = 'Y'
           AND DELETED_AT IS NULL
     </update>

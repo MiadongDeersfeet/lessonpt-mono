@@ -26,8 +26,11 @@ import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.location.domain.Location;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.relationship.domain.Homework;
+import com.yunki.lessonpt.location.service.LocationService;
 import com.yunki.lessonpt.relationship.service.HomeworkService;
 import com.yunki.lessonpt.relationship.service.StudentMonitoringService;
+import com.yunki.lessonpt.relationship.service.TeacherStudentLocationService;
+import com.yunki.lessonpt.student.service.StudentService;
 import com.yunki.lessonpt.relationship.domain.StudentCurriculum;
 import com.yunki.lessonpt.relationship.domain.StudentMonitoring;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
@@ -85,6 +88,15 @@ class HomeworkMapperOracleTest {
 
     @Autowired
     private HomeworkService homeworkService;
+
+    @Autowired
+    private StudentService studentService;
+
+    @Autowired
+    private TeacherStudentLocationService teacherStudentLocationService;
+
+    @Autowired
+    private LocationService locationService;
 
     @Test
     void storesSeveralHomeworksAndRestoresWithoutChangingContent() {
@@ -353,6 +365,149 @@ class HomeworkMapperOracleTest {
                 .isEqualTo(ErrorCode.COMMON_CONFLICT);
         assertThat(homeworkMapper.countActiveHomeworksByMonitoringId(monitoringId)).isEqualTo(3);
         assertThat(homeworkMapper.selectHomeworkById(first.getHomeworkId()).getStatus()).isEqualTo(RecordStatus.INACTIVE);
+    }
+
+    @Test
+    void releaseAndLocationDeleteKeepLearningHistoryAndDoNotRestoreChildren() {
+        Teacher teacher = teacher();
+        teacherMapper.insertTeacher(teacher);
+        Student student = new Student();
+        student.setName("임시학생");
+        student.setStatus(RecordStatus.ACTIVE);
+        studentMapper.insertStudent(student);
+        TeacherStudent relation = new TeacherStudent();
+        relation.setTeacherId(teacher.getTeacherId());
+        relation.setStudentId(student.getStudentId());
+        relation.setStatus(RecordStatus.ACTIVE);
+        teacherStudentMapper.insertTeacherStudent(relation);
+        Location locationA = location(teacher.getTeacherId(), "장소A-" + UUID.randomUUID(), 1);
+        Location locationB = location(teacher.getTeacherId(), "장소B-" + UUID.randomUUID(), 2);
+        locationMapper.insertLocation(locationA);
+        locationMapper.insertLocation(locationB);
+        TeacherStudentLocation linkA = link(relation.getTeacherStudentId(), locationA.getLocationId());
+        TeacherStudentLocation linkB = link(relation.getTeacherStudentId(), locationB.getLocationId());
+        teacherStudentLocationMapper.insertTeacherStudentLocation(linkA);
+        teacherStudentLocationMapper.insertTeacherStudentLocation(linkB);
+        Curriculum curriculum = curriculum(teacher.getTeacherId(), "기초", 1);
+        curriculumMapper.insertCurriculum(curriculum);
+        Category category = category(curriculum.getCurriculumId(), "준비", 1);
+        categoryMapper.insertCategory(category);
+        ContentDetail detailA = detail(category.getCategoryId(), "A", 1);
+        ContentDetail detailB = detail(category.getCategoryId(), "B", 2);
+        contentDetailMapper.insertContentDetail(detailA);
+        contentDetailMapper.insertContentDetail(detailB);
+        StudentCurriculum enrollmentA = enrollment(linkA.getTeacherStudentLocationId(), curriculum.getCurriculumId());
+        StudentCurriculum enrollmentB = enrollment(linkB.getTeacherStudentLocationId(), curriculum.getCurriculumId());
+        studentCurriculumMapper.insertStudentCurriculum(enrollmentA);
+        studentCurriculumMapper.insertStudentCurriculum(enrollmentB);
+        StudentMonitoring monitoringA = monitoring(enrollmentA.getStudentCurriculumId(), detailA.getContentDetailId(), 1);
+        studentMonitoringMapper.insertStudentMonitoring(monitoringA);
+        Homework homeworkA = homework(monitoringA.getMonitoringId(), "연습", null, false, null);
+        homeworkMapper.insertHomework(homeworkA);
+
+        Long teacherId = teacher.getTeacherId();
+        teacherStudentLocationService.releaseLocation(teacherId, student.getStudentId(), locationA.getLocationId());
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkA.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(studentCurriculumMapper.selectStudentCurriculumById(enrollmentA.getStudentCurriculumId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(studentMonitoringMapper.selectStudentMonitoringById(monitoringA.getMonitoringId()).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(homeworkMapper.selectHomeworkById(homeworkA.getHomeworkId()).getStatus()).isEqualTo(RecordStatus.ACTIVE);
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkB.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(studentCurriculumMapper.selectStudentCurriculumById(enrollmentB.getStudentCurriculumId()).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+
+        teacherStudentLocationService.restoreLocation(teacherId, student.getStudentId(), locationA.getLocationId());
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkA.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(studentCurriculumMapper.selectStudentCurriculumById(enrollmentA.getStudentCurriculumId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+
+        locationService.deleteLocation(teacherId, locationA.getLocationId());
+        assertThat(locationMapper.selectLocationByIdAndTeacherId(locationA.getLocationId(), teacherId).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkA.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(locationMapper.selectLocationByIdAndTeacherId(locationB.getLocationId(), teacherId).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkB.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(locationMapper.selectLocationByIdAndTeacherId(locationB.getLocationId(), teacherId).getDisplayOrder())
+                .isEqualTo(1);
+
+        locationService.restoreLocation(teacherId, locationA.getLocationId());
+        assertThat(locationMapper.selectLocationByIdAndTeacherId(locationA.getLocationId(), teacherId).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkA.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(studentCurriculumMapper.selectStudentCurriculumById(enrollmentA.getStudentCurriculumId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+
+        studentService.releaseStudent(teacherId, student.getStudentId());
+        assertThat(teacherStudentMapper.selectTeacherStudentById(relation.getTeacherStudentId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(studentMapper.selectStudentById(student.getStudentId()).getStatus()).isEqualTo(RecordStatus.ACTIVE);
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkB.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(studentCurriculumMapper.selectStudentCurriculumById(enrollmentB.getStudentCurriculumId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(studentMonitoringMapper.selectStudentMonitoringById(monitoringA.getMonitoringId()).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(homeworkMapper.selectHomeworkById(homeworkA.getHomeworkId()).getStatus()).isEqualTo(RecordStatus.ACTIVE);
+
+        studentService.restoreStudent(teacherId, student.getStudentId());
+        assertThat(teacherStudentMapper.selectTeacherStudentById(relation.getTeacherStudentId()).getStatus())
+                .isEqualTo(RecordStatus.ACTIVE);
+        assertThat(teacherStudentLocationMapper.selectTeacherStudentLocationById(linkB.getTeacherStudentLocationId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+        assertThat(studentCurriculumMapper.selectStudentCurriculumById(enrollmentB.getStudentCurriculumId()).getStatus())
+                .isEqualTo(RecordStatus.INACTIVE);
+    }
+
+    private Location location(Long teacherId, String name, int displayOrder) {
+        Location location = new Location();
+        location.setTeacherId(teacherId);
+        location.setName(name);
+        location.setDisplayOrder(displayOrder);
+        location.setStatus(RecordStatus.ACTIVE);
+        return location;
+    }
+
+    private TeacherStudentLocation link(Long teacherStudentId, Long locationId) {
+        TeacherStudentLocation link = new TeacherStudentLocation();
+        link.setTeacherStudentId(teacherStudentId);
+        link.setLocationId(locationId);
+        link.setStatus(RecordStatus.ACTIVE);
+        return link;
+    }
+
+    private Curriculum curriculum(Long teacherId, String name, int displayOrder) {
+        Curriculum curriculum = new Curriculum();
+        curriculum.setTeacherId(teacherId);
+        curriculum.setName(name);
+        curriculum.setDisplayOrder(displayOrder);
+        curriculum.setStatus(RecordStatus.ACTIVE);
+        return curriculum;
+    }
+
+    private Category category(Long curriculumId, String name, int displayOrder) {
+        Category category = new Category();
+        category.setCurriculumId(curriculumId);
+        category.setName(name);
+        category.setDisplayOrder(displayOrder);
+        category.setStatus(RecordStatus.ACTIVE);
+        return category;
+    }
+
+    private StudentCurriculum enrollment(Long teacherStudentLocationId, Long curriculumId) {
+        StudentCurriculum studentCurriculum = new StudentCurriculum();
+        studentCurriculum.setTeacherStudentLocationId(teacherStudentLocationId);
+        studentCurriculum.setCurriculumId(curriculumId);
+        studentCurriculum.setReenrolled(false);
+        studentCurriculum.setStatus(RecordStatus.ACTIVE);
+        return studentCurriculum;
     }
 
     private Teacher teacher() {

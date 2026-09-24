@@ -38,6 +38,12 @@ public interface StudentCurriculumMapper {
             @Param("teacherStudentLocationId") Long teacherStudentLocationId);
 
     /**
+     * 장소 연결에 속한 활성 수강만 비활성화한다.
+     * 모니터링과 과제는 학습 이력으로 남긴다. 영향 행 0은 정상이다.
+     */
+    int softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(Long teacherStudentLocationId);
+
+    /**
      * 비활성 배정을 다시 활성화하고 재수강으로 표시한다.
      */
     int restoreStudentCurriculum(Long studentCurriculumId);

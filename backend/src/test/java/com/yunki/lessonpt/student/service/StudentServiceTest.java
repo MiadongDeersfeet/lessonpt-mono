@@ -3,14 +3,20 @@ package com.yunki.lessonpt.student.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.dao.CannotAcquireLockException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -18,7 +24,10 @@ import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
+import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
 import com.yunki.lessonpt.relationship.dto.ActiveTeacherStudent;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.domain.Student;
 import com.yunki.lessonpt.student.dto.StudentCreateRequest;
@@ -38,13 +47,20 @@ class StudentServiceTest {
     private TeacherStudentMapper teacherStudentMapper;
 
     @Mock
+    private TeacherStudentLocationMapper teacherStudentLocationMapper;
+
+    @Mock
+    private StudentCurriculumMapper studentCurriculumMapper;
+
+    @Mock
     private TeacherMapper teacherMapper;
 
     private StudentService studentService;
 
     @BeforeEach
     void setUp() {
-        studentService = new StudentService(studentMapper, teacherStudentMapper, teacherMapper);
+        studentService = new StudentService(
+                studentMapper, teacherStudentMapper, teacherStudentLocationMapper, studentCurriculumMapper, teacherMapper);
     }
 
     @Test
@@ -207,15 +223,84 @@ class StudentServiceTest {
     }
 
     @Test
-    void releaseSoftDeletesRelationOnly() {
+    void releaseSoftDeletesRelationAndActiveChildrenOnly() {
         when(teacherStudentMapper.selectActiveByTeacherIdAndStudentId(8L, 41L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
         when(teacherStudentMapper.lockTeacherStudentById(72L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentLocationMapper.selectActiveByTeacherStudentId(72L)).thenReturn(List.of());
 
         studentService.releaseStudent(8L, 41L);
 
+        verify(teacherStudentLocationMapper).softDeleteActiveByTeacherStudentId(72L);
         verify(teacherStudentMapper).softDeleteTeacherStudent(8L, 41L);
+        verify(studentCurriculumMapper, never()).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(any());
         verify(studentMapper, never()).softDeleteStudent(any());
-        verify(teacherStudentMapper, never()).softDeleteTeacherStudent(9L, 41L);
+    }
+
+    @Test
+    void releaseSoftDeletesEachLocationLinkAndItsEnrollments() {
+        when(teacherStudentMapper.selectActiveByTeacherIdAndStudentId(8L, 41L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentMapper.lockTeacherStudentById(72L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentLocationMapper.selectActiveByTeacherStudentId(72L))
+                .thenReturn(List.of(studentLink(91L), studentLink(90L)));
+        when(teacherStudentLocationMapper.lockTeacherStudentLocationById(90L)).thenReturn(studentLink(90L));
+        when(teacherStudentLocationMapper.lockTeacherStudentLocationById(91L)).thenReturn(studentLink(91L));
+
+        studentService.releaseStudent(8L, 41L);
+
+        InOrder order = inOrder(teacherStudentMapper, teacherStudentLocationMapper, studentCurriculumMapper);
+        order.verify(teacherStudentMapper).lockTeacherStudentById(72L);
+        order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(90L);
+        order.verify(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(90L);
+        order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(91L);
+        order.verify(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(91L);
+        order.verify(teacherStudentLocationMapper).softDeleteActiveByTeacherStudentId(72L);
+        order.verify(teacherStudentMapper).softDeleteTeacherStudent(8L, 41L);
+        verify(studentMapper, never()).softDeleteStudent(any());
+    }
+
+    @Test
+    void releaseStopsBeforeParentDeleteWhenEnrollmentCascadeFails() {
+        when(teacherStudentMapper.selectActiveByTeacherIdAndStudentId(8L, 41L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentMapper.lockTeacherStudentById(72L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentLocationMapper.selectActiveByTeacherStudentId(72L)).thenReturn(List.of(studentLink(90L)));
+        when(teacherStudentLocationMapper.lockTeacherStudentLocationById(90L)).thenReturn(studentLink(90L));
+        doThrow(new IllegalStateException("cascade"))
+                .when(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(90L);
+
+        assertThatThrownBy(() -> studentService.releaseStudent(8L, 41L))
+                .isInstanceOf(IllegalStateException.class);
+        verify(teacherStudentLocationMapper, never()).softDeleteActiveByTeacherStudentId(any());
+        verify(teacherStudentMapper, never()).softDeleteTeacherStudent(any(), any());
+    }
+
+    @Test
+    void releaseMapsLinkLockTimeoutToConflict() {
+        when(teacherStudentMapper.selectActiveByTeacherIdAndStudentId(8L, 41L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentMapper.lockTeacherStudentById(72L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentLocationMapper.selectActiveByTeacherStudentId(72L)).thenReturn(List.of(studentLink(90L)));
+        doThrow(new CannotAcquireLockException("ORA-30006"))
+                .when(teacherStudentLocationMapper).lockTeacherStudentLocationById(90L);
+
+        assertThatThrownBy(() -> studentService.releaseStudent(8L, 41L))
+                .extracting(ex -> ((BusinessException) ex).errorCode())
+                .isEqualTo(ErrorCode.COMMON_CONFLICT);
+        verify(teacherStudentMapper, never()).softDeleteTeacherStudent(any(), any());
+    }
+
+    @Test
+    void restoreRelationDoesNotRestoreChildLinks() {
+        TeacherStudent inactive = relation(72L, RecordStatus.INACTIVE);
+        when(teacherStudentMapper.selectByTeacherIdAndStudentId(8L, 41L)).thenReturn(inactive);
+        when(studentMapper.selectStudentById(41L)).thenReturn(activeStudent(41L, null, "김학생"));
+        when(teacherStudentMapper.lockTeacherStudentById(72L)).thenReturn(inactive);
+        when(teacherStudentMapper.selectActiveStudentForTeacher(8L, 41L))
+                .thenReturn(link(72L, 41L, null, "김학생"));
+
+        studentService.restoreStudent(8L, 41L);
+
+        verify(teacherStudentMapper).restoreTeacherStudent(8L, 41L);
+        verify(teacherStudentLocationMapper, never()).restoreTeacherStudentLocation(any());
+        verify(studentCurriculumMapper, never()).restoreStudentCurriculum(any());
     }
 
     @Test
@@ -262,6 +347,14 @@ class StudentServiceTest {
         student.setName(name);
         student.setStatus(RecordStatus.ACTIVE);
         return student;
+    }
+
+    private TeacherStudentLocation studentLink(Long id) {
+        TeacherStudentLocation link = new TeacherStudentLocation();
+        link.setTeacherStudentLocationId(id);
+        link.setTeacherStudentId(72L);
+        link.setStatus(RecordStatus.ACTIVE);
+        return link;
     }
 
     private TeacherStudent relation(Long teacherStudentId, RecordStatus status) {

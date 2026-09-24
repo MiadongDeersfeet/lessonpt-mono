@@ -3,6 +3,7 @@ package com.yunki.lessonpt.location.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.CannotAcquireLockException;
@@ -26,6 +28,9 @@ import com.yunki.lessonpt.location.dto.LocationCreateRequest;
 import com.yunki.lessonpt.location.dto.LocationResponse;
 import com.yunki.lessonpt.location.dto.LocationUpdateRequest;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
+import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
@@ -38,11 +43,18 @@ class LocationServiceTest {
     @Mock
     private TeacherMapper teacherMapper;
 
+    @Mock
+    private TeacherStudentLocationMapper teacherStudentLocationMapper;
+
+    @Mock
+    private StudentCurriculumMapper studentCurriculumMapper;
+
     private LocationService locationService;
 
     @BeforeEach
     void setUp() {
-        locationService = new LocationService(locationMapper, teacherMapper);
+        locationService = new LocationService(
+                locationMapper, teacherMapper, teacherStudentLocationMapper, studentCurriculumMapper);
     }
 
     @Test
@@ -165,12 +177,58 @@ class LocationServiceTest {
     void deleteSoftDeletesAndCompressesLaterOrders() {
         when(teacherMapper.lockTeacherById(8L)).thenReturn(activeTeacher());
         when(locationMapper.selectActiveLocationByIdAndTeacherId(30L, 8L)).thenReturn(saved(30L, 8L, 1, "Main"));
+        when(locationMapper.lockLocationById(30L)).thenReturn(saved(30L, 8L, 1, "Main"));
+        when(teacherStudentLocationMapper.selectActiveByLocationId(30L)).thenReturn(List.of());
 
         locationService.deleteLocation(8L, 30L);
 
-        verify(teacherMapper).lockTeacherById(8L);
-        verify(locationMapper).softDeleteLocation(30L, 8L);
-        verify(locationMapper).shiftActiveDisplayOrdersDown(8L, 1);
+        InOrder order = inOrder(teacherMapper, locationMapper, teacherStudentLocationMapper);
+        order.verify(teacherMapper).lockTeacherById(8L);
+        order.verify(locationMapper).lockLocationById(30L);
+        order.verify(teacherStudentLocationMapper).softDeleteActiveByLocationId(30L);
+        order.verify(locationMapper).softDeleteLocation(30L, 8L);
+        order.verify(locationMapper).shiftActiveDisplayOrdersDown(8L, 1);
+        verify(studentCurriculumMapper, never()).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(any());
+    }
+
+    @Test
+    void deleteSoftDeletesOnlyThisLocationsLinksAndEnrollments() {
+        when(teacherMapper.lockTeacherById(8L)).thenReturn(activeTeacher());
+        when(locationMapper.selectActiveLocationByIdAndTeacherId(30L, 8L)).thenReturn(saved(30L, 8L, 2, "Main"));
+        when(locationMapper.lockLocationById(30L)).thenReturn(saved(30L, 8L, 2, "Main"));
+        when(teacherStudentLocationMapper.selectActiveByLocationId(30L))
+                .thenReturn(List.of(placeLink(91L, 30L), placeLink(90L, 30L)));
+        when(teacherStudentLocationMapper.lockTeacherStudentLocationById(90L)).thenReturn(placeLink(90L, 30L));
+        when(teacherStudentLocationMapper.lockTeacherStudentLocationById(91L)).thenReturn(placeLink(91L, 30L));
+
+        locationService.deleteLocation(8L, 30L);
+
+        InOrder order = inOrder(locationMapper, teacherStudentLocationMapper, studentCurriculumMapper);
+        order.verify(locationMapper).lockLocationById(30L);
+        order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(90L);
+        order.verify(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(90L);
+        order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(91L);
+        order.verify(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(91L);
+        order.verify(teacherStudentLocationMapper).softDeleteActiveByLocationId(30L);
+        order.verify(locationMapper).softDeleteLocation(30L, 8L);
+        order.verify(locationMapper).shiftActiveDisplayOrdersDown(8L, 2);
+        verify(studentCurriculumMapper, never()).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(92L);
+    }
+
+    @Test
+    void restoreDoesNotRestoreChildLinks() {
+        when(teacherMapper.lockTeacherById(8L)).thenReturn(activeTeacher());
+        Location inactive = saved(30L, 8L, 1, "Main");
+        inactive.setStatus(RecordStatus.INACTIVE);
+        inactive.setDeletedAt(LocalDateTime.now());
+        when(locationMapper.selectLocationByIdAndTeacherId(30L, 8L)).thenReturn(inactive);
+        when(locationMapper.selectMaxDisplayOrderByTeacherId(8L)).thenReturn(null);
+        when(locationMapper.selectActiveLocationByIdAndTeacherId(30L, 8L)).thenReturn(saved(30L, 8L, 1, "Main"));
+
+        locationService.restoreLocation(8L, 30L);
+
+        verify(teacherStudentLocationMapper, never()).restoreTeacherStudentLocation(any());
+        verify(studentCurriculumMapper, never()).restoreStudentCurriculum(any());
     }
 
     @Test
@@ -201,6 +259,14 @@ class LocationServiceTest {
 
         assertThat(locations).hasSize(1);
         assertThat(locations.get(0).name()).isEqualTo("Main");
+    }
+
+    private TeacherStudentLocation placeLink(Long id, Long locationId) {
+        TeacherStudentLocation link = new TeacherStudentLocation();
+        link.setTeacherStudentLocationId(id);
+        link.setLocationId(locationId);
+        link.setStatus(RecordStatus.ACTIVE);
+        return link;
     }
 
     private Teacher activeTeacher() {

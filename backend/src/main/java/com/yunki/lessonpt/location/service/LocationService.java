@@ -1,6 +1,7 @@
 package com.yunki.lessonpt.location.service;
 
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.dao.CannotAcquireLockException;
@@ -15,6 +16,9 @@ import com.yunki.lessonpt.location.dto.LocationCreateRequest;
 import com.yunki.lessonpt.location.dto.LocationResponse;
 import com.yunki.lessonpt.location.dto.LocationUpdateRequest;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
+import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
@@ -26,6 +30,8 @@ public class LocationService {
 
     private final LocationMapper locationMapper;
     private final TeacherMapper teacherMapper;
+    private final TeacherStudentLocationMapper teacherStudentLocationMapper;
+    private final StudentCurriculumMapper studentCurriculumMapper;
 
     @Transactional
     public LocationResponse createLocation(Long teacherId, LocationCreateRequest request) {
@@ -68,10 +74,30 @@ public class LocationService {
         return toResponse(requireActive(teacherId, locationId));
     }
 
+    /**
+     * 이 장소의 학생 연결과 그 수강을 비활성화한 뒤 장소를 지운다.
+     * TeacherStudent, Student, Monitoring, Homework는 유지한다.
+     * 복구는 장소 행만 다시 활성화한다.
+     */
     @Transactional
     public void deleteLocation(Long teacherId, Long locationId) {
         lockActiveTeacher(teacherId);
         Location location = requireActive(teacherId, locationId);
+        Location locked = lockLocation(locationId);
+        if (!teacherId.equals(locked.getTeacherId())
+                || locked.getStatus() != RecordStatus.ACTIVE
+                || locked.getDeletedAt() != null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+        }
+        List<TeacherStudentLocation> links = teacherStudentLocationMapper.selectActiveByLocationId(locationId).stream()
+                .sorted(Comparator.comparing(TeacherStudentLocation::getTeacherStudentLocationId))
+                .toList();
+        for (TeacherStudentLocation link : links) {
+            lockLink(link.getTeacherStudentLocationId());
+            studentCurriculumMapper.softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(
+                    link.getTeacherStudentLocationId());
+        }
+        teacherStudentLocationMapper.softDeleteActiveByLocationId(locationId);
         locationMapper.softDeleteLocation(locationId, teacherId);
         locationMapper.shiftActiveDisplayOrdersDown(teacherId, location.getDisplayOrder());
     }
@@ -98,6 +124,42 @@ public class LocationService {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
         return location;
+    }
+
+    private Location lockLocation(Long locationId) {
+        try {
+            Location locked = locationMapper.lockLocationById(locationId);
+            if (locked == null) {
+                throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+            }
+            return locked;
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            if (isLockTimeout(exception)) {
+                throw new BusinessException(ErrorCode.ORDER_CONFLICT);
+            }
+            throw exception;
+        }
+    }
+
+    private void lockLink(Long teacherStudentLocationId) {
+        try {
+            TeacherStudentLocation locked = teacherStudentLocationMapper.lockTeacherStudentLocationById(
+                    teacherStudentLocationId);
+            if (locked == null
+                    || locked.getStatus() != RecordStatus.ACTIVE
+                    || locked.getDeletedAt() != null) {
+                throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+            }
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            if (isLockTimeout(exception)) {
+                throw new BusinessException(ErrorCode.ORDER_CONFLICT);
+            }
+            throw exception;
+        }
     }
 
     private void lockActiveTeacher(Long teacherId) {

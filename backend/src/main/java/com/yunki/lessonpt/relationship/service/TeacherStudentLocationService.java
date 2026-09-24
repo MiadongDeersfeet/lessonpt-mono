@@ -15,6 +15,7 @@ import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
 import com.yunki.lessonpt.relationship.dto.TeacherStudentLocationView;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 
@@ -27,6 +28,7 @@ public class TeacherStudentLocationService {
     private final TeacherStudentMapper teacherStudentMapper;
     private final LocationMapper locationMapper;
     private final TeacherStudentLocationMapper teacherStudentLocationMapper;
+    private final StudentCurriculumMapper studentCurriculumMapper;
 
     @Transactional
     public TeacherStudentLocationView assignLocation(Long teacherId, Long studentId, Long locationId) {
@@ -55,8 +57,9 @@ public class TeacherStudentLocationService {
     }
 
     /**
-     * 지금은 장소 연결 행만 해제한다.
-     * TODO: StudentCurriculum이 생기면 이 연결의 하위 학습 관계도 soft delete한다.
+     * 이 장소 연결의 활성 수강만 먼저 비활성화하고 연결을 해제한다.
+     * Monitoring과 Homework는 학습 이력으로 남긴다.
+     * 복구는 연결 행만 다시 활성화한다.
      */
     @Transactional
     public void releaseLocation(Long teacherId, Long studentId, Long locationId) {
@@ -66,6 +69,14 @@ public class TeacherStudentLocationService {
         if (existing == null) {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
+        TeacherStudentLocation locked = lockLink(existing.getTeacherStudentLocationId());
+        if (!owned.teacherStudent().getTeacherStudentId().equals(locked.getTeacherStudentId())
+                || locked.getStatus() != RecordStatus.ACTIVE
+                || locked.getDeletedAt() != null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+        }
+        studentCurriculumMapper.softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(
+                existing.getTeacherStudentLocationId());
         expectOne(teacherStudentLocationMapper.softDeleteTeacherStudentLocation(existing.getTeacherStudentLocationId()));
     }
 
@@ -129,6 +140,24 @@ public class TeacherStudentLocationService {
     private Location lockLocation(Long locationId) {
         try {
             Location locked = locationMapper.lockLocationById(locationId);
+            if (locked == null) {
+                throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+            }
+            return locked;
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            if (isLockTimeout(exception)) {
+                throw new BusinessException(ErrorCode.COMMON_CONFLICT);
+            }
+            throw exception;
+        }
+    }
+
+    private TeacherStudentLocation lockLink(Long teacherStudentLocationId) {
+        try {
+            TeacherStudentLocation locked = teacherStudentLocationMapper.lockTeacherStudentLocationById(
+                    teacherStudentLocationId);
             if (locked == null) {
                 throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
             }

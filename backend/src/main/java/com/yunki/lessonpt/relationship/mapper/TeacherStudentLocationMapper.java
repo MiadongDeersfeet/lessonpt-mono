@@ -25,6 +25,8 @@ public interface TeacherStudentLocationMapper {
 
     List<TeacherStudentLocation> selectActiveByTeacherStudentId(Long teacherStudentId);
 
+    List<TeacherStudentLocation> selectActiveByLocationId(Long locationId);
+
     TeacherStudentLocationView selectActiveViewById(Long teacherStudentLocationId);
 
     List<TeacherStudentLocationView> selectActiveViewsByTeacherStudentId(Long teacherStudentId);
@@ -32,6 +34,16 @@ public interface TeacherStudentLocationMapper {
     int insertTeacherStudentLocation(TeacherStudentLocation teacherStudentLocation);
 
     int softDeleteTeacherStudentLocation(Long teacherStudentLocationId);
+
+    /**
+     * 강사-학생 관계의 활성 장소 연결만 비활성화한다. 영향 행 0은 정상이다.
+     */
+    int softDeleteActiveByTeacherStudentId(Long teacherStudentId);
+
+    /**
+     * 한 장소의 활성 학생 연결만 비활성화한다. 영향 행 0은 정상이다.
+     */
+    int softDeleteActiveByLocationId(Long locationId);
 
     int restoreTeacherStudentLocation(Long teacherStudentLocationId);
 
