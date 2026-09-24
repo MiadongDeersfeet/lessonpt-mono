@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper">
+
+    <resultMap id="teacherStudentAccessResultMap" type="com.yunki.lessonpt.relationship.domain.TeacherStudentAccess">
+        <id column="TEACHER_STUDENT_ACCESS_ID" property="teacherStudentAccessId"/>
+        <result column="TEACHER_STUDENT_ID" property="teacherStudentId"/>
+        <result column="PUBLIC_ACCESS_KEY" property="publicAccessKey"/>
+        <result column="ENABLED_AT" property="enabledAt"/>
+        <result column="LAST_VERIFIED_AT" property="lastVerifiedAt"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="REVOKED_AT" property="revokedAt"/>
+    </resultMap>
+
+    <sql id="teacherStudentAccessColumns">
+        TEACHER_STUDENT_ACCESS_ID,
+        TEACHER_STUDENT_ID,
+        PUBLIC_ACCESS_KEY,
+        ENABLED_AT,
+        LAST_VERIFIED_AT,
+        CREATED_AT,
+        UPDATED_AT,
+        STATUS,
+        REVOKED_AT
+    </sql>
+
+    <sql id="activeAccess">
+        STATUS = 'Y' AND REVOKED_AT IS NULL
+    </sql>
+
+    <select id="selectByTeacherStudentId" resultMap="teacherStudentAccessResultMap">
+        SELECT <include refid="teacherStudentAccessColumns"/>
+        FROM TB_TEACHER_STUDENT_ACCESS
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+    </select>
+
+    <select id="selectActiveByTeacherStudentId" resultMap="teacherStudentAccessResultMap">
+        SELECT <include refid="teacherStudentAccessColumns"/>
+        FROM TB_TEACHER_STUDENT_ACCESS
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND <include refid="activeAccess"/>
+    </select>
+
+    <select id="selectByPublicAccessKey" resultMap="teacherStudentAccessResultMap">
+        SELECT <include refid="teacherStudentAccessColumns"/>
+        FROM TB_TEACHER_STUDENT_ACCESS
+        WHERE PUBLIC_ACCESS_KEY = #{publicAccessKey}
+          AND <include refid="activeAccess"/>
+    </select>
+
+    <insert id="insertTeacherStudentAccess">
+        <selectKey keyProperty="teacherStudentAccessId" resultType="long" order="BEFORE">
+            SELECT SEQ_TEACHER_STUDENT_ACCESS.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_TEACHER_STUDENT_ACCESS (
+            TEACHER_STUDENT_ACCESS_ID,
+            TEACHER_STUDENT_ID,
+            PUBLIC_ACCESS_KEY,
+            ENABLED_AT,
+            STATUS,
+            CREATED_AT,
+            UPDATED_AT
+        ) VALUES (
+            #{teacherStudentAccessId},
+            #{teacherStudentId},
+            #{publicAccessKey},
+            SYSTIMESTAMP,
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="reactivateTeacherStudentAccess">
+        UPDATE TB_TEACHER_STUDENT_ACCESS
+        SET PUBLIC_ACCESS_KEY = #{publicAccessKey},
+            STATUS = 'Y',
+            REVOKED_AT = NULL,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+          AND TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND STATUS = 'N'
+          AND REVOKED_AT IS NOT NULL
+    </update>
+
+    <update id="softDeleteActiveByTeacherStudentId">
+        UPDATE TB_TEACHER_STUDENT_ACCESS
+        SET STATUS = 'N',
+            REVOKED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND STATUS = 'Y'
+          AND REVOKED_AT IS NULL
+    </update>
+</mapper>

@@ -16,6 +16,7 @@ import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
 import com.yunki.lessonpt.relationship.dto.ActiveTeacherStudent;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.domain.Student;
@@ -35,6 +36,7 @@ public class StudentService {
     private final TeacherStudentMapper teacherStudentMapper;
     private final TeacherStudentLocationMapper teacherStudentLocationMapper;
     private final StudentCurriculumMapper studentCurriculumMapper;
+    private final TeacherStudentAccessMapper teacherStudentAccessMapper;
     private final TeacherMapper teacherMapper;
 
     @Transactional
@@ -115,10 +117,10 @@ public class StudentService {
     }
 
     /**
-     * 관계와 그 장소 연결, 수강만 비활성화한다.
+     * 관계와 접근권한, 장소 연결, 수강을 비활성화한다.
      * Student, Monitoring, Homework는 유지한다.
      * 복구는 이 관계 행만 다시 활성화한다.
-     * TODO: Student Passwordless가 생기면 이 해제에서 접근권한과 조회 세션도 폐기한다.
+     * TODO: StudentAccessSession이 생기면 이 해제에서 조회 세션도 폐기한다.
      */
     @Transactional
     public void releaseStudent(Long teacherId, Long studentId) {
@@ -127,6 +129,7 @@ public class StudentService {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
         lockRelation(relation.getTeacherStudentId());
+        teacherStudentAccessMapper.softDeleteActiveByTeacherStudentId(relation.getTeacherStudentId());
         List<TeacherStudentLocation> links = teacherStudentLocationMapper
                 .selectActiveByTeacherStudentId(relation.getTeacherStudentId())
                 .stream()

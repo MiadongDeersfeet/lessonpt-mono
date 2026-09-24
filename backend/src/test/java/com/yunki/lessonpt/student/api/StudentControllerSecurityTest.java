@@ -31,7 +31,10 @@ import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
+import com.yunki.lessonpt.relationship.dto.TeacherStudentAccessResponse;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
+import com.yunki.lessonpt.relationship.service.TeacherStudentAccessService;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.common.exception.BusinessException;
@@ -82,6 +85,12 @@ class StudentControllerSecurityTest {
 
     @MockitoBean
     private ProgressQueryMapper progressQueryMapper;
+
+    @MockitoBean
+    private TeacherStudentAccessMapper teacherStudentAccessMapper;
+
+    @MockitoBean
+    private TeacherStudentAccessService teacherStudentAccessService;
 
     @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;
@@ -165,6 +174,53 @@ class StudentControllerSecurityTest {
                 .andExpect(status().isNoContent());
 
         verify(studentService).releaseStudent(21L, 41L);
+    }
+
+    @Test
+    void accessRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/students/41/access")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/students/41/access")).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/v1/students/41/access")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void ownerCreatesReadsAndRevokesAccess() throws Exception {
+        authenticate(21L);
+        TeacherStudentAccessResponse created = new TeacherStudentAccessResponse(
+                90L, 72L, "11111111-1111-4111-8111-111111111111", null, RecordStatus.ACTIVE);
+        when(teacherStudentAccessService.createAccess(21L, 41L)).thenReturn(created);
+        when(teacherStudentAccessService.getAccess(21L, 41L)).thenReturn(created);
+
+        mockMvc.perform(post("/api/v1/students/41/access").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isCreated())
+                .andExpect(header().string(HttpHeaders.LOCATION, org.hamcrest.Matchers.endsWith("/api/v1/students/41/access")))
+                .andExpect(jsonPath("$.publicAccessKey").value("11111111-1111-4111-8111-111111111111"))
+                .andExpect(jsonPath("$.teacherStudentId").value(72))
+                .andExpect(jsonPath("$.lastVerifiedAt").doesNotExist())
+                .andExpect(jsonPath("$.revokedAt").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/students/41/access").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        mockMvc.perform(delete("/api/v1/students/41/access").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isNoContent());
+        verify(teacherStudentAccessService).revokeAccess(21L, 41L);
+
+        when(teacherStudentAccessService.getAccess(21L, 41L)).thenThrow(new BusinessException(ErrorCode.COMMON_NOT_FOUND));
+        mockMvc.perform(get("/api/v1/students/41/access").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
+    }
+
+    @Test
+    void otherTeacherAccessLooksLikeNotFound() throws Exception {
+        authenticate(21L);
+        when(teacherStudentAccessService.getAccess(21L, 99L)).thenThrow(new BusinessException(ErrorCode.COMMON_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/students/99/access").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
     }
 
     private void authenticate(Long teacherId) {

@@ -27,6 +27,7 @@ import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentLocation;
 import com.yunki.lessonpt.relationship.dto.ActiveTeacherStudent;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.domain.Student;
@@ -53,6 +54,9 @@ class StudentServiceTest {
     private StudentCurriculumMapper studentCurriculumMapper;
 
     @Mock
+    private TeacherStudentAccessMapper teacherStudentAccessMapper;
+
+    @Mock
     private TeacherMapper teacherMapper;
 
     private StudentService studentService;
@@ -60,7 +64,12 @@ class StudentServiceTest {
     @BeforeEach
     void setUp() {
         studentService = new StudentService(
-                studentMapper, teacherStudentMapper, teacherStudentLocationMapper, studentCurriculumMapper, teacherMapper);
+                studentMapper,
+                teacherStudentMapper,
+                teacherStudentLocationMapper,
+                studentCurriculumMapper,
+                teacherStudentAccessMapper,
+                teacherMapper);
     }
 
     @Test
@@ -230,6 +239,7 @@ class StudentServiceTest {
 
         studentService.releaseStudent(8L, 41L);
 
+        verify(teacherStudentAccessMapper).softDeleteActiveByTeacherStudentId(72L);
         verify(teacherStudentLocationMapper).softDeleteActiveByTeacherStudentId(72L);
         verify(teacherStudentMapper).softDeleteTeacherStudent(8L, 41L);
         verify(studentCurriculumMapper, never()).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(any());
@@ -247,8 +257,10 @@ class StudentServiceTest {
 
         studentService.releaseStudent(8L, 41L);
 
-        InOrder order = inOrder(teacherStudentMapper, teacherStudentLocationMapper, studentCurriculumMapper);
+        InOrder order = inOrder(
+                teacherStudentMapper, teacherStudentAccessMapper, teacherStudentLocationMapper, studentCurriculumMapper);
         order.verify(teacherStudentMapper).lockTeacherStudentById(72L);
+        order.verify(teacherStudentAccessMapper).softDeleteActiveByTeacherStudentId(72L);
         order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(90L);
         order.verify(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(90L);
         order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(91L);
@@ -269,7 +281,21 @@ class StudentServiceTest {
 
         assertThatThrownBy(() -> studentService.releaseStudent(8L, 41L))
                 .isInstanceOf(IllegalStateException.class);
+        verify(teacherStudentAccessMapper).softDeleteActiveByTeacherStudentId(72L);
         verify(teacherStudentLocationMapper, never()).softDeleteActiveByTeacherStudentId(any());
+        verify(teacherStudentMapper, never()).softDeleteTeacherStudent(any(), any());
+    }
+
+    @Test
+    void releaseStopsBeforeChildDeleteWhenAccessRevokeFails() {
+        when(teacherStudentMapper.selectActiveByTeacherIdAndStudentId(8L, 41L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        when(teacherStudentMapper.lockTeacherStudentById(72L)).thenReturn(relation(72L, RecordStatus.ACTIVE));
+        doThrow(new IllegalStateException("access"))
+                .when(teacherStudentAccessMapper).softDeleteActiveByTeacherStudentId(72L);
+
+        assertThatThrownBy(() -> studentService.releaseStudent(8L, 41L))
+                .isInstanceOf(IllegalStateException.class);
+        verify(teacherStudentLocationMapper, never()).selectActiveByTeacherStudentId(any());
         verify(teacherStudentMapper, never()).softDeleteTeacherStudent(any(), any());
     }
 

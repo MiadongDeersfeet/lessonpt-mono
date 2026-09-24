@@ -35,6 +35,7 @@ import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.curriculum.dto.CategoryUpdateRequest;
@@ -102,6 +103,9 @@ class CategoryControllerSecurityTest {
 
     @MockitoBean
     private ProgressQueryMapper progressQueryMapper;
+
+    @MockitoBean
+    private TeacherStudentAccessMapper teacherStudentAccessMapper;
 
     private String bearerToken;
 
