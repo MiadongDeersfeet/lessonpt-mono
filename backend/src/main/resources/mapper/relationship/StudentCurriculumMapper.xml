@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper">
+
+    <resultMap id="studentCurriculumResultMap" type="com.yunki.lessonpt.relationship.domain.StudentCurriculum">
+        <id column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="TEACHER_STUDENT_LOCATION_ID" property="teacherStudentLocationId"/>
+        <result column="CURRICULUM_ID" property="curriculumId"/>
+        <result column="IS_REENROLLED" property="reenrolled" jdbcType="CHAR"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler"/>
+        <result column="MEMO" property="memo" jdbcType="CLOB"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="studentCurriculumColumns">
+        STUDENT_CURRICULUM_ID, TEACHER_STUDENT_LOCATION_ID, CURRICULUM_ID,
+        IS_REENROLLED, MEMO, CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <sql id="activeStudentCurriculum">
+        STATUS = 'Y' AND DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectStudentCurriculumById" resultMap="studentCurriculumResultMap">
+        SELECT <include refid="studentCurriculumColumns"/>
+        FROM TB_STUDENT_CURRICULUM
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+    </select>
+
+    <select id="selectActiveStudentCurriculumById" resultMap="studentCurriculumResultMap">
+        SELECT <include refid="studentCurriculumColumns"/>
+        FROM TB_STUDENT_CURRICULUM
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND <include refid="activeStudentCurriculum"/>
+    </select>
+
+    <select id="selectByTeacherStudentLocationIdAndCurriculumId" resultMap="studentCurriculumResultMap">
+        SELECT <include refid="studentCurriculumColumns"/>
+        FROM TB_STUDENT_CURRICULUM
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND CURRICULUM_ID = #{curriculumId}
+    </select>
+
+    <select id="selectActiveByTeacherStudentLocationIdAndCurriculumId" resultMap="studentCurriculumResultMap">
+        SELECT <include refid="studentCurriculumColumns"/>
+        FROM TB_STUDENT_CURRICULUM
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND CURRICULUM_ID = #{curriculumId}
+          AND <include refid="activeStudentCurriculum"/>
+    </select>
+
+    <select id="selectActiveStudentCurriculumsByTeacherStudentLocationId" resultMap="studentCurriculumResultMap">
+        SELECT <include refid="studentCurriculumColumns"/>
+        FROM TB_STUDENT_CURRICULUM
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND <include refid="activeStudentCurriculum"/>
+        ORDER BY CREATED_AT ASC, STUDENT_CURRICULUM_ID ASC
+    </select>
+
+    <insert id="insertStudentCurriculum">
+        <selectKey keyProperty="studentCurriculumId" resultType="long" order="BEFORE">
+            SELECT SEQ_STUDENT_CURRICULUM.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_STUDENT_CURRICULUM (
+            STUDENT_CURRICULUM_ID, TEACHER_STUDENT_LOCATION_ID, CURRICULUM_ID,
+            IS_REENROLLED, MEMO, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{studentCurriculumId},
+            #{teacherStudentLocationId},
+            #{curriculumId},
+            #{reenrolled,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler},
+            #{memo,jdbcType=CLOB},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateStudentCurriculum">
+        UPDATE TB_STUDENT_CURRICULUM
+        SET MEMO = #{memo,jdbcType=CLOB},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteStudentCurriculum">
+        UPDATE TB_STUDENT_CURRICULUM
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreStudentCurriculum">
+        UPDATE TB_STUDENT_CURRICULUM
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            IS_REENROLLED = 'Y',
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+          AND STATUS = 'N'
+          AND DELETED_AT IS NOT NULL
+    </update>
+
+    <select id="lockStudentCurriculumById" resultMap="studentCurriculumResultMap">
+        SELECT <include refid="studentCurriculumColumns"/>
+        FROM TB_STUDENT_CURRICULUM
+        WHERE STUDENT_CURRICULUM_ID = #{studentCurriculumId}
+        FOR UPDATE WAIT 3
+    </select>
+</mapper>

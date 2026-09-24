@@ -36,6 +36,7 @@ import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.curriculum.domain.ContentDetail;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.curriculum.service.ContentDetailChange;
 import com.yunki.lessonpt.curriculum.service.ContentDetailService;
@@ -87,6 +88,9 @@ class ContentDetailControllerSecurityTest {
 
     @MockitoBean
     private ContentDetailMapper contentDetailMapper;
+
+    @MockitoBean
+    private StudentCurriculumMapper studentCurriculumMapper;
 
     @MockitoBean
     private ContentDetailService contentDetailService;

@@ -31,6 +31,7 @@ import com.yunki.lessonpt.auth.jwt.JwtProvider;
 import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
@@ -69,6 +70,9 @@ class LocationControllerSecurityTest {
 
     @MockitoBean
     private ContentDetailMapper contentDetailMapper;
+
+    @MockitoBean
+    private StudentCurriculumMapper studentCurriculumMapper;
 
     @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;
