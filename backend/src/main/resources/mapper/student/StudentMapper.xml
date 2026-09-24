@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.student.mapper.StudentMapper">
+
+    <resultMap id="studentResultMap" type="com.yunki.lessonpt.student.domain.Student">
+        <id column="STUDENT_ID" property="studentId"/>
+        <result column="EMAIL" property="email"/>
+        <result column="NAME" property="name"/>
+        <result column="PHONE" property="phone"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="studentColumns">
+        STUDENT_ID, EMAIL, NAME, PHONE, CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <select id="selectStudentById" resultMap="studentResultMap">
+        SELECT <include refid="studentColumns"/>
+        FROM TB_STUDENT
+        WHERE STUDENT_ID = #{studentId}
+    </select>
+
+    <select id="selectActiveStudentById" resultMap="studentResultMap">
+        SELECT <include refid="studentColumns"/>
+        FROM TB_STUDENT
+        WHERE STUDENT_ID = #{studentId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <select id="selectStudentByEmail" resultMap="studentResultMap">
+        SELECT <include refid="studentColumns"/>
+        FROM TB_STUDENT
+        WHERE EMAIL = #{email}
+    </select>
+
+    <select id="selectActiveStudentByEmail" resultMap="studentResultMap">
+        SELECT <include refid="studentColumns"/>
+        FROM TB_STUDENT
+        WHERE EMAIL = #{email}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <insert id="insertStudent">
+        <selectKey keyProperty="studentId" resultType="long" order="BEFORE">
+            SELECT SEQ_STUDENT.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_STUDENT (
+            STUDENT_ID, EMAIL, NAME, PHONE, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{studentId},
+            #{email,jdbcType=VARCHAR},
+            #{name},
+            #{phone,jdbcType=VARCHAR},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateStudent">
+        UPDATE TB_STUDENT
+        SET EMAIL = #{email,jdbcType=VARCHAR},
+            NAME = #{name},
+            PHONE = #{phone,jdbcType=VARCHAR},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STUDENT_ID = #{studentId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteStudent">
+        UPDATE TB_STUDENT
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STUDENT_ID = #{studentId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreStudent">
+        UPDATE TB_STUDENT
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STUDENT_ID = #{studentId}
+          AND STATUS = 'N'
+    </update>
+</mapper>

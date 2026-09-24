@@ -15,6 +15,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
+import com.yunki.lessonpt.student.mapper.StudentMapper;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,6 +51,12 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private LocationMapper locationMapper;
+
+    @MockitoBean
+    private StudentMapper studentMapper;
+
+    @MockitoBean
+    private TeacherStudentMapper teacherStudentMapper;
 
     private static final String SECRET_IN_EXCEPTION = "DB password is abc...";
 

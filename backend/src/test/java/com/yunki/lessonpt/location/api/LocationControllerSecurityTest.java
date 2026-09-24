@@ -35,6 +35,8 @@ import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.location.dto.LocationCreateRequest;
 import com.yunki.lessonpt.location.dto.LocationResponse;
 import com.yunki.lessonpt.location.service.LocationService;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
+import com.yunki.lessonpt.student.mapper.StudentMapper;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
@@ -59,6 +61,12 @@ class LocationControllerSecurityTest {
 
     @MockitoBean
     private LocationService locationService;
+
+    @MockitoBean
+    private StudentMapper studentMapper;
+
+    @MockitoBean
+    private TeacherStudentMapper teacherStudentMapper;
 
     private String bearerToken;
 

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper">
+
+    <resultMap id="teacherStudentResultMap" type="com.yunki.lessonpt.relationship.domain.TeacherStudent">
+        <id column="TEACHER_STUDENT_ID" property="teacherStudentId"/>
+        <result column="TEACHER_ID" property="teacherId"/>
+        <result column="STUDENT_ID" property="studentId"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <resultMap id="activeTeacherStudentResultMap" type="com.yunki.lessonpt.relationship.dto.ActiveTeacherStudent">
+        <id column="TEACHER_STUDENT_ID" property="teacherStudentId"/>
+        <result column="STUDENT_ID" property="studentId"/>
+        <result column="EMAIL" property="email"/>
+        <result column="NAME" property="name"/>
+        <result column="PHONE" property="phone"/>
+    </resultMap>
+
+    <sql id="teacherStudentColumns">
+        TEACHER_STUDENT_ID, TEACHER_ID, STUDENT_ID, CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <select id="selectTeacherStudentById" resultMap="teacherStudentResultMap">
+        SELECT <include refid="teacherStudentColumns"/>
+        FROM TB_TEACHER_STUDENT
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+    </select>
+
+    <select id="selectByTeacherIdAndStudentId" resultMap="teacherStudentResultMap">
+        SELECT <include refid="teacherStudentColumns"/>
+        FROM TB_TEACHER_STUDENT
+        WHERE TEACHER_ID = #{teacherId}
+          AND STUDENT_ID = #{studentId}
+    </select>
+
+    <select id="selectActiveByTeacherIdAndStudentId" resultMap="teacherStudentResultMap">
+        SELECT <include refid="teacherStudentColumns"/>
+        FROM TB_TEACHER_STUDENT
+        WHERE TEACHER_ID = #{teacherId}
+          AND STUDENT_ID = #{studentId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveStudentForTeacher" resultMap="activeTeacherStudentResultMap">
+        SELECT ts.TEACHER_STUDENT_ID, s.STUDENT_ID, s.EMAIL, s.NAME, s.PHONE
+        FROM TB_TEACHER_STUDENT ts
+        JOIN TB_STUDENT s ON s.STUDENT_ID = ts.STUDENT_ID
+        WHERE ts.TEACHER_ID = #{teacherId}
+          AND ts.STUDENT_ID = #{studentId}
+          AND ts.STATUS = 'Y'
+          AND ts.DELETED_AT IS NULL
+          AND s.STATUS = 'Y'
+          AND s.DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveStudentsByTeacherId" resultMap="activeTeacherStudentResultMap">
+        SELECT ts.TEACHER_STUDENT_ID, s.STUDENT_ID, s.EMAIL, s.NAME, s.PHONE
+        FROM TB_TEACHER_STUDENT ts
+        JOIN TB_STUDENT s ON s.STUDENT_ID = ts.STUDENT_ID
+        WHERE ts.TEACHER_ID = #{teacherId}
+          AND ts.STATUS = 'Y'
+          AND ts.DELETED_AT IS NULL
+          AND s.STATUS = 'Y'
+          AND s.DELETED_AT IS NULL
+        ORDER BY s.NAME ASC, s.STUDENT_ID ASC
+    </select>
+
+    <insert id="insertTeacherStudent">
+        <selectKey keyProperty="teacherStudentId" resultType="long" order="BEFORE">
+            SELECT SEQ_TEACHER_STUDENT.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_TEACHER_STUDENT (
+            TEACHER_STUDENT_ID, TEACHER_ID, STUDENT_ID, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{teacherStudentId},
+            #{teacherId},
+            #{studentId},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="softDeleteTeacherStudent">
+        UPDATE TB_TEACHER_STUDENT
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_ID = #{teacherId}
+          AND STUDENT_ID = #{studentId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreTeacherStudent">
+        UPDATE TB_TEACHER_STUDENT
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_ID = #{teacherId}
+          AND STUDENT_ID = #{studentId}
+          AND STATUS = 'N'
+    </update>
+
+    <select id="lockTeacherStudentById" resultMap="teacherStudentResultMap">
+        SELECT <include refid="teacherStudentColumns"/>
+        FROM TB_TEACHER_STUDENT
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+        FOR UPDATE WAIT 3
+    </select>
+</mapper>
