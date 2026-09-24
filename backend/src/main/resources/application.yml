@@ -25,6 +25,11 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
+logging:
+  pattern:
+    # 요청 필터가 MDC에 넣은 traceId를 오류 로그와 같은 값으로 남긴다.
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p ${PID:- } --- [%15.15t] [%X{traceId:-}] %-40.40logger{39} : %m%n%wEx"
+
 management:
   endpoints:
     web:
