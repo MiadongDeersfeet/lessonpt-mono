@@ -31,6 +31,8 @@ import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.dto.StudentCreateRequest;
 import com.yunki.lessonpt.student.dto.StudentResponse;
 import com.yunki.lessonpt.student.service.StudentService;
@@ -61,6 +63,12 @@ class StudentControllerSecurityTest {
 
     @MockitoBean
     private LocationMapper locationMapper;
+
+    @MockitoBean
+    private TeacherStudentMapper teacherStudentMapper;
+
+    @MockitoBean
+    private TeacherStudentLocationMapper teacherStudentLocationMapper;
 
     private String bearerToken;
 

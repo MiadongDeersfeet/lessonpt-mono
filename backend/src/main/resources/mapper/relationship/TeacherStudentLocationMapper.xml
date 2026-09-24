@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper">
+
+    <resultMap id="teacherStudentLocationResultMap" type="com.yunki.lessonpt.relationship.domain.TeacherStudentLocation">
+        <id column="TEACHER_STUDENT_LOCATION_ID" property="teacherStudentLocationId"/>
+        <result column="TEACHER_STUDENT_ID" property="teacherStudentId"/>
+        <result column="LOCATION_ID" property="locationId"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <resultMap id="teacherStudentLocationViewResultMap" type="com.yunki.lessonpt.relationship.dto.TeacherStudentLocationView">
+        <id column="TEACHER_STUDENT_LOCATION_ID" property="teacherStudentLocationId"/>
+        <result column="LOCATION_ID" property="locationId"/>
+        <result column="LOCATION_NAME" property="locationName"/>
+        <result column="ADDRESS" property="address"/>
+    </resultMap>
+
+    <sql id="teacherStudentLocationColumns">
+        TEACHER_STUDENT_LOCATION_ID, TEACHER_STUDENT_ID, LOCATION_ID,
+        CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <select id="selectTeacherStudentLocationById" resultMap="teacherStudentLocationResultMap">
+        SELECT <include refid="teacherStudentLocationColumns"/>
+        FROM TB_TEACHER_STUDENT_LOCATION
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+    </select>
+
+    <select id="selectActiveTeacherStudentLocationById" resultMap="teacherStudentLocationResultMap">
+        SELECT <include refid="teacherStudentLocationColumns"/>
+        FROM TB_TEACHER_STUDENT_LOCATION
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <select id="selectByTeacherStudentIdAndLocationId" resultMap="teacherStudentLocationResultMap">
+        SELECT <include refid="teacherStudentLocationColumns"/>
+        FROM TB_TEACHER_STUDENT_LOCATION
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND LOCATION_ID = #{locationId}
+    </select>
+
+    <select id="selectActiveByTeacherStudentIdAndLocationId" resultMap="teacherStudentLocationResultMap">
+        SELECT <include refid="teacherStudentLocationColumns"/>
+        FROM TB_TEACHER_STUDENT_LOCATION
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND LOCATION_ID = #{locationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveByTeacherStudentId" resultMap="teacherStudentLocationResultMap">
+        SELECT <include refid="teacherStudentLocationColumns"/>
+        FROM TB_TEACHER_STUDENT_LOCATION
+        WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+        ORDER BY CREATED_AT ASC, TEACHER_STUDENT_LOCATION_ID ASC
+    </select>
+
+    <sql id="activeLocationLink">
+        FROM TB_TEACHER_STUDENT_LOCATION tsl
+        JOIN TB_LOCATION loc ON loc.LOCATION_ID = tsl.LOCATION_ID
+        WHERE tsl.STATUS = 'Y'
+          AND tsl.DELETED_AT IS NULL
+          AND loc.STATUS = 'Y'
+          AND loc.DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectActiveViewById" resultMap="teacherStudentLocationViewResultMap">
+        SELECT tsl.TEACHER_STUDENT_LOCATION_ID,
+               tsl.LOCATION_ID,
+               loc.NAME AS LOCATION_NAME,
+               loc.ADDRESS
+        <include refid="activeLocationLink"/>
+          AND tsl.TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+    </select>
+
+    <select id="selectActiveViewsByTeacherStudentId" resultMap="teacherStudentLocationViewResultMap">
+        SELECT tsl.TEACHER_STUDENT_LOCATION_ID,
+               tsl.LOCATION_ID,
+               loc.NAME AS LOCATION_NAME,
+               loc.ADDRESS
+        <include refid="activeLocationLink"/>
+          AND tsl.TEACHER_STUDENT_ID = #{teacherStudentId}
+        ORDER BY tsl.CREATED_AT ASC, tsl.TEACHER_STUDENT_LOCATION_ID ASC
+    </select>
+
+    <insert id="insertTeacherStudentLocation">
+        <selectKey keyProperty="teacherStudentLocationId" resultType="long" order="BEFORE">
+            SELECT SEQ_TEACHER_STUDENT_LOCATION.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_TEACHER_STUDENT_LOCATION (
+            TEACHER_STUDENT_LOCATION_ID, TEACHER_STUDENT_ID, LOCATION_ID, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{teacherStudentLocationId},
+            #{teacherStudentId},
+            #{locationId},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="softDeleteTeacherStudentLocation">
+        UPDATE TB_TEACHER_STUDENT_LOCATION
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="restoreTeacherStudentLocation">
+        UPDATE TB_TEACHER_STUDENT_LOCATION
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+          AND STATUS = 'N'
+    </update>
+
+    <select id="lockTeacherStudentLocationById" resultMap="teacherStudentLocationResultMap">
+        SELECT <include refid="teacherStudentLocationColumns"/>
+        FROM TB_TEACHER_STUDENT_LOCATION
+        WHERE TEACHER_STUDENT_LOCATION_ID = #{teacherStudentLocationId}
+        FOR UPDATE WAIT 3
+    </select>
+</mapper>

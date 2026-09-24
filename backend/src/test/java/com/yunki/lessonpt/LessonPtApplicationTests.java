@@ -11,6 +11,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
 import com.yunki.lessonpt.location.mapper.LocationMapper;
+import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.mapper.StudentMapper;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
@@ -45,6 +46,9 @@ class LessonPtApplicationTests {
 
     @MockitoBean
     private TeacherStudentMapper teacherStudentMapper;
+
+    @MockitoBean
+    private TeacherStudentLocationMapper teacherStudentLocationMapper;
 
     @Autowired
     private MockMvc mockMvc;

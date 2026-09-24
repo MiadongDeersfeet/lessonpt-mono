@@ -39,4 +39,6 @@ public interface LocationMapper {
     int shiftActiveDisplayOrdersDown(
             @Param("teacherId") Long teacherId,
             @Param("displayOrder") Integer displayOrder);
+
+    Location lockLocationById(Long locationId);
 }

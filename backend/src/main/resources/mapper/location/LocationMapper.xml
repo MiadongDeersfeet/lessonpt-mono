@@ -129,4 +129,11 @@
           AND DELETED_AT IS NULL
           AND DISPLAY_ORDER &gt; #{displayOrder}
     </update>
+
+    <select id="lockLocationById" resultMap="locationResultMap">
+        SELECT <include refid="locationColumns"/>
+        FROM TB_LOCATION
+        WHERE LOCATION_ID = #{locationId}
+        FOR UPDATE WAIT 3
+    </select>
 </mapper>
