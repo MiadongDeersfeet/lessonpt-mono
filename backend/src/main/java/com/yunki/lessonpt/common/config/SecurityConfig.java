@@ -1,5 +1,7 @@
 package com.yunki.lessonpt.common.config;
 
+import java.time.Clock;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -30,6 +32,11 @@ import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
+
+    @Bean
+    Clock clock() {
+        return Clock.systemDefaultZone();
+    }
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -63,7 +70,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/login",
-                                "/api/v1/auth/refresh").permitAll()
+                                "/api/v1/auth/refresh",
+                                "/api/v1/student-access/*/otp",
+                                "/api/v1/student-access/*/otp/verify").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

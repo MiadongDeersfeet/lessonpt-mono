@@ -11,6 +11,8 @@ spring:
     password: ${LESSONPT_DB_PASSWORD}
     hikari:
       initialization-fail-timeout: -1
+      maximum-pool-size: 1
+      minimum-idle: 0
 
 logging:
   level:

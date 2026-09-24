@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 값이 없으면 실패로 처리하지 않고 건너뛴다.
  * 개발 Schema에 붙어 있어도 조회만 하고 데이터는 쓰지 않는다.
  */
-@SpringBootTest(properties = "spring.profiles.active=test")
+@SpringBootTest(properties = "lessonpt.jwt.secret=01234567890123456789012345678901")
 @ActiveProfiles("test")
 @EnabledIfEnvironmentVariable(named = "LESSONPT_DB_URL", matches = ".+")
 class OracleSmokeMapperTest {

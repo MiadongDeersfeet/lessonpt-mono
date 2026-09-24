@@ -96,4 +96,11 @@
           AND STATUS = 'Y'
           AND REVOKED_AT IS NULL
     </update>
+
+    <select id="lockTeacherStudentAccessById" resultMap="teacherStudentAccessResultMap">
+        SELECT <include refid="teacherStudentAccessColumns"/>
+        FROM TB_TEACHER_STUDENT_ACCESS
+        WHERE TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+        FOR UPDATE WAIT 3
+    </select>
 </mapper>

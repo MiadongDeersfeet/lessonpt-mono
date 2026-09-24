@@ -33,7 +33,9 @@ import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.dto.TeacherStudentAccessResponse;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
+import com.yunki.lessonpt.relationship.service.StudentEmailVerificationService;
 import com.yunki.lessonpt.relationship.service.TeacherStudentAccessService;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
@@ -90,7 +92,13 @@ class StudentControllerSecurityTest {
     private TeacherStudentAccessMapper teacherStudentAccessMapper;
 
     @MockitoBean
+    private StudentEmailVerificationMapper studentEmailVerificationMapper;
+
+    @MockitoBean
     private TeacherStudentAccessService teacherStudentAccessService;
+
+    @MockitoBean
+    private StudentEmailVerificationService studentEmailVerificationService;
 
     @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;
@@ -221,6 +229,52 @@ class StudentControllerSecurityTest {
         mockMvc.perform(get("/api/v1/students/99/access").header(HttpHeaders.AUTHORIZATION, bearerToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
+    }
+
+    @Test
+    void otpEndpointsArePublicAndDoNotLeakLookupFailures() throws Exception {
+        mockMvc.perform(post("/api/v1/student-access/missing-key/otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"student@lessonpt.local"}
+                                """))
+                .andExpect(status().isNoContent());
+        verify(studentEmailVerificationService).issue("missing-key", "student@lessonpt.local");
+
+        mockMvc.perform(post("/api/v1/student-access/missing-key/otp/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"student@lessonpt.local","otp":"123456"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.verified").value(true))
+                .andExpect(jsonPath("$.otp").doesNotExist());
+
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.COMMON_NOT_FOUND))
+                .when(studentEmailVerificationService).issue("missing-key", "student@lessonpt.local");
+        mockMvc.perform(post("/api/v1/student-access/missing-key/otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"student@lessonpt.local"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("요청한 대상을 찾을 수 없습니다."))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("student@lessonpt.local"))));
+
+        mockMvc.perform(post("/api/v1/student-access/missing-key/otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":" "}
+                                """))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/student-access/missing-key/otp/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"student@lessonpt.local","otp":"12"}
+                                """))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/students")).andExpect(status().isUnauthorized());
     }
 
     private void authenticate(Long teacherId) {

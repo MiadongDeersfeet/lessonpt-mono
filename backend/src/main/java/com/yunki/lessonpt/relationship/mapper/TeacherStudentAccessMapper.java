@@ -27,4 +27,6 @@ public interface TeacherStudentAccessMapper {
      * 관계의 활성 접근권한만 폐기한다. 영향 행 0은 정상이다.
      */
     int softDeleteActiveByTeacherStudentId(Long teacherStudentId);
+
+    TeacherStudentAccess lockTeacherStudentAccessById(Long teacherStudentAccessId);
 }
