@@ -10,8 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
+import com.yunki.lessonpt.curriculum.domain.Category;
 import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.dto.CurriculumUpdateRequest;
+import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
+import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
@@ -24,6 +27,8 @@ public class CurriculumService {
 
     private final CurriculumMapper curriculumMapper;
     private final TeacherMapper teacherMapper;
+    private final CategoryMapper categoryMapper;
+    private final ContentDetailMapper contentDetailMapper;
 
     @Transactional
     public Curriculum createCurriculum(Long teacherId, String name) {
@@ -69,13 +74,18 @@ public class CurriculumService {
     }
 
     /**
-     * 커리큘럼 행만 비활성화하고, 같은 강사의 뒤 순서를 당긴다.
-     * TODO: Category와 ContentDetail이 구현되면 삭제 시 하위 행도 soft delete한다. 하위는 자동 복구하지 않는다.
+     * 커리큘럼과 그 active 카테고리, 내용을 비활성화하고, 같은 강사의 뒤 커리큘럼 순서를 당긴다.
+     * 하위 표시 순서는 압축하지 않는다. 삭제한 하위 행은 커리큘럼 복구 때 되살리지 않는다.
      */
     @Transactional
     public void deleteCurriculum(Long teacherId, Long curriculumId) {
         lockActiveTeacher(teacherId);
         Curriculum curriculum = requireActive(teacherId, curriculumId);
+        List<Category> categories = categoryMapper.selectActiveCategoriesByCurriculumId(curriculumId);
+        for (Category category : categories) {
+            contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(category.getCategoryId());
+        }
+        categoryMapper.softDeleteActiveCategoriesByCurriculumId(curriculumId);
         expectOne(curriculumMapper.softDeleteCurriculum(curriculumId, teacherId));
         curriculumMapper.shiftActiveDisplayOrdersDown(teacherId, curriculum.getDisplayOrder());
     }

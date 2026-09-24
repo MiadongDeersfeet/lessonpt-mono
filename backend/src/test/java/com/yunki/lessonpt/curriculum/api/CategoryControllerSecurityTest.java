@@ -30,6 +30,8 @@ import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.curriculum.domain.Category;
+import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
+import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.curriculum.dto.CategoryUpdateRequest;
 import com.yunki.lessonpt.curriculum.service.CategoryService;
@@ -78,6 +80,12 @@ class CategoryControllerSecurityTest {
 
     @MockitoBean
     private CurriculumMapper curriculumMapper;
+
+    @MockitoBean
+    private CategoryMapper categoryMapper;
+
+    @MockitoBean
+    private ContentDetailMapper contentDetailMapper;
 
     private String bearerToken;
 

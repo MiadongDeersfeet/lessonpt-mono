@@ -86,6 +86,10 @@ class CategoryMapperTest {
         String update = sql(NAMESPACE + ".updateCategory");
 
         assertThat(softDelete).contains("STATUS = 'N'", "DELETED_AT = SYSTIMESTAMP", "CURRICULUM_ID = ?");
+        String bulk = sql(NAMESPACE + ".softDeleteActiveCategoriesByCurriculumId");
+        assertThat(bulk).contains(
+                "STATUS = 'N'", "DELETED_AT = SYSTIMESTAMP", "CURRICULUM_ID = ?", "STATUS = 'Y'", "DELETED_AT IS NULL");
+        assertThat(bulk).doesNotContain("CATEGORY_ID =");
         assertThat(restore).contains("STATUS = 'Y'", "DELETED_AT = NULL", "DISPLAY_ORDER = ?", "CURRICULUM_ID = ?");
         assertThat(shift).contains("DISPLAY_ORDER = DISPLAY_ORDER - 1", "CURRICULUM_ID = ?", "DISPLAY_ORDER > ?");
         assertThat(update).contains("NAME = ?").doesNotContain("DISPLAY_ORDER =");

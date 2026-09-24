@@ -14,6 +14,7 @@ import com.yunki.lessonpt.curriculum.domain.Category;
 import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.dto.CategoryUpdateRequest;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
+import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class CategoryService {
 
     private final CategoryMapper categoryMapper;
     private final CurriculumMapper curriculumMapper;
+    private final ContentDetailMapper contentDetailMapper;
 
     @Transactional
     public Category createCategory(Long teacherId, Long curriculumId, String name) {
@@ -74,13 +76,14 @@ public class CategoryService {
     }
 
     /**
-     * 카테고리 행만 비활성화하고, 같은 커리큘럼의 뒤 순서를 당긴다.
-     * TODO: ContentDetail이 구현되면 삭제 시 하위 행도 soft delete한다. 하위는 자동 복구하지 않는다.
+     * 카테고리와 그 active 내용을 비활성화하고, 같은 커리큘럼의 뒤 카테고리 순서를 당긴다.
+     * 내용의 표시 순서는 압축하지 않는다. 삭제한 내용은 카테고리 복구 때 되살리지 않는다.
      */
     @Transactional
     public void deleteCategory(Long teacherId, Long curriculumId, Long categoryId) {
         lockOwnedCurriculum(teacherId, curriculumId);
         Category category = requireActive(curriculumId, categoryId);
+        contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(categoryId);
         expectOne(categoryMapper.softDeleteCategory(categoryId, curriculumId));
         categoryMapper.shiftActiveDisplayOrdersDown(curriculumId, category.getDisplayOrder());
     }

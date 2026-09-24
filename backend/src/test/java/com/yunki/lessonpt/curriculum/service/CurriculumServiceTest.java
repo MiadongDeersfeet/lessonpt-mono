@@ -22,8 +22,11 @@ import org.springframework.dao.CannotAcquireLockException;
 import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
+import com.yunki.lessonpt.curriculum.domain.Category;
 import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.dto.CurriculumUpdateRequest;
+import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
+import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
@@ -37,11 +40,17 @@ class CurriculumServiceTest {
     @Mock
     private TeacherMapper teacherMapper;
 
+    @Mock
+    private CategoryMapper categoryMapper;
+
+    @Mock
+    private ContentDetailMapper contentDetailMapper;
+
     private CurriculumService curriculumService;
 
     @BeforeEach
     void setUp() {
-        curriculumService = new CurriculumService(curriculumMapper, teacherMapper);
+        curriculumService = new CurriculumService(curriculumMapper, teacherMapper, categoryMapper, contentDetailMapper);
     }
 
     @Test
@@ -140,16 +149,48 @@ class CurriculumServiceTest {
     void deleteSoftDeletesAndCompressesOnlyThatTeacher() {
         stubActiveTeacher();
         when(curriculumMapper.selectActiveCurriculumByIdAndTeacherId(50L, 8L)).thenReturn(saved(50L, 8L, 1, "입문"));
+        when(categoryMapper.selectActiveCategoriesByCurriculumId(50L)).thenReturn(List.of());
+        when(categoryMapper.softDeleteActiveCategoriesByCurriculumId(50L)).thenReturn(0);
         when(curriculumMapper.softDeleteCurriculum(50L, 8L)).thenReturn(1);
 
         curriculumService.deleteCurriculum(8L, 50L);
 
-        InOrder order = inOrder(teacherMapper, curriculumMapper);
+        InOrder order = inOrder(teacherMapper, curriculumMapper, categoryMapper);
         order.verify(teacherMapper).lockTeacherById(8L);
         order.verify(curriculumMapper).selectActiveCurriculumByIdAndTeacherId(50L, 8L);
+        order.verify(categoryMapper).selectActiveCategoriesByCurriculumId(50L);
+        order.verify(categoryMapper).softDeleteActiveCategoriesByCurriculumId(50L);
         order.verify(curriculumMapper).softDeleteCurriculum(50L, 8L);
         order.verify(curriculumMapper).shiftActiveDisplayOrdersDown(8L, 1);
+        verify(contentDetailMapper, never()).softDeleteActiveContentDetailsByCategoryId(any());
         verify(curriculumMapper, never()).shiftActiveDisplayOrdersDown(org.mockito.ArgumentMatchers.eq(9L), any());
+    }
+
+    @Test
+    void deleteCascadesCategoriesAndContentDetailsWithoutCompressingChildren() {
+        stubActiveTeacher();
+        when(curriculumMapper.selectActiveCurriculumByIdAndTeacherId(50L, 8L)).thenReturn(saved(50L, 8L, 2, "입문"));
+        when(categoryMapper.selectActiveCategoriesByCurriculumId(50L))
+                .thenReturn(List.of(category(70L, 50L), category(71L, 50L)));
+        when(contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(70L)).thenReturn(0);
+        when(contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(71L)).thenReturn(2);
+        when(categoryMapper.softDeleteActiveCategoriesByCurriculumId(50L)).thenReturn(2);
+        when(curriculumMapper.softDeleteCurriculum(50L, 8L)).thenReturn(1);
+
+        curriculumService.deleteCurriculum(8L, 50L);
+
+        InOrder order = inOrder(teacherMapper, categoryMapper, contentDetailMapper, curriculumMapper);
+        order.verify(teacherMapper).lockTeacherById(8L);
+        order.verify(categoryMapper).selectActiveCategoriesByCurriculumId(50L);
+        order.verify(contentDetailMapper).softDeleteActiveContentDetailsByCategoryId(70L);
+        order.verify(contentDetailMapper).softDeleteActiveContentDetailsByCategoryId(71L);
+        order.verify(categoryMapper).softDeleteActiveCategoriesByCurriculumId(50L);
+        order.verify(curriculumMapper).softDeleteCurriculum(50L, 8L);
+        order.verify(curriculumMapper).shiftActiveDisplayOrdersDown(8L, 2);
+        verify(contentDetailMapper, never()).softDeleteActiveContentDetailsByCategoryId(80L);
+        verify(categoryMapper, never()).softDeleteActiveCategoriesByCurriculumId(51L);
+        verify(categoryMapper, never()).shiftActiveDisplayOrdersDown(any(), any());
+        verify(contentDetailMapper, never()).shiftActiveDisplayOrdersDown(any(), any());
     }
 
     @Test
@@ -160,6 +201,9 @@ class CurriculumServiceTest {
         verify(curriculumMapper, never()).softDeleteCurriculum(any(), any());
 
         when(curriculumMapper.selectActiveCurriculumByIdAndTeacherId(50L, 8L)).thenReturn(saved(50L, 8L, 1, "입문"));
+        when(categoryMapper.selectActiveCategoriesByCurriculumId(50L)).thenReturn(List.of(category(70L, 50L)));
+        when(contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(70L)).thenReturn(1);
+        when(categoryMapper.softDeleteActiveCategoriesByCurriculumId(50L)).thenReturn(1);
         when(curriculumMapper.softDeleteCurriculum(50L, 8L)).thenReturn(0);
         assertCode(ErrorCode.COMMON_INTERNAL_ERROR, () -> curriculumService.deleteCurriculum(8L, 50L));
         verify(curriculumMapper, never()).shiftActiveDisplayOrdersDown(any(), any());
@@ -184,6 +228,8 @@ class CurriculumServiceTest {
         order.verify(curriculumMapper).restoreCurriculum(captor.capture());
         assertThat(captor.getValue().getDisplayOrder()).isEqualTo(3);
         assertThat(restored.getDisplayOrder()).isEqualTo(3);
+        verify(categoryMapper, never()).restoreCategory(any());
+        verify(contentDetailMapper, never()).restoreContentDetail(any());
     }
 
     @Test
@@ -209,6 +255,14 @@ class CurriculumServiceTest {
         assertCode(ErrorCode.COMMON_INTERNAL_ERROR, () -> curriculumService.restoreCurriculum(8L, 52L));
         verify(curriculumMapper, never()).restoreCurriculum(org.mockito.ArgumentMatchers.argThat(
                 curriculum -> curriculum.getTeacherId() != null && curriculum.getTeacherId().equals(9L)));
+    }
+
+    private Category category(Long categoryId, Long curriculumId) {
+        Category category = new Category();
+        category.setCategoryId(categoryId);
+        category.setCurriculumId(curriculumId);
+        category.setStatus(RecordStatus.ACTIVE);
+        return category;
     }
 
     private CurriculumUpdateRequest updateName(String name) {

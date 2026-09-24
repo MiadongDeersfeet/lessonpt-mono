@@ -80,6 +80,16 @@
           AND DELETED_AT IS NULL
     </update>
 
+    <update id="softDeleteActiveCategoriesByCurriculumId">
+        UPDATE TB_CATEGORY
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CURRICULUM_ID = #{curriculumId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
     <update id="softDeleteCategory">
         UPDATE TB_CATEGORY
         SET STATUS = 'N',

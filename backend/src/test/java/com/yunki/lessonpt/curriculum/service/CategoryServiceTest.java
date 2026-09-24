@@ -27,6 +27,7 @@ import com.yunki.lessonpt.curriculum.domain.Category;
 import com.yunki.lessonpt.curriculum.dto.CategoryUpdateRequest;
 import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
+import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,11 +39,14 @@ class CategoryServiceTest {
     @Mock
     private CurriculumMapper curriculumMapper;
 
+    @Mock
+    private ContentDetailMapper contentDetailMapper;
+
     private CategoryService categoryService;
 
     @BeforeEach
     void setUp() {
-        categoryService = new CategoryService(categoryMapper, curriculumMapper);
+        categoryService = new CategoryService(categoryMapper, curriculumMapper, contentDetailMapper);
     }
 
     @Test
@@ -153,14 +157,18 @@ class CategoryServiceTest {
         stubOwnedCurriculum();
         when(categoryMapper.selectActiveCategoryByIdAndCurriculumId(70L, 40L)).thenReturn(saved(70L, 40L, 1, "준비"));
         when(categoryMapper.softDeleteCategory(70L, 40L)).thenReturn(1);
+        when(contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(70L)).thenReturn(0);
 
         categoryService.deleteCategory(8L, 40L, 70L);
 
-        InOrder order = inOrder(curriculumMapper, categoryMapper);
+        InOrder order = inOrder(curriculumMapper, categoryMapper, contentDetailMapper);
         order.verify(curriculumMapper).lockCurriculumById(40L);
         order.verify(categoryMapper).selectActiveCategoryByIdAndCurriculumId(70L, 40L);
+        order.verify(contentDetailMapper).softDeleteActiveContentDetailsByCategoryId(70L);
         order.verify(categoryMapper).softDeleteCategory(70L, 40L);
         order.verify(categoryMapper).shiftActiveDisplayOrdersDown(40L, 1);
+        verify(contentDetailMapper, never()).softDeleteActiveContentDetailsByCategoryId(71L);
+        verify(contentDetailMapper, never()).shiftActiveDisplayOrdersDown(any(), any());
         verify(categoryMapper, never()).shiftActiveDisplayOrdersDown(eq(41L), any());
     }
 
@@ -172,6 +180,14 @@ class CategoryServiceTest {
 
         stubOwnedCurriculum();
         when(categoryMapper.selectActiveCategoryByIdAndCurriculumId(70L, 40L)).thenReturn(saved(70L, 40L, 1, "준비"));
+        org.mockito.Mockito.doThrow(new IllegalStateException("db"))
+                .when(contentDetailMapper).softDeleteActiveContentDetailsByCategoryId(70L);
+        assertThatThrownBy(() -> categoryService.deleteCategory(8L, 40L, 70L))
+                .isInstanceOf(IllegalStateException.class);
+        verify(categoryMapper, never()).softDeleteCategory(any(), any());
+
+        org.mockito.Mockito.doReturn(2)
+                .when(contentDetailMapper).softDeleteActiveContentDetailsByCategoryId(70L);
         when(categoryMapper.softDeleteCategory(70L, 40L)).thenReturn(0);
         assertCode(ErrorCode.COMMON_INTERNAL_ERROR, () -> categoryService.deleteCategory(8L, 40L, 70L));
         verify(categoryMapper, never()).shiftActiveDisplayOrdersDown(any(), any());
@@ -196,6 +212,7 @@ class CategoryServiceTest {
         order.verify(categoryMapper).restoreCategory(captor.capture());
         assertThat(captor.getValue().getDisplayOrder()).isEqualTo(3);
         assertThat(restored.getDisplayOrder()).isEqualTo(3);
+        verify(contentDetailMapper, never()).restoreContentDetail(any());
     }
 
     @Test

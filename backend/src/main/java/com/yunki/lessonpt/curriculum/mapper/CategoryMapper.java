@@ -25,12 +25,18 @@ public interface CategoryMapper {
     int updateCategory(Category category);
 
     /**
-     * 카테고리 행만 비활성화한다.
-     * TODO: ContentDetail이 구현되면 삭제 시 하위 행 soft delete는 Service에서 이어서 처리한다.
+     * 카테고리 한 행을 비활성화한다.
+     * 하위 내용 삭제는 Service가 같은 트랜잭션에서 처리한다.
      */
     int softDeleteCategory(
             @Param("categoryId") Long categoryId,
             @Param("curriculumId") Long curriculumId);
+
+    /**
+     * 같은 커리큘럼의 active 카테고리를 한 번에 비활성화한다.
+     * 영향 행 0은 정상이다. 표시 순서는 압축하지 않는다.
+     */
+    int softDeleteActiveCategoriesByCurriculumId(Long curriculumId);
 
     int restoreCategory(Category category);
 
