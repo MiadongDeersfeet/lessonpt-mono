@@ -7,6 +7,10 @@ import org.junit.jupiter.api.Test;
 import com.yunki.lessonpt.common.diagnostic.SchemaV3Tables;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
+import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -23,6 +27,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = "spring.profiles.active=context")
 @AutoConfigureMockMvc
 class LessonPtApplicationTests {
+
+    @MockitoBean
+    private TeacherMapper teacherMapper;
+
+    @MockitoBean
+    private TeacherAuthSessionMapper teacherAuthSessionMapper;
 
     @Autowired
     private MockMvc mockMvc;

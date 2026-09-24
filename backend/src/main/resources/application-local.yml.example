@@ -7,6 +7,7 @@
 # LESSONPT_DB_USERNAME          예: DRUMMER_LMS
 # LESSONPT_DB_PASSWORD
 # LESSONPT_DB_EXPECTED_SCHEMA   생략하면 DRUMMER_LMS
+# LESSONPT_JWT_SECRET           32바이트 이상. 저장소에 적지 않는다.
 
 spring:
   datasource:

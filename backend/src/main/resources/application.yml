@@ -18,6 +18,11 @@ lessonpt:
   oracle:
     # 지금 개발 Schema 이름이다. 다른 계정이면 LESSONPT_DB_EXPECTED_SCHEMA 로 바꾼다.
     expected-schema: ${LESSONPT_DB_EXPECTED_SCHEMA:DRUMMER_LMS}
+  jwt:
+    # 실제 값은 LESSONPT_JWT_SECRET 환경변수로만 넣는다. 32바이트 이상이어야 한다.
+    secret: ${LESSONPT_JWT_SECRET:}
+    access-token-ttl: 60m
+    refresh-token-ttl: 14d
 
 mybatis:
   # 도메인 Mapper XML은 기능을 추가할 때 mapper 아래에 둔다.

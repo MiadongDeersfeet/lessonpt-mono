@@ -1,33 +1,72 @@
 package com.yunki.lessonpt.common.config;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.yunki.lessonpt.auth.jwt.JwtProperties;
+import com.yunki.lessonpt.auth.jwt.JwtProvider;
+import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
+import com.yunki.lessonpt.auth.security.AuthErrorWriter;
+import com.yunki.lessonpt.auth.security.JwtAuthenticationFilter;
+import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
 /**
- * 지금 단계의 보안 설정이다.
+ * 가입, 로그인, 재발급만 인증 없이 연다.
  *
- * Teacher JWT는 아직 없다. 로그인 폼과 기본 메모리 사용자도 만들지 않는다.
- * 기본 사용자는 application.yml에서 UserDetailsService 자동 설정을 빼서 막는다.
- *
- * /actuator/health 는 인증 없이 열어서 Oracle 연결 상태를 볼 수 있게 한다.
- * 세션 로그인 폼을 쓰지 않으므로 CSRF도 꺼 둔다.
- * 그 외 경로는 일단 모두 허용해 두고, 인증 규칙은 Teacher Auth를 넣을 때 잠근다.
+ * JWT 필터는 Security 체인 안에서 UsernamePasswordAuthenticationFilter보다 먼저 실행한다.
+ * traceId 필터는 서블릿 필터로 그 앞에 있으므로 여기서 다시 넣지 않는다.
  */
 @Configuration
+@EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    JwtAuthenticationFilter jwtAuthenticationFilter(
+            ObjectProvider<TeacherMapper> teacherMapper,
+            ObjectProvider<TeacherAuthSessionMapper> sessionMapper,
+            JwtProvider jwtProvider,
+            AuthErrorWriter authErrorWriter) {
+        return new JwtAuthenticationFilter(teacherMapper, sessionMapper, jwtProvider, authErrorWriter);
+    }
+
+    @Bean
+    @Order(0)
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuthErrorWriter authErrorWriter) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(handler -> handler.authenticationEntryPoint(
+                        (request, response, exception) -> authErrorWriter.writeUnauthorized(request, response)))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/signup",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .anyRequest().permitAll());
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

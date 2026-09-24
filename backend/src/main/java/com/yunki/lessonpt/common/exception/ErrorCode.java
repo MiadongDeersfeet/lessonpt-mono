@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     COMMON_INVALID_INPUT(HttpStatus.BAD_REQUEST, "요청 값이 올바르지 않습니다."),
+    AUTH_FAILED(HttpStatus.UNAUTHORIZED, "인증에 실패했습니다."),
     COMMON_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 대상을 찾을 수 없습니다."),
     COMMON_CONFLICT(HttpStatus.CONFLICT, "요청이 현재 상태와 충돌합니다."),
     COMMON_METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "허용되지 않은 요청 방식입니다."),

@@ -4,7 +4,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
+import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -27,8 +37,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(properties = "spring.profiles.active=context")
 @AutoConfigureMockMvc
-@Import(ErrorHandlingTestController.class)
+@Import({ErrorHandlingTestController.class, GlobalExceptionHandlerTest.PermitTestErrors.class})
 class GlobalExceptionHandlerTest {
+
+    @MockitoBean
+    private TeacherMapper teacherMapper;
+
+    @MockitoBean
+    private TeacherAuthSessionMapper teacherAuthSessionMapper;
 
     private static final String SECRET_IN_EXCEPTION = "DB password is abc...";
 
@@ -155,5 +171,22 @@ class GlobalExceptionHandlerTest {
                     String body = result.getResponse().getContentAsString();
                     org.assertj.core.api.Assertions.assertThat(body).contains(header);
                 });
+    }
+
+    /**
+     * 오류 형식 테스트는 인증 대상이 아니다.
+     * 운영 보안 설정은 그대로 두고, 이 경로만 테스트 체인에서 연다.
+     */
+    @TestConfiguration
+    static class PermitTestErrors {
+
+        @Bean
+        @Order(-1)
+        SecurityFilterChain testErrorChain(HttpSecurity http) throws Exception {
+            http.securityMatcher("/api/test/**")
+                    .csrf(AbstractHttpConfigurer::disable)
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
     }
 }

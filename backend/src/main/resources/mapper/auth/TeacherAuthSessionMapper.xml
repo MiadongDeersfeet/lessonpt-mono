@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper">
+
+    <resultMap id="authSessionResultMap" type="com.yunki.lessonpt.auth.domain.TeacherAuthSession">
+        <id column="AUTH_SESSION_ID" property="authSessionId"/>
+        <result column="TEACHER_ID" property="teacherId"/>
+        <result column="ACCESS_JTI" property="accessJti"/>
+        <result column="REFRESH_TOKEN_HASH" property="refreshTokenHash"/>
+        <result column="ACCESS_EXPIRES_AT" property="accessExpiresAt"/>
+        <result column="REFRESH_EXPIRES_AT" property="refreshExpiresAt"/>
+        <result column="LAST_USED_AT" property="lastUsedAt"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="sessionColumns">
+        AUTH_SESSION_ID, TEACHER_ID, ACCESS_JTI, REFRESH_TOKEN_HASH,
+        ACCESS_EXPIRES_AT, REFRESH_EXPIRES_AT, LAST_USED_AT, CREATED_AT, UPDATED_AT
+    </sql>
+
+    <insert id="insertAuthSession" parameterType="com.yunki.lessonpt.auth.domain.TeacherAuthSession">
+        <selectKey keyProperty="authSessionId" order="AFTER" resultType="long">
+            SELECT AUTH_SESSION_ID
+            FROM TB_TEACHER_AUTH_SESSION
+            WHERE ACCESS_JTI = #{accessJti}
+        </selectKey>
+        INSERT INTO TB_TEACHER_AUTH_SESSION (
+            TEACHER_ID, ACCESS_JTI, REFRESH_TOKEN_HASH,
+            ACCESS_EXPIRES_AT, REFRESH_EXPIRES_AT, LAST_USED_AT, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{teacherId},
+            #{accessJti},
+            #{refreshTokenHash},
+            #{accessExpiresAt},
+            #{refreshExpiresAt},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <select id="selectActiveSessionByAccessJti" resultMap="authSessionResultMap">
+        SELECT <include refid="sessionColumns"/>
+        FROM TB_TEACHER_AUTH_SESSION
+        WHERE ACCESS_JTI = #{accessJti}
+          AND REFRESH_EXPIRES_AT > SYSTIMESTAMP
+    </select>
+
+    <select id="selectSessionByRefreshTokenHash" resultMap="authSessionResultMap">
+        SELECT <include refid="sessionColumns"/>
+        FROM TB_TEACHER_AUTH_SESSION
+        WHERE REFRESH_TOKEN_HASH = #{refreshTokenHash}
+          AND REFRESH_EXPIRES_AT > SYSTIMESTAMP
+    </select>
+
+    <update id="updateLastUsedAt">
+        UPDATE TB_TEACHER_AUTH_SESSION
+        SET LAST_USED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE AUTH_SESSION_ID = #{authSessionId}
+    </update>
+
+    <update id="updateAccessToken">
+        UPDATE TB_TEACHER_AUTH_SESSION
+        SET ACCESS_JTI = #{accessJti},
+            ACCESS_EXPIRES_AT = #{accessExpiresAt},
+            LAST_USED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE AUTH_SESSION_ID = #{authSessionId}
+    </update>
+
+    <delete id="deleteAuthSession">
+        DELETE FROM TB_TEACHER_AUTH_SESSION
+        WHERE AUTH_SESSION_ID = #{authSessionId}
+    </delete>
+
+    <delete id="deleteAuthSessionsByTeacherId">
+        DELETE FROM TB_TEACHER_AUTH_SESSION
+        WHERE TEACHER_ID = #{teacherId}
+    </delete>
+</mapper>

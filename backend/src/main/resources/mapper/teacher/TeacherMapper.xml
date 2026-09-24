@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.teacher.mapper.TeacherMapper">
+
+    <resultMap id="teacherResultMap" type="com.yunki.lessonpt.teacher.domain.Teacher">
+        <id column="TEACHER_ID" property="teacherId"/>
+        <result column="EMAIL" property="email"/>
+        <result column="PASSWORD_HASH" property="passwordHash"/>
+        <result column="NAME" property="name"/>
+        <result column="PHONE" property="phone"/>
+        <result column="ROLE" property="role"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="teacherColumns">
+        TEACHER_ID, EMAIL, PASSWORD_HASH, NAME, PHONE, ROLE,
+        CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <select id="selectTeacherById" resultMap="teacherResultMap">
+        SELECT <include refid="teacherColumns"/>
+        FROM TB_TEACHER
+        WHERE TEACHER_ID = #{teacherId}
+    </select>
+
+    <select id="selectActiveTeacherById" resultMap="teacherResultMap">
+        SELECT <include refid="teacherColumns"/>
+        FROM TB_TEACHER
+        WHERE TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <select id="selectTeacherByEmail" resultMap="teacherResultMap">
+        SELECT <include refid="teacherColumns"/>
+        FROM TB_TEACHER
+        WHERE EMAIL = #{email}
+    </select>
+
+    <select id="selectActiveTeacherByEmail" resultMap="teacherResultMap">
+        SELECT <include refid="teacherColumns"/>
+        FROM TB_TEACHER
+        WHERE EMAIL = #{email}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </select>
+
+    <insert id="insertTeacher" parameterType="com.yunki.lessonpt.teacher.domain.Teacher">
+        <selectKey keyProperty="teacherId" order="AFTER" resultType="long">
+            SELECT TEACHER_ID FROM TB_TEACHER WHERE EMAIL = #{email}
+        </selectKey>
+        INSERT INTO TB_TEACHER (
+            EMAIL, PASSWORD_HASH, NAME, PHONE, ROLE, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{email},
+            #{passwordHash},
+            #{name},
+            #{phone, jdbcType=VARCHAR},
+            #{role},
+            #{status, jdbcType=CHAR, typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="updateTeacher">
+        UPDATE TB_TEACHER
+        SET NAME = #{name},
+            PHONE = #{phone, jdbcType=VARCHAR},
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteTeacher">
+        UPDATE TB_TEACHER
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_ID = #{teacherId}
+          AND STATUS = 'Y'
+    </update>
+
+    <update id="restoreTeacher">
+        UPDATE TB_TEACHER
+        SET STATUS = 'Y',
+            DELETED_AT = NULL,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE TEACHER_ID = #{teacherId}
+    </update>
+
+    <select id="lockTeacherById" resultMap="teacherResultMap">
+        SELECT <include refid="teacherColumns"/>
+        FROM TB_TEACHER
+        WHERE TEACHER_ID = #{teacherId}
+        FOR UPDATE WAIT 3
+    </select>
+</mapper>
