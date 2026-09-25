@@ -36,6 +36,7 @@ import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentLoginVerificationMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper;
@@ -96,6 +97,9 @@ class LocationControllerSecurityTest {
 
     @MockitoBean
     private StudentEmailVerificationMapper studentEmailVerificationMapper;
+
+    @MockitoBean
+    private StudentLoginVerificationMapper studentLoginVerificationMapper;
 
     @MockitoBean
     private StudentAccessSessionMapper studentAccessSessionMapper;

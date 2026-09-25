@@ -63,6 +63,8 @@ class StudentAccessSessionServiceTest {
     @Test
     void openStoresHashOnlyAndRevokesPreviousActiveSession() {
         when(tokenGenerator.generate()).thenReturn("raw-session-token-value");
+        when(teacherStudentAccessMapper.lockTeacherStudentAccessById(90L)).thenReturn(access());
+        when(teacherStudentMapper.selectTeacherStudentById(72L)).thenReturn(relation());
         when(studentAccessSessionMapper.insertStudentAccessSession(any())).thenReturn(1);
         when(teacherStudentAccessMapper.updateLastVerifiedAt(90L, NOW)).thenReturn(1);
 
@@ -80,11 +82,83 @@ class StudentAccessSessionServiceTest {
         assertThat(stored.getSessionStatus()).isEqualTo(StudentAccessSessionStatus.ACTIVE);
         assertThat(stored.getRevokedAt()).isNull();
         assertThat(stored.getLastAccessedAt()).isEqualTo(NOW);
+        assertThat(stored.getStudentId()).isEqualTo(41L);
+        assertThat(stored.getTeacherStudentAccessId()).isEqualTo(90L);
+    }
+
+    @Test
+    void loginSessionStartsWithoutScopeAndCanSelectOnlyOwnActiveAccess() {
+        when(tokenGenerator.generate()).thenReturn("identity-token");
+        when(studentAccessSessionMapper.insertStudentAccessSession(any())).thenReturn(1);
+        IssuedStudentSession issued = service.openForStudent(41L);
+        ArgumentCaptor<StudentAccessSession> created = ArgumentCaptor.forClass(StudentAccessSession.class);
+        verify(studentAccessSessionMapper).insertStudentAccessSession(created.capture());
+        assertThat(created.getValue().getStudentId()).isEqualTo(41L);
+        assertThat(created.getValue().getTeacherStudentAccessId()).isNull();
+        assertThat(issued.rawToken()).isEqualTo("identity-token");
+
+        StudentAccessSession stored = activeSession(NOW.plusDays(20));
+        stored.setTeacherStudentAccessId(null);
+        when(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash("identity-token"))).thenReturn(stored);
+        when(studentMapper.selectActiveStudentById(41L)).thenReturn(student());
+        StudentPrincipal principal = service.authenticate("identity-token").orElseThrow();
+        assertThat(principal.studentId()).isEqualTo(41L);
+        assertThat(principal.teacherStudentAccessId()).isNull();
+
+        when(teacherStudentAccessMapper.lockTeacherStudentAccessById(90L)).thenReturn(access());
+        when(teacherStudentMapper.selectTeacherStudentById(72L)).thenReturn(relation());
+        when(studentAccessSessionMapper.updateSelectedAccess(any())).thenReturn(1);
+        service.selectScope("identity-token", 90L);
+        ArgumentCaptor<StudentAccessSession> scoped = ArgumentCaptor.forClass(StudentAccessSession.class);
+        verify(studentAccessSessionMapper).updateSelectedAccess(scoped.capture());
+        assertThat(scoped.getValue().getTeacherStudentAccessId()).isEqualTo(90L);
+        assertThat(scoped.getValue().getStudentId()).isEqualTo(41L);
+    }
+
+    @Test
+    void selectScopeRejectsAnotherStudentAndInactiveAccess() {
+        StudentAccessSession stored = activeSession(NOW.plusDays(20));
+        stored.setTeacherStudentAccessId(null);
+        when(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash("identity-token"))).thenReturn(stored);
+        TeacherStudent other = relation();
+        other.setStudentId(99L);
+        Student otherStudent = student();
+        otherStudent.setStudentId(99L);
+        when(teacherStudentAccessMapper.lockTeacherStudentAccessById(91L)).thenReturn(access());
+        when(teacherStudentMapper.selectTeacherStudentById(72L)).thenReturn(other);
+        when(studentMapper.selectActiveStudentById(99L)).thenReturn(otherStudent);
+        assertThatThrownBy(() -> service.selectScope("identity-token", 91L))
+                .extracting(ex -> ((BusinessException) ex).errorCode())
+                .isEqualTo(ErrorCode.COMMON_NOT_FOUND);
+
+        when(teacherStudentAccessMapper.lockTeacherStudentAccessById(90L)).thenReturn(revokedAccess());
+        assertThatThrownBy(() -> service.selectScope("identity-token", 90L))
+                .extracting(ex -> ((BusinessException) ex).errorCode())
+                .isEqualTo(ErrorCode.COMMON_NOT_FOUND);
+        verify(studentAccessSessionMapper, never()).updateSelectedAccess(any());
+    }
+
+    @Test
+    void clearScopeKeepsTheSessionAndLogoutRevokesOnlyThatRow() {
+        StudentAccessSession stored = activeSession(NOW.plusDays(20));
+        when(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash("token"))).thenReturn(stored);
+        when(studentAccessSessionMapper.updateSelectedAccess(any())).thenReturn(1);
+        service.clearScope("token");
+        ArgumentCaptor<StudentAccessSession> cleared = ArgumentCaptor.forClass(StudentAccessSession.class);
+        verify(studentAccessSessionMapper).updateSelectedAccess(cleared.capture());
+        assertThat(cleared.getValue().getTeacherStudentAccessId()).isNull();
+        assertThat(cleared.getValue().getStudentAccessSessionId()).isEqualTo(5L);
+
+        service.logout("token");
+        verify(studentAccessSessionMapper).revokeBySessionId(5L, NOW, NOW);
+        verify(studentAccessSessionMapper, never()).revokeActiveByAccessId(any(), any(), any());
     }
 
     @Test
     void openMapsTokenCollisionToConflict() {
         when(tokenGenerator.generate()).thenReturn("raw-session-token-value");
+        when(teacherStudentAccessMapper.lockTeacherStudentAccessById(90L)).thenReturn(access());
+        when(teacherStudentMapper.selectTeacherStudentById(72L)).thenReturn(relation());
         when(studentAccessSessionMapper.insertStudentAccessSession(any()))
                 .thenThrow(new DuplicateKeyException("UK_SAS_TOKEN_HASH"));
 
@@ -115,6 +189,7 @@ class StudentAccessSessionServiceTest {
     @Test
     void authenticateRejectsInactiveAccessRelationAndStudent() {
         when(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash("token"))).thenReturn(activeSession(NOW.plusDays(20)));
+        when(studentMapper.selectActiveStudentById(41L)).thenReturn(student(), student(), student(), null);
         when(teacherStudentAccessMapper.lockTeacherStudentAccessById(90L)).thenReturn(revokedAccess());
         assertThat(service.authenticate("token")).isEmpty();
 
@@ -127,8 +202,6 @@ class StudentAccessSessionServiceTest {
         when(teacherStudentMapper.selectTeacherStudentById(72L)).thenReturn(released);
         assertThat(service.authenticate("token")).isEmpty();
 
-        when(teacherStudentMapper.selectTeacherStudentById(72L)).thenReturn(relation());
-        when(studentMapper.selectActiveStudentById(41L)).thenReturn(null);
         assertThat(service.authenticate("token")).isEmpty();
     }
 
@@ -202,6 +275,7 @@ class StudentAccessSessionServiceTest {
             LocalDateTime lastAccessedAt) {
         StudentAccessSession session = new StudentAccessSession();
         session.setStudentAccessSessionId(5L);
+        session.setStudentId(41L);
         session.setTeacherStudentAccessId(90L);
         session.setSessionStatus(status);
         session.setExpiresAt(expiresAt);

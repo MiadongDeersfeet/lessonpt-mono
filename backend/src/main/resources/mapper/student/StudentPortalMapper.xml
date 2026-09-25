@@ -48,6 +48,61 @@
         <result column="FEEDBACK" property="feedback"/>
     </resultMap>
 
+    <resultMap id="studentPortalRelationshipResultMap" type="com.yunki.lessonpt.student.query.StudentPortalRelationshipRow">
+        <result column="TEACHER_STUDENT_ACCESS_ID" property="teacherStudentAccessId"/>
+        <result column="TEACHER_STUDENT_ID" property="teacherStudentId"/>
+        <result column="TEACHER_NAME" property="teacherName"/>
+        <result column="LOCATION_ID" property="locationId"/>
+        <result column="LOCATION_NAME" property="locationName"/>
+    </resultMap>
+
+    <select id="selectActiveStudentName" resultType="string">
+        SELECT student.NAME
+        FROM TB_STUDENT student
+        WHERE student.STUDENT_ID = #{studentId}
+          AND student.STATUS = 'Y'
+          AND student.DELETED_AT IS NULL
+    </select>
+
+    <select id="countActiveAccesses" resultType="int">
+        SELECT COUNT(*)
+        FROM TB_TEACHER_STUDENT relation
+        JOIN TB_TEACHER_STUDENT_ACCESS access_row
+          ON access_row.TEACHER_STUDENT_ID = relation.TEACHER_STUDENT_ID
+         AND access_row.STATUS = 'Y'
+         AND access_row.REVOKED_AT IS NULL
+        WHERE relation.STUDENT_ID = #{studentId}
+          AND relation.STATUS = 'Y'
+          AND relation.DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveRelationships" resultMap="studentPortalRelationshipResultMap">
+        SELECT access_row.TEACHER_STUDENT_ACCESS_ID,
+               relation.TEACHER_STUDENT_ID,
+               teacher.NAME AS TEACHER_NAME,
+               location.LOCATION_ID,
+               location.NAME AS LOCATION_NAME
+        FROM TB_TEACHER_STUDENT relation
+        JOIN TB_TEACHER teacher
+          ON teacher.TEACHER_ID = relation.TEACHER_ID
+        JOIN TB_TEACHER_STUDENT_ACCESS access_row
+          ON access_row.TEACHER_STUDENT_ID = relation.TEACHER_STUDENT_ID
+         AND access_row.STATUS = 'Y'
+         AND access_row.REVOKED_AT IS NULL
+        LEFT JOIN TB_TEACHER_STUDENT_LOCATION link
+          ON link.TEACHER_STUDENT_ID = relation.TEACHER_STUDENT_ID
+         AND link.STATUS = 'Y'
+         AND link.DELETED_AT IS NULL
+        LEFT JOIN TB_LOCATION location
+          ON location.LOCATION_ID = link.LOCATION_ID
+         AND location.STATUS = 'Y'
+         AND location.DELETED_AT IS NULL
+        WHERE relation.STUDENT_ID = #{studentId}
+          AND relation.STATUS = 'Y'
+          AND relation.DELETED_AT IS NULL
+        ORDER BY teacher.NAME, access_row.TEACHER_STUDENT_ACCESS_ID, location.NAME, location.LOCATION_ID
+    </select>
+
     <select id="selectActiveIdentity" resultMap="studentPortalIdentityResultMap">
         SELECT relation.TEACHER_STUDENT_ID,
                student.STUDENT_ID,

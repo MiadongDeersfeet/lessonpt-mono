@@ -15,6 +15,7 @@ import lombok.Setter;
 public class StudentAccessSession {
 
     private Long studentAccessSessionId;
+    private Long studentId;
     private Long teacherStudentAccessId;
     private String sessionTokenHash;
     private StudentAccessSessionStatus sessionStatus;

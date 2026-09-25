@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.StudentLoginVerificationMapper">
+
+    <resultMap id="studentLoginVerificationResultMap"
+               type="com.yunki.lessonpt.relationship.domain.StudentLoginVerification">
+        <id column="VERIFICATION_ID" property="verificationId"/>
+        <result column="STUDENT_ID" property="studentId"/>
+        <result column="EMAIL_HASH" property="emailHash"/>
+        <result column="CODE_HASH" property="codeHash"/>
+        <result column="VERIFICATION_STATUS" property="verificationStatus"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.StudentEmailVerificationStatusTypeHandler"/>
+        <result column="FAILED_ATTEMPT_COUNT" property="failedAttemptCount"/>
+        <result column="EXPIRES_AT" property="expiresAt"/>
+        <result column="CONSUMED_AT" property="consumedAt"/>
+        <result column="INVALIDATED_AT" property="invalidatedAt"/>
+        <result column="LOCKED_UNTIL" property="lockedUntil"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="verificationColumns">
+        VERIFICATION_ID, STUDENT_ID, EMAIL_HASH, CODE_HASH, VERIFICATION_STATUS,
+        FAILED_ATTEMPT_COUNT, EXPIRES_AT, CONSUMED_AT, INVALIDATED_AT, LOCKED_UNTIL,
+        CREATED_AT, UPDATED_AT
+    </sql>
+
+    <select id="selectCurrentPendingByStudentId" resultMap="studentLoginVerificationResultMap">
+        SELECT <include refid="verificationColumns"/>
+        FROM TB_STUDENT_LOGIN_VERIFICATION
+        WHERE STUDENT_ID = #{studentId}
+          AND VERIFICATION_STATUS = 'PENDING'
+          AND CONSUMED_AT IS NULL
+          AND INVALIDATED_AT IS NULL
+          AND LOCKED_UNTIL IS NULL
+          AND FAILED_ATTEMPT_COUNT &lt; 5
+        ORDER BY CREATED_AT DESC, VERIFICATION_ID DESC
+        FETCH FIRST 1 ROW ONLY
+    </select>
+
+    <select id="selectLatestByStudentId" resultMap="studentLoginVerificationResultMap">
+        SELECT <include refid="verificationColumns"/>
+        FROM TB_STUDENT_LOGIN_VERIFICATION
+        WHERE STUDENT_ID = #{studentId}
+        ORDER BY CREATED_AT DESC, VERIFICATION_ID DESC
+        FETCH FIRST 1 ROW ONLY
+    </select>
+
+    <insert id="insertStudentLoginVerification">
+        <selectKey keyProperty="verificationId" resultType="long" order="BEFORE">
+            SELECT SEQ_STUDENT_LOGIN_VERIFICATION.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_STUDENT_LOGIN_VERIFICATION (
+            VERIFICATION_ID, STUDENT_ID, EMAIL_HASH, CODE_HASH, VERIFICATION_STATUS,
+            FAILED_ATTEMPT_COUNT, EXPIRES_AT, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{verificationId},
+            #{studentId},
+            #{emailHash},
+            #{codeHash},
+            #{verificationStatus,jdbcType=VARCHAR,
+              typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.StudentEmailVerificationStatusTypeHandler},
+            #{failedAttemptCount},
+            #{expiresAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <update id="invalidatePendingByStudentId">
+        UPDATE TB_STUDENT_LOGIN_VERIFICATION
+        SET VERIFICATION_STATUS = 'INVALIDATED',
+            INVALIDATED_AT = #{invalidatedAt},
+            UPDATED_AT = #{updatedAt}
+        WHERE STUDENT_ID = #{studentId}
+          AND VERIFICATION_STATUS = 'PENDING'
+          AND CONSUMED_AT IS NULL
+          AND INVALIDATED_AT IS NULL
+          AND LOCKED_UNTIL IS NULL
+    </update>
+
+    <update id="incrementFailureCount">
+        UPDATE TB_STUDENT_LOGIN_VERIFICATION
+        SET FAILED_ATTEMPT_COUNT = #{failedAttemptCount},
+            UPDATED_AT = #{updatedAt}
+        WHERE VERIFICATION_ID = #{verificationId}
+          AND VERIFICATION_STATUS = 'PENDING'
+          AND FAILED_ATTEMPT_COUNT = #{failedAttemptCount} - 1
+          AND FAILED_ATTEMPT_COUNT &lt; 4
+          AND CONSUMED_AT IS NULL
+          AND INVALIDATED_AT IS NULL
+          AND LOCKED_UNTIL IS NULL
+    </update>
+
+    <update id="markConsumed">
+        UPDATE TB_STUDENT_LOGIN_VERIFICATION
+        SET VERIFICATION_STATUS = 'CONSUMED',
+            CONSUMED_AT = #{consumedAt},
+            UPDATED_AT = #{updatedAt}
+        WHERE VERIFICATION_ID = #{verificationId}
+          AND VERIFICATION_STATUS = 'PENDING'
+          AND FAILED_ATTEMPT_COUNT &lt; 5
+          AND CONSUMED_AT IS NULL
+          AND INVALIDATED_AT IS NULL
+          AND LOCKED_UNTIL IS NULL
+    </update>
+
+    <update id="markLocked">
+        UPDATE TB_STUDENT_LOGIN_VERIFICATION
+        SET VERIFICATION_STATUS = 'LOCKED',
+            FAILED_ATTEMPT_COUNT = 5,
+            LOCKED_UNTIL = #{lockedUntil},
+            UPDATED_AT = #{updatedAt}
+        WHERE VERIFICATION_ID = #{verificationId}
+          AND VERIFICATION_STATUS = 'PENDING'
+          AND FAILED_ATTEMPT_COUNT = 4
+          AND CONSUMED_AT IS NULL
+          AND INVALIDATED_AT IS NULL
+          AND LOCKED_UNTIL IS NULL
+    </update>
+</mapper>

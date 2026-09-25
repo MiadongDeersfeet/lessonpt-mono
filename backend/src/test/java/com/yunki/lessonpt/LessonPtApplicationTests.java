@@ -17,6 +17,7 @@ import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentLoginVerificationMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper;
@@ -73,6 +74,9 @@ class LessonPtApplicationTests {
 
     @MockitoBean
     private StudentEmailVerificationMapper studentEmailVerificationMapper;
+
+    @MockitoBean
+    private StudentLoginVerificationMapper studentLoginVerificationMapper;
 
     @MockitoBean
     private StudentAccessSessionMapper studentAccessSessionMapper;
@@ -142,6 +146,7 @@ class LessonPtApplicationTests {
                 "TB_TEACHER_STUDENT",
                 "TB_TEACHER_STUDENT_ACCESS",
                 "TB_STUDENT_EMAIL_VERIFICATION",
+                "TB_STUDENT_LOGIN_VERIFICATION",
                 "TB_STUDENT_ACCESS_SESSION",
                 "TB_TEACHER_STUDENT_LOCATION",
                 "TB_CURRICULUM",

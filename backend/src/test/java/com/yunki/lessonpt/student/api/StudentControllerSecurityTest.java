@@ -36,6 +36,7 @@ import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.dto.TeacherStudentAccessResponse;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentLoginVerificationMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper;
@@ -59,6 +60,7 @@ import com.yunki.lessonpt.student.dto.StudentResponse;
 import com.yunki.lessonpt.student.dto.StudentLearningResponse;
 import com.yunki.lessonpt.student.dto.StudentMeResponse;
 import com.yunki.lessonpt.student.service.StudentPortalService;
+import com.yunki.lessonpt.student.mapper.StudentMapper;
 import com.yunki.lessonpt.student.service.StudentService;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
@@ -109,6 +111,9 @@ class StudentControllerSecurityTest {
     private StudentEmailVerificationMapper studentEmailVerificationMapper;
 
     @MockitoBean
+    private StudentLoginVerificationMapper studentLoginVerificationMapper;
+
+    @MockitoBean
     private StudentAccessSessionMapper studentAccessSessionMapper;
 
     @MockitoBean
@@ -134,6 +139,9 @@ class StudentControllerSecurityTest {
 
     @MockitoBean
     private StudentService studentService;
+
+    @MockitoBean
+    private StudentMapper studentMapper;
 
     @MockitoBean
     private LocationMapper locationMapper;
@@ -377,6 +385,20 @@ class StudentControllerSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("학생"))
                 .andExpect(jsonPath("$.email").doesNotExist());
+        when(studentPortalService.learning(new StudentPrincipal(null, null, 41L)))
+                .thenThrow(new BusinessException(ErrorCode.STUDENT_SCOPE_REQUIRED));
+        when(studentAccessSessionService.authenticate("unscoped"))
+                .thenReturn(java.util.Optional.of(new StudentPrincipal(null, null, 41L)));
+        mockMvc.perform(get("/api/v1/student/learning")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "unscoped")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("STUDENT_SCOPE_REQUIRED"));
+        mockMvc.perform(get("/api/v1/student/relationships")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "unscoped")))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/student/session/scope"))
+                .andExpect(status().isUnauthorized());
+
         mockMvc.perform(get("/api/v1/student/learning")
                         .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
                 .andExpect(status().isOk())

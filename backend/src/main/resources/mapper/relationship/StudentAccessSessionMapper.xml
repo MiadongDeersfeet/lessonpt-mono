@@ -5,6 +5,7 @@
 
     <resultMap id="studentAccessSessionResultMap" type="com.yunki.lessonpt.relationship.domain.StudentAccessSession">
         <id column="STUDENT_ACCESS_SESSION_ID" property="studentAccessSessionId"/>
+        <result column="STUDENT_ID" property="studentId"/>
         <result column="TEACHER_STUDENT_ACCESS_ID" property="teacherStudentAccessId"/>
         <result column="SESSION_TOKEN_HASH" property="sessionTokenHash"/>
         <result column="SESSION_STATUS" property="sessionStatus"
@@ -19,6 +20,7 @@
 
     <sql id="sessionColumns">
         STUDENT_ACCESS_SESSION_ID,
+        STUDENT_ID,
         TEACHER_STUDENT_ACCESS_ID,
         SESSION_TOKEN_HASH,
         SESSION_STATUS,
@@ -55,6 +57,7 @@
         </selectKey>
         INSERT INTO TB_STUDENT_ACCESS_SESSION (
             STUDENT_ACCESS_SESSION_ID,
+            STUDENT_ID,
             TEACHER_STUDENT_ACCESS_ID,
             SESSION_TOKEN_HASH,
             SESSION_STATUS,
@@ -65,7 +68,8 @@
             UPDATED_AT
         ) VALUES (
             #{studentAccessSessionId},
-            #{teacherStudentAccessId},
+            #{studentId,jdbcType=NUMERIC},
+            #{teacherStudentAccessId,jdbcType=NUMERIC},
             #{sessionTokenHash},
             #{sessionStatus,jdbcType=VARCHAR,
               typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.StudentAccessSessionStatusTypeHandler},
@@ -115,6 +119,26 @@
                 ON relation.TEACHER_STUDENT_ID = access_row.TEACHER_STUDENT_ID
               WHERE relation.STUDENT_ID = #{studentId}
           )
+    </update>
+
+    <update id="updateSelectedAccess">
+        UPDATE TB_STUDENT_ACCESS_SESSION
+        SET TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId,jdbcType=NUMERIC},
+            UPDATED_AT = #{updatedAt}
+        WHERE STUDENT_ACCESS_SESSION_ID = #{studentAccessSessionId}
+          AND STUDENT_ID = #{studentId}
+          AND SESSION_STATUS = 'ACTIVE'
+          AND REVOKED_AT IS NULL
+    </update>
+
+    <update id="revokeBySessionId">
+        UPDATE TB_STUDENT_ACCESS_SESSION
+        SET SESSION_STATUS = 'REVOKED',
+            REVOKED_AT = #{revokedAt},
+            UPDATED_AT = #{updatedAt}
+        WHERE STUDENT_ACCESS_SESSION_ID = #{studentAccessSessionId}
+          AND SESSION_STATUS = 'ACTIVE'
+          AND REVOKED_AT IS NULL
     </update>
 
     <update id="updateSlidingWindow">

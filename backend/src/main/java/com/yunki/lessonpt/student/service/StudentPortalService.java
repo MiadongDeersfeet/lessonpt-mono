@@ -19,6 +19,8 @@ import com.yunki.lessonpt.student.dto.StudentCurriculumView;
 import com.yunki.lessonpt.student.dto.StudentHomeworkView;
 import com.yunki.lessonpt.student.dto.StudentLearningResponse;
 import com.yunki.lessonpt.student.dto.StudentMeResponse;
+import com.yunki.lessonpt.student.dto.StudentRelationshipLocationResponse;
+import com.yunki.lessonpt.student.dto.StudentRelationshipResponse;
 import com.yunki.lessonpt.relationship.service.ProgressQueryService;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
 import com.yunki.lessonpt.student.query.StudentPortalContentRow;
@@ -26,6 +28,7 @@ import com.yunki.lessonpt.student.query.StudentPortalEnrollment;
 import com.yunki.lessonpt.student.query.StudentPortalHomeworkRow;
 import com.yunki.lessonpt.student.query.StudentPortalIdentity;
 import com.yunki.lessonpt.student.query.StudentPortalMonitoringRow;
+import com.yunki.lessonpt.student.query.StudentPortalRelationshipRow;
 
 import lombok.RequiredArgsConstructor;
 
@@ -39,11 +42,26 @@ public class StudentPortalService {
 
     @Transactional(readOnly = true)
     public StudentMeResponse me(StudentPrincipal principal) {
-        return new StudentMeResponse(requireIdentity(principal).getName());
+        requireStudent(principal);
+        String name = studentPortalMapper.selectActiveStudentName(principal.studentId());
+        if (name == null) {
+            throw new BusinessException(ErrorCode.AUTH_FAILED);
+        }
+        return new StudentMeResponse(name);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentRelationshipResponse> relationships(StudentPrincipal principal) {
+        requireStudent(principal);
+        return groupRelationships(studentPortalMapper.selectActiveRelationships(principal.studentId()));
     }
 
     @Transactional(readOnly = true)
     public StudentLearningResponse learning(StudentPrincipal principal) {
+        requireStudent(principal);
+        if (principal.teacherStudentAccessId() == null) {
+            throw new BusinessException(ErrorCode.STUDENT_SCOPE_REQUIRED);
+        }
         requireIdentity(principal);
         List<StudentPortalEnrollment> enrollments = studentPortalMapper.selectActiveEnrollments(
                 principal.teacherStudentAccessId());
@@ -62,9 +80,43 @@ public class StudentPortalService {
         return new StudentLearningResponse(assemble(enrollments, contents, monitoring, homework, progress));
     }
 
-    private StudentPortalIdentity requireIdentity(StudentPrincipal principal) {
-        if (principal == null || principal.teacherStudentAccessId() == null) {
+    private void requireStudent(StudentPrincipal principal) {
+        if (principal == null || principal.studentId() == null) {
             throw new BusinessException(ErrorCode.AUTH_FAILED);
+        }
+    }
+
+    private List<StudentRelationshipResponse> groupRelationships(List<StudentPortalRelationshipRow> rows) {
+        Map<Long, StudentRelationshipResponse> grouped = new LinkedHashMap<>();
+        Map<Long, List<StudentRelationshipLocationResponse>> locations = new LinkedHashMap<>();
+        for (StudentPortalRelationshipRow row : rows) {
+            grouped.putIfAbsent(row.getTeacherStudentAccessId(), new StudentRelationshipResponse(
+                    row.getTeacherStudentAccessId(),
+                    row.getTeacherStudentId(),
+                    row.getTeacherName(),
+                    List.of()));
+            if (row.getLocationId() == null) {
+                locations.putIfAbsent(row.getTeacherStudentAccessId(), new ArrayList<>());
+                continue;
+            }
+            locations.computeIfAbsent(row.getTeacherStudentAccessId(), ignored -> new ArrayList<>())
+                    .add(new StudentRelationshipLocationResponse(row.getLocationId(), row.getLocationName()));
+        }
+        List<StudentRelationshipResponse> result = new ArrayList<>();
+        for (Map.Entry<Long, StudentRelationshipResponse> entry : grouped.entrySet()) {
+            StudentRelationshipResponse current = entry.getValue();
+            result.add(new StudentRelationshipResponse(
+                    current.teacherStudentAccessId(),
+                    current.teacherStudentId(),
+                    current.teacherName(),
+                    List.copyOf(locations.getOrDefault(entry.getKey(), List.of()))));
+        }
+        return result;
+    }
+
+    private StudentPortalIdentity requireIdentity(StudentPrincipal principal) {
+        if (principal.teacherStudentAccessId() == null) {
+            throw new BusinessException(ErrorCode.STUDENT_SCOPE_REQUIRED);
         }
         StudentPortalIdentity identity = studentPortalMapper.selectActiveIdentity(principal.teacherStudentAccessId());
         if (identity == null

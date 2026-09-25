@@ -55,9 +55,18 @@ class StudentPortalServiceTest {
 
     @Test
     void returnsOwnNameAndHidesContactFields() {
-        when(studentPortalMapper.selectActiveIdentity(90L)).thenReturn(identity());
+        when(studentPortalMapper.selectActiveStudentName(41L)).thenReturn("학생");
 
         assertThat(studentPortalService.me(PRINCIPAL).name()).isEqualTo("학생");
+        assertThat(studentPortalService.me(new StudentPrincipal(null, null, 41L)).name()).isEqualTo("학생");
+    }
+
+    @Test
+    void learningWithoutScopeIsNotAnAuthenticationFailure() {
+        assertThatThrownBy(() -> studentPortalService.learning(new StudentPrincipal(null, null, 41L)))
+                .extracting(ex -> ((BusinessException) ex).errorCode())
+                .isEqualTo(ErrorCode.STUDENT_SCOPE_REQUIRED);
+        verify(studentPortalMapper, never()).selectActiveEnrollments(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -70,6 +79,11 @@ class StudentPortalServiceTest {
         StudentPortalIdentity other = identity();
         other.setStudentId(99L);
         when(studentPortalMapper.selectActiveIdentity(90L)).thenReturn(other);
+        assertThatThrownBy(() -> studentPortalService.learning(PRINCIPAL))
+                .extracting(ex -> ((BusinessException) ex).errorCode())
+                .isEqualTo(ErrorCode.AUTH_FAILED);
+
+        when(studentPortalMapper.selectActiveStudentName(41L)).thenReturn(null);
         assertThatThrownBy(() -> studentPortalService.me(PRINCIPAL))
                 .extracting(ex -> ((BusinessException) ex).errorCode())
                 .isEqualTo(ErrorCode.AUTH_FAILED);

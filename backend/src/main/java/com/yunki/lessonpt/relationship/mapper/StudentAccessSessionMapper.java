@@ -32,4 +32,11 @@ public interface StudentAccessSessionMapper {
             @Param("updatedAt") LocalDateTime updatedAt);
 
     int updateSlidingWindow(StudentAccessSession session);
+
+    int updateSelectedAccess(StudentAccessSession session);
+
+    int revokeBySessionId(
+            @Param("studentAccessSessionId") Long studentAccessSessionId,
+            @Param("revokedAt") LocalDateTime revokedAt,
+            @Param("updatedAt") LocalDateTime updatedAt);
 }

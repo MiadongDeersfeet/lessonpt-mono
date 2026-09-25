@@ -10,11 +10,18 @@ import com.yunki.lessonpt.student.query.StudentPortalEnrollment;
 import com.yunki.lessonpt.student.query.StudentPortalHomeworkRow;
 import com.yunki.lessonpt.student.query.StudentPortalIdentity;
 import com.yunki.lessonpt.student.query.StudentPortalMonitoringRow;
+import com.yunki.lessonpt.student.query.StudentPortalRelationshipRow;
 
 @Mapper
 public interface StudentPortalMapper {
 
     StudentPortalIdentity selectActiveIdentity(Long teacherStudentAccessId);
+
+    String selectActiveStudentName(Long studentId);
+
+    int countActiveAccesses(Long studentId);
+
+    List<StudentPortalRelationshipRow> selectActiveRelationships(Long studentId);
 
     List<StudentPortalEnrollment> selectActiveEnrollments(Long teacherStudentAccessId);
 

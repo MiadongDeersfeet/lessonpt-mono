@@ -86,6 +86,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/student-access/*/otp",
                                 "/api/v1/student-access/*/otp/verify",
+                                "/api/v1/student-login/otp",
+                                "/api/v1/student-login/otp/verify",
                                 "/api/v1/student/session/logout").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/student/**").hasAuthority(
