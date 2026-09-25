@@ -1,0 +1,252 @@
+:root {
+  color: #1c2430;
+  background: #f4f1ea;
+  font-family: "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+button, input, a { font: inherit; }
+
+a { color: #0f5c66; }
+
+a:hover { color: #08383e; }
+
+:focus-visible {
+  outline: 2px solid #0f5c66;
+  outline-offset: 2px;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #1c2430;
+  color: #f4f1ea;
+  padding: 24px 16px;
+}
+
+.brand {
+  margin: 0 0 24px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.nav-link {
+  display: block;
+  margin-bottom: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #d7dde6;
+  text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background: #2b3646;
+  color: #fff;
+}
+
+.workspace { min-width: 0; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 12px 28px;
+  background: #fff;
+  border-bottom: 1px solid #e4ddd0;
+}
+
+.teacher-name,
+.teacher-email { margin: 0; }
+
+.teacher-email { color: #5d6876; font-size: 0.9rem; }
+
+.content { padding: 28px; }
+
+.page h1 { margin: 0 0 8px; font-size: 1.6rem; }
+
+.lead { margin: 0 0 20px; color: #5d6876; }
+
+.page-header { margin-bottom: 16px; }
+
+.stack { display: grid; gap: 16px; }
+
+.card,
+.login-card,
+.data-table {
+  background: #fff;
+  border: 1px solid #e4ddd0;
+  border-radius: 12px;
+}
+
+.card { padding: 20px; }
+
+.card h2,
+.curriculum h3,
+.monitoring h4 { margin: 0 0 8px; }
+
+.curriculum {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #efe8dc;
+}
+
+.curriculum-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.progress-value { font-weight: 700; color: #0f5c66; }
+
+.progress-none { color: #5d6876; }
+
+.monitoring {
+  margin-top: 12px;
+  padding: 12px;
+  background: #faf8f4;
+  border-radius: 8px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.facts div { margin: 0; }
+
+.facts dt { color: #5d6876; font-size: 0.85rem; }
+
+.facts dd { margin: 2px 0 0; }
+
+.memo,
+.quiet { color: #5d6876; }
+
+.homework-list { margin: 8px 0 0; padding-left: 18px; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #efe8dc;
+}
+
+.data-table tbody tr:hover { background: #faf8f4; }
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #0f5c66;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover { background: #08383e; }
+
+.button:disabled { opacity: 0.6; cursor: default; }
+
+.button-quiet {
+  background: transparent;
+  color: #1c2430;
+  border: 1px solid #d7ddd0;
+}
+
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+
+.tab {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #d7ddd0;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  background: #1c2430;
+  color: #fff;
+  border-color: #1c2430;
+}
+
+.state { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+
+.state-empty { color: #5d6876; }
+
+.state-error {
+  display: block;
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff6f4;
+  border: 1px solid #efc7c0;
+}
+
+.state-title { margin: 0 0 4px; font-weight: 700; }
+
+.trace { margin: 8px 0 0; color: #5d6876; font-size: 0.85rem; }
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #d7ddd0;
+  border-top-color: #0f5c66;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.login-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  display: grid;
+  width: min(420px, 100%);
+  gap: 8px;
+  padding: 28px;
+}
+
+.login-card h1 { margin: 0 0 8px; font-size: 1.4rem; }
+
+.login-card input {
+  min-height: 40px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #d7ddd0;
+  border-radius: 8px;
+}
+
+.form-error { margin: 0; color: #8d2d24; }
+
+.form-hint { margin: 0; color: #5d6876; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .facts { grid-template-columns: 1fr; }
+}
