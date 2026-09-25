@@ -30,6 +30,7 @@ import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
+import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
 import com.yunki.lessonpt.student.domain.Student;
 import com.yunki.lessonpt.student.dto.StudentCreateRequest;
 import com.yunki.lessonpt.student.dto.StudentResponse;
@@ -59,6 +60,9 @@ class StudentServiceTest {
     @Mock
     private TeacherMapper teacherMapper;
 
+    @Mock
+    private StudentAccessSessionService studentAccessSessionService;
+
     private StudentService studentService;
 
     @BeforeEach
@@ -69,7 +73,8 @@ class StudentServiceTest {
                 teacherStudentLocationMapper,
                 studentCurriculumMapper,
                 teacherStudentAccessMapper,
-                teacherMapper);
+                teacherMapper,
+                studentAccessSessionService);
     }
 
     @Test
@@ -209,6 +214,26 @@ class StudentServiceTest {
         assertThat(captor.getValue().getName()).isEqualTo("새이름");
         assertThat(captor.getValue().getPhone()).isNull();
         assertThat(captor.getValue().getEmail()).isEqualTo("new@lessonpt.local");
+        verify(studentAccessSessionService).revokeActiveByStudentId(41L);
+    }
+
+    @Test
+    void updateKeepsSessionsWhenEmailIsUnchangedAndRevokesWhenEmailIsRemoved() {
+        when(teacherStudentMapper.selectActiveStudentForTeacher(8L, 41L))
+                .thenReturn(link(72L, 41L, "same@lessonpt.local", "기존이름"));
+        when(studentMapper.selectActiveStudentById(41L))
+                .thenReturn(activeStudent(41L, "same@lessonpt.local", "기존이름"));
+        StudentUpdateRequest same = new StudentUpdateRequest();
+        same.setEmail(" Same@LessonPT.local ");
+        studentService.updateStudent(8L, 41L, same);
+        verify(studentAccessSessionService, never()).revokeActiveByStudentId(any());
+
+        when(studentMapper.selectActiveStudentById(41L))
+                .thenReturn(activeStudent(41L, "same@lessonpt.local", "기존이름"));
+        StudentUpdateRequest cleared = new StudentUpdateRequest();
+        cleared.setEmail(null);
+        studentService.updateStudent(8L, 41L, cleared);
+        verify(studentAccessSessionService).revokeActiveByStudentId(41L);
     }
 
     @Test
@@ -239,6 +264,7 @@ class StudentServiceTest {
 
         studentService.releaseStudent(8L, 41L);
 
+        verify(studentAccessSessionService).revokeActiveByTeacherStudentId(72L);
         verify(teacherStudentAccessMapper).softDeleteActiveByTeacherStudentId(72L);
         verify(teacherStudentLocationMapper).softDeleteActiveByTeacherStudentId(72L);
         verify(teacherStudentMapper).softDeleteTeacherStudent(8L, 41L);
@@ -258,8 +284,13 @@ class StudentServiceTest {
         studentService.releaseStudent(8L, 41L);
 
         InOrder order = inOrder(
-                teacherStudentMapper, teacherStudentAccessMapper, teacherStudentLocationMapper, studentCurriculumMapper);
+                teacherStudentMapper,
+                studentAccessSessionService,
+                teacherStudentAccessMapper,
+                teacherStudentLocationMapper,
+                studentCurriculumMapper);
         order.verify(teacherStudentMapper).lockTeacherStudentById(72L);
+        order.verify(studentAccessSessionService).revokeActiveByTeacherStudentId(72L);
         order.verify(teacherStudentAccessMapper).softDeleteActiveByTeacherStudentId(72L);
         order.verify(teacherStudentLocationMapper).lockTeacherStudentLocationById(90L);
         order.verify(studentCurriculumMapper).softDeleteActiveStudentCurriculumsByTeacherStudentLocationId(90L);

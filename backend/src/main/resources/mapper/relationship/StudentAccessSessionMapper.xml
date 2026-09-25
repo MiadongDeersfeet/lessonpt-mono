@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper">
+
+    <resultMap id="studentAccessSessionResultMap" type="com.yunki.lessonpt.relationship.domain.StudentAccessSession">
+        <id column="STUDENT_ACCESS_SESSION_ID" property="studentAccessSessionId"/>
+        <result column="TEACHER_STUDENT_ACCESS_ID" property="teacherStudentAccessId"/>
+        <result column="SESSION_TOKEN_HASH" property="sessionTokenHash"/>
+        <result column="SESSION_STATUS" property="sessionStatus"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.StudentAccessSessionStatusTypeHandler"/>
+        <result column="EXPIRES_AT" property="expiresAt"/>
+        <result column="ABSOLUTE_EXPIRES_AT" property="absoluteExpiresAt"/>
+        <result column="LAST_ACCESSED_AT" property="lastAccessedAt"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="REVOKED_AT" property="revokedAt"/>
+    </resultMap>
+
+    <sql id="sessionColumns">
+        STUDENT_ACCESS_SESSION_ID,
+        TEACHER_STUDENT_ACCESS_ID,
+        SESSION_TOKEN_HASH,
+        SESSION_STATUS,
+        EXPIRES_AT,
+        ABSOLUTE_EXPIRES_AT,
+        LAST_ACCESSED_AT,
+        CREATED_AT,
+        UPDATED_AT,
+        REVOKED_AT
+    </sql>
+
+    <sql id="activeSession">
+        SESSION_STATUS = 'ACTIVE' AND REVOKED_AT IS NULL
+    </sql>
+
+    <select id="selectByTokenHash" resultMap="studentAccessSessionResultMap">
+        SELECT <include refid="sessionColumns"/>
+        FROM TB_STUDENT_ACCESS_SESSION
+        WHERE SESSION_TOKEN_HASH = #{sessionTokenHash}
+    </select>
+
+    <select id="selectActiveByAccessId" resultMap="studentAccessSessionResultMap">
+        SELECT <include refid="sessionColumns"/>
+        FROM TB_STUDENT_ACCESS_SESSION
+        WHERE TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+          AND <include refid="activeSession"/>
+        ORDER BY CREATED_AT DESC, STUDENT_ACCESS_SESSION_ID DESC
+        FETCH FIRST 1 ROW ONLY
+    </select>
+
+    <insert id="insertStudentAccessSession">
+        <selectKey keyProperty="studentAccessSessionId" resultType="long" order="BEFORE">
+            SELECT SEQ_STUDENT_ACCESS_SESSION.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_STUDENT_ACCESS_SESSION (
+            STUDENT_ACCESS_SESSION_ID,
+            TEACHER_STUDENT_ACCESS_ID,
+            SESSION_TOKEN_HASH,
+            SESSION_STATUS,
+            EXPIRES_AT,
+            ABSOLUTE_EXPIRES_AT,
+            LAST_ACCESSED_AT,
+            CREATED_AT,
+            UPDATED_AT
+        ) VALUES (
+            #{studentAccessSessionId},
+            #{teacherStudentAccessId},
+            #{sessionTokenHash},
+            #{sessionStatus,jdbcType=VARCHAR,
+              typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.StudentAccessSessionStatusTypeHandler},
+            #{expiresAt},
+            #{absoluteExpiresAt},
+            #{lastAccessedAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <update id="revokeActiveByAccessId">
+        UPDATE TB_STUDENT_ACCESS_SESSION
+        SET SESSION_STATUS = 'REVOKED',
+            REVOKED_AT = #{revokedAt},
+            UPDATED_AT = #{updatedAt}
+        WHERE TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+          AND SESSION_STATUS = 'ACTIVE'
+          AND REVOKED_AT IS NULL
+    </update>
+
+    <update id="revokeActiveByTeacherStudentId">
+        UPDATE TB_STUDENT_ACCESS_SESSION
+        SET SESSION_STATUS = 'REVOKED',
+            REVOKED_AT = #{revokedAt},
+            UPDATED_AT = #{updatedAt}
+        WHERE SESSION_STATUS = 'ACTIVE'
+          AND REVOKED_AT IS NULL
+          AND TEACHER_STUDENT_ACCESS_ID IN (
+              SELECT TEACHER_STUDENT_ACCESS_ID
+              FROM TB_TEACHER_STUDENT_ACCESS
+              WHERE TEACHER_STUDENT_ID = #{teacherStudentId}
+          )
+    </update>
+
+    <update id="revokeActiveByStudentId">
+        UPDATE TB_STUDENT_ACCESS_SESSION
+        SET SESSION_STATUS = 'REVOKED',
+            REVOKED_AT = #{revokedAt},
+            UPDATED_AT = #{updatedAt}
+        WHERE SESSION_STATUS = 'ACTIVE'
+          AND REVOKED_AT IS NULL
+          AND TEACHER_STUDENT_ACCESS_ID IN (
+              SELECT access_row.TEACHER_STUDENT_ACCESS_ID
+              FROM TB_TEACHER_STUDENT_ACCESS access_row
+              JOIN TB_TEACHER_STUDENT relation
+                ON relation.TEACHER_STUDENT_ID = access_row.TEACHER_STUDENT_ID
+              WHERE relation.STUDENT_ID = #{studentId}
+          )
+    </update>
+
+    <update id="updateSlidingWindow">
+        UPDATE TB_STUDENT_ACCESS_SESSION
+        SET EXPIRES_AT = #{expiresAt},
+            LAST_ACCESSED_AT = #{lastAccessedAt},
+            UPDATED_AT = #{updatedAt}
+        WHERE STUDENT_ACCESS_SESSION_ID = #{studentAccessSessionId}
+          AND SESSION_STATUS = 'ACTIVE'
+          AND REVOKED_AT IS NULL
+          AND EXPIRES_AT &lt;= ABSOLUTE_EXPIRES_AT
+    </update>
+</mapper>

@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
+import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
 import com.yunki.lessonpt.student.domain.Student;
 import com.yunki.lessonpt.student.dto.StudentCreateRequest;
 import com.yunki.lessonpt.student.dto.StudentResponse;
@@ -38,6 +40,7 @@ public class StudentService {
     private final StudentCurriculumMapper studentCurriculumMapper;
     private final TeacherStudentAccessMapper teacherStudentAccessMapper;
     private final TeacherMapper teacherMapper;
+    private final StudentAccessSessionService studentAccessSessionService;
 
     @Transactional
     public StudentResponse createStudent(Long teacherId, StudentCreateRequest request) {
@@ -103,6 +106,7 @@ public class StudentService {
             student.setPhone(request.getPhone());
         }
         if (request.isEmailSpecified()) {
+            String previous = normalizeEmail(student.getEmail());
             String email = normalizeEmail(request.getEmail());
             if (email != null) {
                 Student existing = studentMapper.selectStudentByEmail(email);
@@ -111,6 +115,9 @@ public class StudentService {
                 }
             }
             student.setEmail(email);
+            if (!Objects.equals(previous, email)) {
+                studentAccessSessionService.revokeActiveByStudentId(studentId);
+            }
         }
         studentMapper.updateStudent(student);
         return requireLinked(teacherId, studentId);
@@ -119,8 +126,7 @@ public class StudentService {
     /**
      * 관계와 접근권한, 장소 연결, 수강을 비활성화한다.
      * Student, Monitoring, Homework는 유지한다.
-     * 복구는 이 관계 행만 다시 활성화한다.
-     * TODO: StudentAccessSession이 생기면 이 해제에서 조회 세션도 폐기한다.
+     * 복구는 이 관계 행만 다시 활성화한다. 조회 세션은 되살리지 않는다.
      */
     @Transactional
     public void releaseStudent(Long teacherId, Long studentId) {
@@ -129,6 +135,7 @@ public class StudentService {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
         lockRelation(relation.getTeacherStudentId());
+        studentAccessSessionService.revokeActiveByTeacherStudentId(relation.getTeacherStudentId());
         teacherStudentAccessMapper.softDeleteActiveByTeacherStudentId(relation.getTeacherStudentId());
         List<TeacherStudentLocation> links = teacherStudentLocationMapper
                 .selectActiveByTeacherStudentId(relation.getTeacherStudentId())

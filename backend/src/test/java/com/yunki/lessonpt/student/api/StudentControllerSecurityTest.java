@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
@@ -34,8 +36,15 @@ import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.dto.TeacherStudentAccessResponse;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper;
+import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
+import com.yunki.lessonpt.relationship.config.StudentSessionProperties;
+import com.yunki.lessonpt.relationship.service.IssuedStudentSession;
+import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
 import com.yunki.lessonpt.relationship.service.StudentEmailVerificationService;
+import com.yunki.lessonpt.auth.security.StudentPrincipal;
 import com.yunki.lessonpt.relationship.service.TeacherStudentAccessService;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
@@ -47,15 +56,20 @@ import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.dto.StudentCreateRequest;
 import com.yunki.lessonpt.student.dto.StudentResponse;
+import com.yunki.lessonpt.student.dto.StudentLearningResponse;
+import com.yunki.lessonpt.student.dto.StudentMeResponse;
+import com.yunki.lessonpt.student.service.StudentPortalService;
 import com.yunki.lessonpt.student.service.StudentService;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
 @SpringBootTest(properties = {
         "spring.profiles.active=context",
-        "lessonpt.jwt.secret=01234567890123456789012345678901"
+        "lessonpt.jwt.secret=01234567890123456789012345678901",
+        "lessonpt.student-session.same-site=Lax"
 })
 @AutoConfigureMockMvc
+@Import(StudentControllerSecurityTest.StudentSessionProbe.class)
 class StudentControllerSecurityTest {
 
     @Autowired
@@ -95,10 +109,25 @@ class StudentControllerSecurityTest {
     private StudentEmailVerificationMapper studentEmailVerificationMapper;
 
     @MockitoBean
+    private StudentAccessSessionMapper studentAccessSessionMapper;
+
+    @MockitoBean
+    private StudentPortalMapper studentPortalMapper;
+
+    @MockitoBean
+    private StudentLearningQueryMapper studentLearningQueryMapper;
+
+    @MockitoBean
     private TeacherStudentAccessService teacherStudentAccessService;
 
     @MockitoBean
     private StudentEmailVerificationService studentEmailVerificationService;
+
+    @MockitoBean
+    private StudentAccessSessionService studentAccessSessionService;
+
+    @MockitoBean
+    private StudentPortalService studentPortalService;
 
     @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;
@@ -241,6 +270,11 @@ class StudentControllerSecurityTest {
                 .andExpect(status().isNoContent());
         verify(studentEmailVerificationService).issue("missing-key", "student@lessonpt.local");
 
+        when(studentEmailVerificationService.verify("missing-key", "student@lessonpt.local", "123456"))
+                .thenReturn(new IssuedStudentSession(
+                        "raw-token",
+                        java.time.LocalDateTime.parse("2026-10-24T00:00:00"),
+                        java.time.LocalDateTime.parse("2027-03-23T00:00:00")));
         mockMvc.perform(post("/api/v1/student-access/missing-key/otp/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -248,7 +282,13 @@ class StudentControllerSecurityTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.verified").value(true))
-                .andExpect(jsonPath("$.otp").doesNotExist());
+                .andExpect(jsonPath("$.otp").doesNotExist())
+                .andExpect(cookie().exists(StudentSessionProperties.COOKIE_NAME))
+                .andExpect(cookie().httpOnly(StudentSessionProperties.COOKIE_NAME, true))
+                .andExpect(cookie().secure(StudentSessionProperties.COOKIE_NAME, true))
+                .andExpect(cookie().path(StudentSessionProperties.COOKIE_NAME, "/api/v1/student"))
+                .andExpect(cookie().sameSite(StudentSessionProperties.COOKIE_NAME, "Lax"))
+                .andExpect(jsonPath("$.rawToken").doesNotExist());
 
         org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.COMMON_NOT_FOUND))
                 .when(studentEmailVerificationService).issue("missing-key", "student@lessonpt.local");
@@ -275,6 +315,94 @@ class StudentControllerSecurityTest {
                                 """))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/v1/students")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void studentSessionCookieDoesNotAuthenticateTeacherApis() throws Exception {
+        mockMvc.perform(get("/api/v1/student/session"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/student/session")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "expired")))
+                .andExpect(status().isUnauthorized());
+        when(studentAccessSessionService.authenticate("revoked")).thenReturn(java.util.Optional.empty());
+        mockMvc.perform(get("/api/v1/student/session")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "revoked")))
+                .andExpect(status().isUnauthorized());
+
+        when(studentAccessSessionService.authenticate("raw-token"))
+                .thenReturn(java.util.Optional.of(new StudentPrincipal(90L, 72L, 41L)));
+        mockMvc.perform(get("/api/v1/student/session")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teacherStudentAccessId").value(90))
+                .andExpect(jsonPath("$.teacherStudentId").value(72))
+                .andExpect(jsonPath("$.studentId").value(41));
+
+        authenticate(8L);
+        mockMvc.perform(get("/api/v1/student/session").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/students")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutRevokesSessionAndExpiresCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/student/session/logout")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("Max-Age=0")));
+        verify(studentAccessSessionService).logout("raw-token");
+
+        mockMvc.perform(post("/api/v1/student/session/logout"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void studentPortalRequiresStudentSession() throws Exception {
+        mockMvc.perform(get("/api/v1/student/me")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/student/learning")).andExpect(status().isUnauthorized());
+        authenticate(8L);
+        mockMvc.perform(get("/api/v1/student/learning").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isUnauthorized());
+
+        when(studentAccessSessionService.authenticate("raw-token"))
+                .thenReturn(java.util.Optional.of(new StudentPrincipal(90L, 72L, 41L)));
+        when(studentPortalService.me(new StudentPrincipal(90L, 72L, 41L)))
+                .thenReturn(new StudentMeResponse("학생"));
+        when(studentPortalService.learning(new StudentPrincipal(90L, 72L, 41L)))
+                .thenReturn(new StudentLearningResponse(List.of()));
+        mockMvc.perform(get("/api/v1/student/me")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("학생"))
+                .andExpect(jsonPath("$.email").doesNotExist());
+        mockMvc.perform(get("/api/v1/student/learning")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.curriculums").isArray())
+                .andExpect(jsonPath("$.memo").doesNotExist())
+                .andExpect(jsonPath("$.teacherId").doesNotExist())
+                .andExpect(jsonPath("$.studentId").doesNotExist());
+        mockMvc.perform(get("/api/v1/students")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/students/41/learning"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/students/41/learning")
+                        .cookie(new jakarta.servlet.http.Cookie(StudentSessionProperties.COOKIE_NAME, "raw-token")))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/students/41/learning").header(HttpHeaders.AUTHORIZATION, bearerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    static class StudentSessionProbe {
+        @org.springframework.web.bind.annotation.GetMapping("/api/v1/student/session")
+        StudentPrincipal current(org.springframework.security.core.Authentication authentication) {
+            return (StudentPrincipal) authentication.getPrincipal();
+        }
     }
 
     private void authenticate(Long teacherId) {

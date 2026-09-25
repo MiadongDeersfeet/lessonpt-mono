@@ -34,6 +34,9 @@ import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper;
+import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
 import com.yunki.lessonpt.auth.service.TeacherAuthService;
@@ -97,6 +100,15 @@ class TeacherAuthSecurityTest {
 
     @MockitoBean
     private StudentEmailVerificationMapper studentEmailVerificationMapper;
+
+    @MockitoBean
+    private StudentAccessSessionMapper studentAccessSessionMapper;
+
+    @MockitoBean
+    private StudentPortalMapper studentPortalMapper;
+
+    @MockitoBean
+    private StudentLearningQueryMapper studentLearningQueryMapper;
 
     @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;
@@ -179,6 +191,8 @@ class TeacherAuthSecurityTest {
         Teacher teacher = new Teacher();
         teacher.setTeacherId(21L);
         teacher.setEmail("teacher@lessonpt.local");
+        teacher.setName("김강사");
+        teacher.setPhone(null);
         teacher.setRole("TEACHER");
         teacher.setStatus(RecordStatus.ACTIVE);
         teacher.setPasswordHash(passwordEncoder.encode(RAW_PASSWORD));
@@ -194,6 +208,16 @@ class TeacherAuthSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.teacherId").value(21))
                 .andExpect(jsonPath("$.email").value("teacher@lessonpt.local"))
+                .andExpect(jsonPath("$.name").value("김강사"))
+                .andExpect(jsonPath("$.phone").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.role").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
+
+        teacher.setPhone("010-0000-0000");
+        mockMvc.perform(get("/api/v1/teachers/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token.value()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phone").value("010-0000-0000"))
+                .andExpect(jsonPath("$.role").doesNotExist());
     }
 }

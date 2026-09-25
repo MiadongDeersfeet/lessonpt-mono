@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.yunki.lessonpt.auth.security.TeacherPrincipal;
+import com.yunki.lessonpt.relationship.dto.StudentLearningDetailResponse;
+import com.yunki.lessonpt.relationship.service.StudentLearningQueryService;
 import com.yunki.lessonpt.student.dto.StudentCreateRequest;
 import com.yunki.lessonpt.student.dto.StudentResponse;
 import com.yunki.lessonpt.student.dto.StudentUpdateRequest;
@@ -30,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 public class StudentController {
 
     private final StudentService studentService;
+    private final StudentLearningQueryService studentLearningQueryService;
 
     @PostMapping
     public ResponseEntity<StudentResponse> create(
@@ -46,6 +49,13 @@ public class StudentController {
     @GetMapping
     public List<StudentResponse> list(@AuthenticationPrincipal TeacherPrincipal principal) {
         return studentService.getStudents(principal.teacherId());
+    }
+
+    @GetMapping("/{studentId}/learning")
+    public StudentLearningDetailResponse learning(
+            @AuthenticationPrincipal TeacherPrincipal principal,
+            @PathVariable Long studentId) {
+        return studentLearningQueryService.learning(principal.teacherId(), studentId);
     }
 
     @GetMapping("/{studentId}")

@@ -30,6 +30,7 @@ import com.yunki.lessonpt.relationship.domain.TeacherStudentAccess;
 import com.yunki.lessonpt.relationship.dto.TeacherStudentAccessResponse;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
+import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
 import com.yunki.lessonpt.student.domain.Student;
 import com.yunki.lessonpt.student.mapper.StudentMapper;
 
@@ -45,11 +46,15 @@ class TeacherStudentAccessServiceTest {
     @Mock
     private StudentMapper studentMapper;
 
+    @Mock
+    private StudentAccessSessionService studentAccessSessionService;
+
     private TeacherStudentAccessService service;
 
     @BeforeEach
     void setUp() {
-        service = new TeacherStudentAccessService(teacherStudentMapper, teacherStudentAccessMapper, studentMapper);
+        service = new TeacherStudentAccessService(
+                teacherStudentMapper, teacherStudentAccessMapper, studentMapper, studentAccessSessionService);
     }
 
     @Test
@@ -197,19 +202,23 @@ class TeacherStudentAccessServiceTest {
     @Test
     void revokeSoftDeletesOneActiveAccess() {
         stubOwnedActiveRelation();
+        when(teacherStudentAccessMapper.selectActiveByTeacherStudentId(72L)).thenReturn(stored("key"));
+        when(teacherStudentAccessMapper.lockTeacherStudentAccessById(90L)).thenReturn(stored("key"));
         when(teacherStudentAccessMapper.softDeleteActiveByTeacherStudentId(72L)).thenReturn(1);
 
         service.revokeAccess(8L, 41L);
 
-        InOrder order = inOrder(teacherStudentMapper, teacherStudentAccessMapper);
+        InOrder order = inOrder(teacherStudentMapper, teacherStudentAccessMapper, studentAccessSessionService);
         order.verify(teacherStudentMapper).lockTeacherStudentById(72L);
+        order.verify(teacherStudentAccessMapper).lockTeacherStudentAccessById(90L);
+        order.verify(studentAccessSessionService).revokeActiveByAccessId(90L);
         order.verify(teacherStudentAccessMapper).softDeleteActiveByTeacherStudentId(72L);
     }
 
     @Test
     void revokeReportsMissingAccessAsNotFound() {
         stubOwnedActiveRelation();
-        when(teacherStudentAccessMapper.softDeleteActiveByTeacherStudentId(72L)).thenReturn(0);
+        when(teacherStudentAccessMapper.selectActiveByTeacherStudentId(72L)).thenReturn(null);
 
         assertThatThrownBy(() -> service.revokeAccess(8L, 41L))
                 .extracting(ex -> ((BusinessException) ex).errorCode())

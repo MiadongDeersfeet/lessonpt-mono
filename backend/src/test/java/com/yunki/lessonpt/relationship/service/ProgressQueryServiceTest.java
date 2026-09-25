@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,8 @@ import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
-import com.yunki.lessonpt.relationship.query.StudentCurriculumProgress;
+import com.yunki.lessonpt.relationship.dto.ProgressSummary;
+import com.yunki.lessonpt.relationship.dto.StudentCurriculumProgressResult;
 import com.yunki.lessonpt.relationship.query.StudentCurriculumProgressView;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,11 +74,14 @@ class ProgressQueryServiceTest {
     }
 
     @Test
-    void omitsProgressWhenThereIsNoActiveContent() {
+    void returnsNullProgressWhenThereIsNoActiveContent() {
         stubOwnedEnrollment();
         when(progressQueryMapper.selectProgressByStudentCurriculumId(90L)).thenReturn(view(90L, 0, 0));
 
-        assertThat(progressQueryService.getProgress(8L, 90L)).isEmpty();
+        StudentCurriculumProgressResult result = progressQueryService.getProgress(8L, 90L);
+
+        assertThat(result.studentCurriculumId()).isEqualTo(90L);
+        assertThat(result.progress()).isNull();
     }
 
     @Test
@@ -152,15 +155,17 @@ class ProgressQueryServiceTest {
     }
 
     @Test
-    void calculatesBatchProgressOnceAndOmitsZeroTotals() {
+    void keepsZeroTotalIdsInBatchProgress() {
         when(progressQueryMapper.selectOwnedActiveStudentCurriculumIds(8L, List.of(10L, 20L)))
                 .thenReturn(List.of(10L, 20L));
         when(progressQueryMapper.selectProgressByStudentCurriculumIds(List.of(10L, 20L)))
                 .thenReturn(List.of(view(20L, 1, 4), view(10L, 0, 0)));
 
-        List<StudentCurriculumProgress> progresses = progressQueryService.getProgresses(8L, List.of(20L, 10L, 10L));
+        List<StudentCurriculumProgressResult> progresses = progressQueryService.getProgresses(8L, List.of(20L, 10L, 10L));
 
-        assertThat(progresses).containsExactly(progress(20L, 1, 4, "25.0"));
+        assertThat(progresses).containsExactly(
+                new StudentCurriculumProgressResult(10L, null),
+                progress(20L, 1, 4, "25.0"));
         verify(progressQueryMapper).selectOwnedActiveStudentCurriculumIds(8L, List.of(10L, 20L));
         verify(progressQueryMapper).selectProgressByStudentCurriculumIds(List.of(10L, 20L));
         verify(progressQueryMapper, never()).selectProgressByStudentCurriculumId(any());
@@ -194,10 +199,10 @@ class ProgressQueryServiceTest {
         when(progressQueryMapper.selectProgressByStudentCurriculumId(90L))
                 .thenReturn(view(90L, completedCount, totalCount));
 
-        Optional<StudentCurriculumProgress> progress = progressQueryService.getProgress(8L, 90L);
+        StudentCurriculumProgressResult progress = progressQueryService.getProgress(8L, 90L);
 
-        assertThat(progress).contains(progress(90L, completedCount, totalCount, percentage));
-        assertThat(progress.orElseThrow().percentage().scale()).isEqualTo(1);
+        assertThat(progress).isEqualTo(progress(90L, completedCount, totalCount, percentage));
+        assertThat(progress.progress().percentage().scale()).isEqualTo(1);
     }
 
     private void stubOwnedEnrollment() {
@@ -241,10 +246,11 @@ class ProgressQueryServiceTest {
         return view;
     }
 
-    private static StudentCurriculumProgress progress(
+    private static StudentCurriculumProgressResult progress(
             Long studentCurriculumId, int completedCount, int totalCount, String percentage) {
-        return new StudentCurriculumProgress(
-                studentCurriculumId, completedCount, totalCount, new BigDecimal(percentage));
+        return new StudentCurriculumProgressResult(
+                studentCurriculumId,
+                new ProgressSummary(completedCount, totalCount, new BigDecimal(percentage)));
     }
 
     private static void assertCode(ErrorCode errorCode, Runnable action) {

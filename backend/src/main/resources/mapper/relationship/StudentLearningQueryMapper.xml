@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper">
+
+    <resultMap id="studentLearningStudentResultMap" type="com.yunki.lessonpt.relationship.query.StudentLearningStudentRow">
+        <result column="TEACHER_STUDENT_ID" property="teacherStudentId"/>
+        <result column="STUDENT_ID" property="studentId"/>
+        <result column="STUDENT_NAME" property="name"/>
+        <result column="EMAIL" property="email"/>
+        <result column="PHONE" property="phone"/>
+    </resultMap>
+
+    <resultMap id="studentLearningLocationResultMap" type="com.yunki.lessonpt.relationship.query.StudentLearningLocationRow">
+        <id column="TEACHER_STUDENT_LOCATION_ID" property="teacherStudentLocationId"/>
+        <result column="LOCATION_ID" property="locationId"/>
+        <result column="LOCATION_NAME" property="locationName"/>
+        <result column="ADDRESS" property="address"/>
+    </resultMap>
+
+    <resultMap id="studentLearningCurriculumResultMap" type="com.yunki.lessonpt.relationship.query.StudentLearningCurriculumRow">
+        <id column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="TEACHER_STUDENT_LOCATION_ID" property="teacherStudentLocationId"/>
+        <result column="CURRICULUM_ID" property="curriculumId"/>
+        <result column="CURRICULUM_NAME" property="curriculumName"/>
+        <result column="IS_REENROLLED" property="reenrolled" jdbcType="CHAR"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler"/>
+        <result column="MEMO" property="memo" jdbcType="CLOB"/>
+    </resultMap>
+
+    <resultMap id="studentLearningMonitoringResultMap" type="com.yunki.lessonpt.relationship.query.StudentLearningMonitoringRow">
+        <id column="MONITORING_ID" property="monitoringId"/>
+        <result column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="CONTENT_DETAIL_ID" property="contentDetailId"/>
+        <result column="CONTENT_DETAIL_NAME" property="contentDetailName"/>
+        <result column="DISPLAY_ORDER" property="displayOrder"/>
+        <result column="TARGET_BPM" property="targetBpm"/>
+        <result column="CURRENT_BPM" property="currentBpm"/>
+        <result column="PROGRESS_STATUS" property="progressStatus"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.ProgressStatusTypeHandler"/>
+        <result column="MEMO" property="memo" jdbcType="CLOB"/>
+    </resultMap>
+
+    <resultMap id="studentLearningHomeworkResultMap" type="com.yunki.lessonpt.relationship.query.StudentLearningHomeworkRow">
+        <id column="HOMEWORK_ID" property="homeworkId"/>
+        <result column="MONITORING_ID" property="monitoringId"/>
+        <result column="HOMEWORK_CONTENT" property="homeworkContent" jdbcType="CLOB"/>
+        <result column="DEADLINE" property="deadline"/>
+        <result column="IS_COMPLETED" property="completed" jdbcType="CHAR"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler"/>
+        <result column="FEEDBACK" property="feedback" jdbcType="CLOB"/>
+    </resultMap>
+
+    <select id="selectActiveStudent" resultMap="studentLearningStudentResultMap">
+        SELECT relation.TEACHER_STUDENT_ID,
+               student.STUDENT_ID,
+               student.NAME AS STUDENT_NAME,
+               student.EMAIL,
+               student.PHONE
+        FROM TB_TEACHER_STUDENT relation
+        JOIN TB_STUDENT student
+          ON student.STUDENT_ID = relation.STUDENT_ID
+         AND student.STATUS = 'Y'
+         AND student.DELETED_AT IS NULL
+        WHERE relation.TEACHER_ID = #{teacherId}
+          AND relation.STUDENT_ID = #{studentId}
+          AND relation.STATUS = 'Y'
+          AND relation.DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveLocations" resultMap="studentLearningLocationResultMap">
+        SELECT link.TEACHER_STUDENT_LOCATION_ID,
+               location.LOCATION_ID,
+               location.NAME AS LOCATION_NAME,
+               location.ADDRESS
+        FROM TB_TEACHER_STUDENT_LOCATION link
+        JOIN TB_LOCATION location
+          ON location.LOCATION_ID = link.LOCATION_ID
+         AND location.STATUS = 'Y'
+         AND location.DELETED_AT IS NULL
+        WHERE link.TEACHER_STUDENT_ID = #{teacherStudentId}
+          AND location.TEACHER_ID = #{teacherId}
+          AND link.STATUS = 'Y'
+          AND link.DELETED_AT IS NULL
+        ORDER BY location.DISPLAY_ORDER, link.TEACHER_STUDENT_LOCATION_ID
+    </select>
+
+    <select id="selectActiveCurriculums" resultMap="studentLearningCurriculumResultMap">
+        SELECT enrollment.TEACHER_STUDENT_LOCATION_ID,
+               enrollment.STUDENT_CURRICULUM_ID,
+               curriculum.CURRICULUM_ID,
+               curriculum.NAME AS CURRICULUM_NAME,
+               enrollment.IS_REENROLLED,
+               enrollment.MEMO
+        FROM TB_STUDENT_CURRICULUM enrollment
+        JOIN TB_CURRICULUM curriculum
+          ON curriculum.CURRICULUM_ID = enrollment.CURRICULUM_ID
+         AND curriculum.TEACHER_ID = #{teacherId}
+         AND curriculum.STATUS = 'Y'
+         AND curriculum.DELETED_AT IS NULL
+        WHERE enrollment.STATUS = 'Y'
+          AND enrollment.DELETED_AT IS NULL
+        <choose>
+            <when test="teacherStudentLocationIds != null and teacherStudentLocationIds.size() &gt; 0">
+                AND enrollment.TEACHER_STUDENT_LOCATION_ID IN
+                <foreach collection="teacherStudentLocationIds" item="teacherStudentLocationId" open="(" separator="," close=")">
+                    #{teacherStudentLocationId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        ORDER BY curriculum.DISPLAY_ORDER, enrollment.STUDENT_CURRICULUM_ID
+    </select>
+
+    <select id="selectActiveMonitorings" resultMap="studentLearningMonitoringResultMap">
+        SELECT monitoring.STUDENT_CURRICULUM_ID,
+               monitoring.MONITORING_ID,
+               content.CONTENT_DETAIL_ID,
+               content.NAME AS CONTENT_DETAIL_NAME,
+               monitoring.DISPLAY_ORDER,
+               content.TARGET_BPM,
+               monitoring.CURRENT_BPM,
+               monitoring.PROGRESS_STATUS,
+               monitoring.MEMO
+        FROM TB_STUDENT_MONITORING monitoring
+        JOIN TB_CONTENT_DETAIL content
+          ON content.CONTENT_DETAIL_ID = monitoring.CONTENT_DETAIL_ID
+         AND content.STATUS = 'Y'
+         AND content.DELETED_AT IS NULL
+        WHERE monitoring.STATUS = 'Y'
+          AND monitoring.DELETED_AT IS NULL
+        <choose>
+            <when test="studentCurriculumIds != null and studentCurriculumIds.size() &gt; 0">
+                AND monitoring.STUDENT_CURRICULUM_ID IN
+                <foreach collection="studentCurriculumIds" item="studentCurriculumId" open="(" separator="," close=")">
+                    #{studentCurriculumId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        ORDER BY monitoring.STUDENT_CURRICULUM_ID, monitoring.DISPLAY_ORDER, monitoring.MONITORING_ID
+    </select>
+
+    <select id="selectActiveHomeworks" resultMap="studentLearningHomeworkResultMap">
+        SELECT homework.MONITORING_ID,
+               homework.HOMEWORK_ID,
+               homework.HOMEWORK_CONTENT,
+               homework.DEADLINE,
+               homework.IS_COMPLETED,
+               homework.FEEDBACK
+        FROM TB_HOMEWORK homework
+        WHERE homework.STATUS = 'Y'
+          AND homework.DELETED_AT IS NULL
+        <choose>
+            <when test="monitoringIds != null and monitoringIds.size() &gt; 0">
+                AND homework.MONITORING_ID IN
+                <foreach collection="monitoringIds" item="monitoringId" open="(" separator="," close=")">
+                    #{monitoringId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        ORDER BY homework.CREATED_AT, homework.HOMEWORK_ID
+    </select>
+</mapper>

@@ -162,8 +162,9 @@ class ContentDetailMapperOracleTest {
                 .isEqualTo(1);
         assertThat(categoryMapper.softDeleteCategory(categoryA1.getCategoryId(), curriculumA.getCurriculumId()))
                 .isEqualTo(1);
-        assertThat(contentDetailMapper.selectContentDetailById(detailA1.getContentDetailId()).getStatus())
-                .isEqualTo(RecordStatus.INACTIVE);
+        ContentDetail deletedChild = contentDetailMapper.selectContentDetailById(detailA1.getContentDetailId());
+        assertThat(deletedChild.getStatus()).isEqualTo(RecordStatus.INACTIVE);
+        assertThat(deletedChild.getDeletedAt()).isNotNull();
         assertThat(categoryMapper.selectCategoryById(categoryA2.getCategoryId()).getStatus()).isEqualTo(RecordStatus.ACTIVE);
         assertThat(contentDetailMapper.selectContentDetailById(detailA2.getContentDetailId()).getStatus())
                 .isEqualTo(RecordStatus.ACTIVE);
@@ -173,8 +174,9 @@ class ContentDetailMapperOracleTest {
         categoryA1.setDisplayOrder(2);
         assertThat(categoryMapper.restoreCategory(categoryA1)).isEqualTo(1);
         assertThat(categoryMapper.selectCategoryById(categoryA1.getCategoryId()).getStatus()).isEqualTo(RecordStatus.ACTIVE);
-        assertThat(contentDetailMapper.selectContentDetailById(detailA1.getContentDetailId()).getStatus())
-                .isEqualTo(RecordStatus.INACTIVE);
+        ContentDetail stillDeleted = contentDetailMapper.selectContentDetailById(detailA1.getContentDetailId());
+        assertThat(stillDeleted.getStatus()).isEqualTo(RecordStatus.INACTIVE);
+        assertThat(stillDeleted.getDeletedAt()).isNotNull();
 
         assertThat(contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(categoryA1.getCategoryId()))
                 .isEqualTo(0);

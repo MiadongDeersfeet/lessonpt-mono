@@ -7,6 +7,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.yunki.lessonpt.auth.security.TeacherPrincipal;
 import com.yunki.lessonpt.teacher.dto.TeacherMeResponse;
+import com.yunki.lessonpt.teacher.service.TeacherMeService;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * 이후 Location 생성처럼 강사 번호는 로그인 결과에서만 가져온다.
@@ -14,10 +17,13 @@ import com.yunki.lessonpt.teacher.dto.TeacherMeResponse;
  */
 @RestController
 @RequestMapping("/api/v1/teachers")
+@RequiredArgsConstructor
 public class TeacherMeController {
+
+    private final TeacherMeService teacherMeService;
 
     @GetMapping("/me")
     public TeacherMeResponse me(@AuthenticationPrincipal TeacherPrincipal principal) {
-        return new TeacherMeResponse(principal.teacherId(), principal.email());
+        return teacherMeService.me(principal.teacherId());
     }
 }

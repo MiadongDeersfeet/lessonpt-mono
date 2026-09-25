@@ -13,7 +13,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,11 +38,15 @@ import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper;
+import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
+import com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentMonitoringMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
-import com.yunki.lessonpt.relationship.query.StudentCurriculumProgress;
+import com.yunki.lessonpt.relationship.dto.ProgressSummary;
+import com.yunki.lessonpt.relationship.dto.StudentCurriculumProgressResult;
 import com.yunki.lessonpt.relationship.service.ProgressQueryService;
 import com.yunki.lessonpt.student.mapper.StudentMapper;
 import com.yunki.lessonpt.teacher.domain.Teacher;
@@ -111,6 +114,15 @@ class ProgressQueryControllerSecurityTest {
     private StudentEmailVerificationMapper studentEmailVerificationMapper;
 
     @MockitoBean
+    private StudentAccessSessionMapper studentAccessSessionMapper;
+
+    @MockitoBean
+    private StudentPortalMapper studentPortalMapper;
+
+    @MockitoBean
+    private StudentLearningQueryMapper studentLearningQueryMapper;
+
+    @MockitoBean
     private ProgressQueryService progressQueryService;
 
     private String bearerToken;
@@ -133,19 +145,19 @@ class ProgressQueryControllerSecurityTest {
     void getReturnsServicePercentageWithoutRecalculating() throws Exception {
         authenticate(21L);
         when(progressQueryService.getProgress(21L, 42L))
-                .thenReturn(Optional.of(progress(42L, 1, 3, "33.3")));
+                .thenReturn(progress(42L, 1, 3, "33.3"));
 
         mockMvc.perform(get(SINGLE).header(HttpHeaders.AUTHORIZATION, bearerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentCurriculumId").value(42))
-                .andExpect(jsonPath("$.completedCount").value(1))
-                .andExpect(jsonPath("$.totalCount").value(3))
-                .andExpect(jsonPath("$.percentage").value(33.3))
+                .andExpect(jsonPath("$.progress.completedCount").value(1))
+                .andExpect(jsonPath("$.progress.totalCount").value(3))
+                .andExpect(jsonPath("$.progress.percentage").value(33.3))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"percentage\":33.3")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"33.3\""))));
 
         when(progressQueryService.getProgress(21L, 42L))
-                .thenReturn(Optional.of(progress(42L, 4, 4, "100.0")));
+                .thenReturn(progress(42L, 4, 4, "100.0"));
         mockMvc.perform(get(SINGLE).header(HttpHeaders.AUTHORIZATION, bearerToken))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"percentage\":100.0")));
@@ -155,13 +167,15 @@ class ProgressQueryControllerSecurityTest {
     }
 
     @Test
-    void getReturnsNoContentWhenProgressIsAbsent() throws Exception {
+    void getReturnsNullProgressWhenThereIsNoActiveContent() throws Exception {
         authenticate(21L);
-        when(progressQueryService.getProgress(21L, 42L)).thenReturn(Optional.empty());
+        when(progressQueryService.getProgress(21L, 42L))
+                .thenReturn(new StudentCurriculumProgressResult(42L, null));
 
         mockMvc.perform(get(SINGLE).header(HttpHeaders.AUTHORIZATION, bearerToken))
-                .andExpect(status().isNoContent())
-                .andExpect(content().string(""));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentCurriculumId").value(42))
+                .andExpect(jsonPath("$.progress").value(org.hamcrest.Matchers.nullValue()));
     }
 
     @Test
@@ -189,10 +203,13 @@ class ProgressQueryControllerSecurityTest {
     }
 
     @Test
-    void queryReturnsServiceRowsAndOmitsIdsTheServiceExcluded() throws Exception {
+    void queryKeepsZeroTotalIdsWithNullProgress() throws Exception {
         authenticate(21L);
         when(progressQueryService.getProgresses(21L, List.of(10L, 11L, 12L)))
-                .thenReturn(List.of(progress(10L, 2, 4, "50.0"), progress(12L, 2, 3, "12.5")));
+                .thenReturn(List.of(
+                        progress(10L, 2, 4, "50.0"),
+                        new StudentCurriculumProgressResult(11L, null),
+                        progress(12L, 2, 3, "12.5")));
 
         mockMvc.perform(post(BATCH)
                         .header(HttpHeaders.AUTHORIZATION, bearerToken)
@@ -201,14 +218,15 @@ class ProgressQueryControllerSecurityTest {
                                 {"studentCurriculumIds":[10,11,12]}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[0].studentCurriculumId").value(10))
-                .andExpect(jsonPath("$[0].completedCount").value(2))
-                .andExpect(jsonPath("$[0].totalCount").value(4))
-                .andExpect(jsonPath("$[0].percentage").value(50.0))
-                .andExpect(jsonPath("$[1].studentCurriculumId").value(12))
-                .andExpect(jsonPath("$[1].percentage").value(12.5))
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"studentCurriculumId\":11"))));
+                .andExpect(jsonPath("$[0].progress.completedCount").value(2))
+                .andExpect(jsonPath("$[0].progress.totalCount").value(4))
+                .andExpect(jsonPath("$[0].progress.percentage").value(50.0))
+                .andExpect(jsonPath("$[1].studentCurriculumId").value(11))
+                .andExpect(jsonPath("$[1].progress").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$[2].studentCurriculumId").value(12))
+                .andExpect(jsonPath("$[2].progress.percentage").value(12.5));
 
         verify(progressQueryService).getProgresses(21L, List.of(10L, 11L, 12L));
         verify(progressQueryMapper, never()).selectProgressByStudentCurriculumIds(any());
@@ -298,10 +316,11 @@ class ProgressQueryControllerSecurityTest {
                 .andExpect(jsonPath("$.path").value(BATCH));
     }
 
-    private static StudentCurriculumProgress progress(
+    private static StudentCurriculumProgressResult progress(
             Long studentCurriculumId, int completedCount, int totalCount, String percentage) {
-        return new StudentCurriculumProgress(
-                studentCurriculumId, completedCount, totalCount, new BigDecimal(percentage));
+        return new StudentCurriculumProgressResult(
+                studentCurriculumId,
+                new ProgressSummary(completedCount, totalCount, new BigDecimal(percentage)));
     }
 
     private void authenticate(Long teacherId) {

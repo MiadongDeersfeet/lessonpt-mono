@@ -213,6 +213,7 @@ class CategoryServiceTest {
         assertThat(captor.getValue().getDisplayOrder()).isEqualTo(3);
         assertThat(restored.getDisplayOrder()).isEqualTo(3);
         verify(contentDetailMapper, never()).restoreContentDetail(any());
+        verify(contentDetailMapper, never()).insertContentDetail(any());
     }
 
     @Test

@@ -42,6 +42,7 @@ public class StudentEmailVerificationService {
     private final OtpGenerator otpGenerator;
     private final TokenHasher tokenHasher;
     private final Clock clock;
+    private final StudentAccessSessionService studentAccessSessionService;
 
     @Transactional(noRollbackFor = BusinessException.class)
     public void issue(String publicAccessKey, String email) {
@@ -71,11 +72,10 @@ public class StudentEmailVerificationService {
     }
 
     /**
-     * OTP가 맞으면 그 검증 행을 소비한다.
-     * 조회 세션은 만들지 않는다.
+     * OTP가 맞으면 검증 행을 소비하고, 같은 access의 조회 세션을 하나 만든다.
      */
     @Transactional(noRollbackFor = BusinessException.class)
-    public void verify(String publicAccessKey, String email, String otp) {
+    public IssuedStudentSession verify(String publicAccessKey, String email, String otp) {
         Owned owned = lockedActiveAccess(publicAccessKey);
         String normalizedEmail = requireMatchingEmail(owned.relation(), email);
         TeacherStudentAccess access = owned.access();
@@ -97,6 +97,7 @@ public class StudentEmailVerificationService {
         pending.setConsumedAt(now);
         pending.setUpdatedAt(now);
         expectOne(studentEmailVerificationMapper.markConsumed(pending));
+        return studentAccessSessionService.openAfterOtp(access.getTeacherStudentAccessId());
     }
 
     private Owned lockedActiveAccess(String publicAccessKey) {

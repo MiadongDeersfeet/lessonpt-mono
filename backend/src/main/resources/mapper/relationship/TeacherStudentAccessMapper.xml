@@ -103,4 +103,13 @@
         WHERE TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
         FOR UPDATE WAIT 3
     </select>
+
+    <update id="updateLastVerifiedAt">
+        UPDATE TB_TEACHER_STUDENT_ACCESS
+        SET LAST_VERIFIED_AT = #{lastVerifiedAt},
+            UPDATED_AT = #{lastVerifiedAt}
+        WHERE TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+          AND STATUS = 'Y'
+          AND REVOKED_AT IS NULL
+    </update>
 </mapper>

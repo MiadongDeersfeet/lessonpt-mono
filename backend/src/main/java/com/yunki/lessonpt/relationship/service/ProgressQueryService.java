@@ -5,7 +5,6 @@ import java.math.RoundingMode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -24,7 +23,8 @@ import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
-import com.yunki.lessonpt.relationship.query.StudentCurriculumProgress;
+import com.yunki.lessonpt.relationship.dto.ProgressSummary;
+import com.yunki.lessonpt.relationship.dto.StudentCurriculumProgressResult;
 import com.yunki.lessonpt.relationship.query.StudentCurriculumProgressView;
 
 import lombok.RequiredArgsConstructor;
@@ -42,27 +42,23 @@ public class ProgressQueryService {
     private final ProgressQueryMapper progressQueryMapper;
 
     /**
-     * 활성 내용이 없으면 빈 Optional이다. 백분율은 만들지 않는다.
+     * 소유한 배정은 항상 한 건이다. 활성 내용이 없으면 progress는 null이다.
      */
     @Transactional(readOnly = true)
-    public Optional<StudentCurriculumProgress> getProgress(Long teacherId, Long studentCurriculumId) {
+    public StudentCurriculumProgressResult getProgress(Long teacherId, Long studentCurriculumId) {
         requireOwnedEnrollment(teacherId, studentCurriculumId);
         StudentCurriculumProgressView view = progressQueryMapper.selectProgressByStudentCurriculumId(studentCurriculumId);
         if (view == null || !studentCurriculumId.equals(view.getStudentCurriculumId())) {
             throw new BusinessException(ErrorCode.COMMON_INTERNAL_ERROR);
         }
-        requireConsistentCounts(view);
-        if (view.getTotalCount() == 0) {
-            return Optional.empty();
-        }
-        return Optional.of(toProgress(view));
+        return new StudentCurriculumProgressResult(studentCurriculumId, summarize(view));
     }
 
     /**
-     * 요청한 배정마다 한 건이다. 활성 내용이 없는 배정은 목록에서 뺀다.
+     * 요청한 배정마다 한 건이다. 활성 내용이 없는 배정도 progress null로 남긴다.
      */
     @Transactional(readOnly = true)
-    public List<StudentCurriculumProgress> getProgresses(Long teacherId, List<Long> studentCurriculumIds) {
+    public List<StudentCurriculumProgressResult> getProgresses(Long teacherId, List<Long> studentCurriculumIds) {
         if (studentCurriculumIds == null) {
             throw new BusinessException(ErrorCode.COMMON_INVALID_INPUT);
         }
@@ -79,10 +75,22 @@ public class ProgressQueryService {
                 .stream()
                 .collect(Collectors.toMap(StudentCurriculumProgressView::getStudentCurriculumId, Function.identity()));
         return ids.stream()
-                .map(id -> requireProgressView(views, id))
-                .filter(view -> view.getTotalCount() > 0)
-                .map(this::toProgress)
+                .map(id -> new StudentCurriculumProgressResult(id, summarize(requireProgressView(views, id))))
                 .toList();
+    }
+
+    public ProgressSummary summarize(StudentCurriculumProgressView view) {
+        if (view == null) {
+            return null;
+        }
+        requireConsistentCounts(view);
+        if (view.getTotalCount() == 0) {
+            return null;
+        }
+        BigDecimal percentage = BigDecimal.valueOf(view.getCompletedCount())
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(view.getTotalCount()), PERCENTAGE_SCALE, RoundingMode.HALF_UP);
+        return new ProgressSummary(view.getCompletedCount(), view.getTotalCount(), percentage);
     }
 
     private StudentCurriculum requireOwnedEnrollment(Long teacherId, Long studentCurriculumId) {
@@ -132,14 +140,4 @@ public class ProgressQueryService {
         }
     }
 
-    private StudentCurriculumProgress toProgress(StudentCurriculumProgressView view) {
-        BigDecimal percentage = BigDecimal.valueOf(view.getCompletedCount())
-                .multiply(BigDecimal.valueOf(100))
-                .divide(BigDecimal.valueOf(view.getTotalCount()), PERCENTAGE_SCALE, RoundingMode.HALF_UP);
-        return new StudentCurriculumProgress(
-                view.getStudentCurriculumId(),
-                view.getCompletedCount(),
-                view.getTotalCount(),
-                percentage);
-    }
 }

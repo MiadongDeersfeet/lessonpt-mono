@@ -19,6 +19,11 @@ spring:
       # 접속이 실패해도 프로세스는 유지하고, 결과는 /actuator/health 의 oracle 항목으로 본다.
       initialization-fail-timeout: -1
 
+lessonpt:
+  student-session:
+    secure: false
+    same-site: Lax
+
 logging:
   level:
     # SmokeMapper SQL을 로컬에서만 본다.

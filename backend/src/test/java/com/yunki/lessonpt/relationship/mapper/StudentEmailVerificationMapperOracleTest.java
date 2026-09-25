@@ -26,11 +26,18 @@ import com.yunki.lessonpt.relationship.domain.StudentEmailVerification;
 import com.yunki.lessonpt.relationship.domain.StudentEmailVerificationStatus;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentAccess;
+import com.yunki.lessonpt.auth.jwt.TokenHasher;
+import com.yunki.lessonpt.relationship.domain.StudentAccessSession;
+import com.yunki.lessonpt.relationship.domain.StudentAccessSessionStatus;
+import com.yunki.lessonpt.relationship.service.IssuedStudentSession;
 import com.yunki.lessonpt.relationship.service.OtpGenerator;
+import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
 import com.yunki.lessonpt.relationship.service.StudentEmailVerificationService;
 import com.yunki.lessonpt.relationship.service.TeacherStudentAccessService;
 import com.yunki.lessonpt.student.domain.Student;
+import com.yunki.lessonpt.student.dto.StudentUpdateRequest;
 import com.yunki.lessonpt.student.mapper.StudentMapper;
+import com.yunki.lessonpt.student.service.StudentService;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
@@ -68,6 +75,17 @@ class StudentEmailVerificationMapperOracleTest {
 
     @Autowired
     private StudentEmailVerificationService studentEmailVerificationService;
+
+    @Autowired
+    private StudentAccessSessionMapper studentAccessSessionMapper;
+
+    @Autowired
+    private StudentAccessSessionService studentAccessSessionService;
+
+    @Autowired
+    private StudentService studentService;
+
+    private final TokenHasher tokenHasher = new TokenHasher();
 
     @BeforeEach
     void fixClockAndOtp() {
@@ -136,7 +154,7 @@ class StudentEmailVerificationMapperOracleTest {
         now.set(afterLock.getCreatedAt().toInstant(ZoneOffset.UTC).plusSeconds(60));
         when(otpGenerator.generate()).thenReturn("222222");
         studentEmailVerificationService.issue(key, student.getEmail());
-        studentEmailVerificationService.verify(key, student.getEmail(), "222222");
+        IssuedStudentSession issued = studentEmailVerificationService.verify(key, student.getEmail(), "222222");
         StudentEmailVerification consumed = studentEmailVerificationMapper.selectLatestByAccessId(
                 access.getTeacherStudentAccessId());
         assertThat(consumed.getVerificationStatus()).isEqualTo(StudentEmailVerificationStatus.CONSUMED);
@@ -144,10 +162,86 @@ class StudentEmailVerificationMapperOracleTest {
                 .extracting(ex -> ((BusinessException) ex).errorCode())
                 .isEqualTo(ErrorCode.AUTH_FAILED);
 
+        StudentAccessSession created = studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(issued.rawToken()));
+        assertThat(created.getSessionStatus()).isEqualTo(StudentAccessSessionStatus.ACTIVE);
+        assertThat(created.getSessionTokenHash()).isNotEqualTo(issued.rawToken());
         teacherStudentAccessService.revokeAccess(teacher.getTeacherId(), student.getStudentId());
+        assertThat(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(issued.rawToken())).getSessionStatus())
+                .isEqualTo(StudentAccessSessionStatus.REVOKED);
+        String rotated = teacherStudentAccessService.createAccess(teacher.getTeacherId(), student.getStudentId())
+                .publicAccessKey();
+        assertThat(rotated).isNotEqualTo(key);
+        assertThat(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(issued.rawToken())).getSessionStatus())
+                .isEqualTo(StudentAccessSessionStatus.REVOKED);
+        assertThat(studentAccessSessionService.authenticate(issued.rawToken())).isEmpty();
         assertThatThrownBy(() -> studentEmailVerificationService.issue(key, student.getEmail()))
                 .extracting(ex -> ((BusinessException) ex).errorCode())
                 .isEqualTo(ErrorCode.COMMON_NOT_FOUND);
+    }
+
+    @Test
+    void sessionSurvivesOnlyWhileAccessRelationAndEmailStayValid() {
+        Teacher teacher = teacher();
+        teacherMapper.insertTeacher(teacher);
+        Student student = studentWithEmail();
+        studentMapper.insertStudent(student);
+        TeacherStudent relation = relation(teacher.getTeacherId(), student.getStudentId());
+        teacherStudentMapper.insertTeacherStudent(relation);
+        String key = teacherStudentAccessService.createAccess(teacher.getTeacherId(), student.getStudentId()).publicAccessKey();
+        studentEmailVerificationService.issue(key, student.getEmail());
+        IssuedStudentSession issued = studentEmailVerificationService.verify(key, student.getEmail(), "123456");
+        StudentAccessSession stored = studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(issued.rawToken()));
+        assertThat(stored.getExpiresAt()).isAfter(stored.getCreatedAt());
+        assertThat(stored.getAbsoluteExpiresAt()).isAfter(stored.getExpiresAt().minusSeconds(1));
+
+        StudentAccessSession duplicate = new StudentAccessSession();
+        duplicate.setTeacherStudentAccessId(stored.getTeacherStudentAccessId());
+        duplicate.setSessionTokenHash(stored.getSessionTokenHash());
+        duplicate.setSessionStatus(StudentAccessSessionStatus.ACTIVE);
+        duplicate.setExpiresAt(stored.getExpiresAt());
+        duplicate.setAbsoluteExpiresAt(stored.getAbsoluteExpiresAt());
+        duplicate.setLastAccessedAt(stored.getLastAccessedAt());
+        duplicate.setCreatedAt(stored.getCreatedAt());
+        duplicate.setUpdatedAt(stored.getUpdatedAt());
+        assertThatThrownBy(() -> studentAccessSessionMapper.insertStudentAccessSession(duplicate))
+                .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+
+        now.set(now.get().plus(java.time.Duration.ofHours(24)));
+        assertThat(studentAccessSessionService.authenticate(issued.rawToken())).isPresent();
+        assertThat(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(issued.rawToken())).getLastAccessedAt())
+                .isEqualTo(java.time.LocalDateTime.ofInstant(now.get(), ZoneOffset.UTC));
+
+        now.set(now.get().plus(java.time.Duration.ofDays(31)));
+        assertThat(studentAccessSessionService.authenticate(issued.rawToken())).isEmpty();
+
+        studentEmailVerificationService.issue(key, student.getEmail());
+        IssuedStudentSession renewed = studentEmailVerificationService.verify(key, student.getEmail(), "123456");
+        studentAccessSessionService.logout(renewed.rawToken());
+        assertThat(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(renewed.rawToken())).getSessionStatus())
+                .isEqualTo(StudentAccessSessionStatus.REVOKED);
+
+        now.set(now.get().plusSeconds(61));
+        studentEmailVerificationService.issue(key, student.getEmail());
+        IssuedStudentSession emailSession = studentEmailVerificationService.verify(key, student.getEmail(), "123456");
+        StudentUpdateRequest same = new StudentUpdateRequest();
+        same.setEmail(student.getEmail());
+        studentService.updateStudent(teacher.getTeacherId(), student.getStudentId(), same);
+        assertThat(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(emailSession.rawToken())).getSessionStatus())
+                .isEqualTo(StudentAccessSessionStatus.ACTIVE);
+        StudentUpdateRequest cleared = new StudentUpdateRequest();
+        cleared.setEmail(null);
+        studentService.updateStudent(teacher.getTeacherId(), student.getStudentId(), cleared);
+        assertThat(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(emailSession.rawToken())).getSessionStatus())
+                .isEqualTo(StudentAccessSessionStatus.REVOKED);
+
+        student.setEmail("again." + UUID.randomUUID() + "@lessonpt.local");
+        studentMapper.updateStudent(student);
+        now.set(now.get().plusSeconds(61));
+        studentEmailVerificationService.issue(key, student.getEmail());
+        IssuedStudentSession releaseSession = studentEmailVerificationService.verify(key, student.getEmail(), "123456");
+        studentService.releaseStudent(teacher.getTeacherId(), student.getStudentId());
+        assertThat(studentAccessSessionMapper.selectByTokenHash(tokenHasher.hash(releaseSession.rawToken())).getSessionStatus())
+                .isEqualTo(StudentAccessSessionStatus.REVOKED);
     }
 
     private Teacher teacher() {

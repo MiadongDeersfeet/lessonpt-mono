@@ -21,6 +21,9 @@ import com.yunki.lessonpt.auth.jwt.JwtProvider;
 import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
 import com.yunki.lessonpt.auth.security.AuthErrorWriter;
 import com.yunki.lessonpt.auth.security.JwtAuthenticationFilter;
+import com.yunki.lessonpt.auth.security.StudentSessionAuthenticationFilter;
+import com.yunki.lessonpt.relationship.config.StudentSessionProperties;
+import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
 /**
@@ -30,7 +33,7 @@ import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
  * traceId 필터는 서블릿 필터로 그 앞에 있으므로 여기서 다시 넣지 않는다.
  */
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, StudentSessionProperties.class})
 public class SecurityConfig {
 
     @Bean
@@ -53,10 +56,17 @@ public class SecurityConfig {
     }
 
     @Bean
+    StudentSessionAuthenticationFilter studentSessionAuthenticationFilter(
+            StudentAccessSessionService studentAccessSessionService) {
+        return new StudentSessionAuthenticationFilter(studentAccessSessionService);
+    }
+
+    @Bean
     @Order(0)
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            StudentSessionAuthenticationFilter studentSessionAuthenticationFilter,
             AuthErrorWriter authErrorWriter) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -64,18 +74,25 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(handler -> handler.authenticationEntryPoint(
-                        (request, response, exception) -> authErrorWriter.writeUnauthorized(request, response)))
+                .exceptionHandling(handler -> handler
+                        .authenticationEntryPoint(
+                                (request, response, exception) -> authErrorWriter.writeUnauthorized(request, response))
+                        .accessDeniedHandler(
+                                (request, response, exception) -> authErrorWriter.writeUnauthorized(request, response)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/student-access/*/otp",
-                                "/api/v1/student-access/*/otp/verify").permitAll()
+                                "/api/v1/student-access/*/otp/verify",
+                                "/api/v1/student/session/logout").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/api/v1/student/**").hasAuthority(
+                                StudentSessionAuthenticationFilter.STUDENT_AUTHORITY)
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(studentSessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, StudentSessionAuthenticationFilter.class);
         return http.build();
     }
 }

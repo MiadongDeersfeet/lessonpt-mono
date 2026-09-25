@@ -10,8 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.yunki.lessonpt.relationship.dto.OtpIssueRequest;
 import com.yunki.lessonpt.relationship.dto.OtpVerificationResponse;
 import com.yunki.lessonpt.relationship.dto.OtpVerifyRequest;
+import com.yunki.lessonpt.relationship.service.IssuedStudentSession;
 import com.yunki.lessonpt.relationship.service.StudentEmailVerificationService;
+import com.yunki.lessonpt.relationship.service.StudentSessionCookieWriter;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class StudentAccessOtpController {
 
     private final StudentEmailVerificationService studentEmailVerificationService;
+    private final StudentSessionCookieWriter studentSessionCookieWriter;
 
     @PostMapping
     public ResponseEntity<Void> issue(
@@ -33,8 +37,11 @@ public class StudentAccessOtpController {
     @PostMapping("/verify")
     public OtpVerificationResponse verify(
             @PathVariable String publicAccessKey,
-            @Valid @RequestBody OtpVerifyRequest request) {
-        studentEmailVerificationService.verify(publicAccessKey, request.email(), request.otp());
+            @Valid @RequestBody OtpVerifyRequest request,
+            HttpServletResponse response) {
+        IssuedStudentSession issued = studentEmailVerificationService.verify(
+                publicAccessKey, request.email(), request.otp());
+        studentSessionCookieWriter.write(response, issued);
         return new OtpVerificationResponse(true);
     }
 }

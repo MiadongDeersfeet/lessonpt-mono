@@ -20,9 +20,12 @@ lessonpt:
     expected-schema: ${LESSONPT_DB_EXPECTED_SCHEMA:DRUMMER_LMS}
   jwt:
     # 실제 값은 LESSONPT_JWT_SECRET 환경변수로만 넣는다. 32바이트 이상이어야 한다.
-    secret: ${LESSONPT_JWT_SECRET:}
+    secret: "LessonPT-Test-JWT-Secret-2026-09-25-7f4c9b2e6a1d8f3c5e0a"
     access-token-ttl: 60m
     refresh-token-ttl: 14d
+  student-session:
+    # 배포 환경은 Secure를 유지한다. 로컬 HTTP는 local 프로파일에서만 완화한다.
+    secure: true
 
 mybatis:
   # 도메인 Mapper XML은 기능을 추가할 때 mapper 아래에 둔다.
@@ -45,3 +48,14 @@ management:
     health:
       # 로컬과 테스트에서 oracle 항목을 바로 보게 한다. prod는 상세를 숨긴다.
       show-details: always
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+lessonpt:
+  student-session:
+    # Vite proxy로 붙는 localhost HTTP에서 쿠키가 저장되게 한다.
+    secure: false
+    same-site: Lax

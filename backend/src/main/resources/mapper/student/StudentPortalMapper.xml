@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.student.mapper.StudentPortalMapper">
+
+    <resultMap id="studentPortalIdentityResultMap" type="com.yunki.lessonpt.student.query.StudentPortalIdentity">
+        <result column="TEACHER_STUDENT_ID" property="teacherStudentId"/>
+        <result column="STUDENT_ID" property="studentId"/>
+        <result column="STUDENT_NAME" property="name"/>
+    </resultMap>
+
+    <resultMap id="studentPortalEnrollmentResultMap" type="com.yunki.lessonpt.student.query.StudentPortalEnrollment">
+        <id column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="CURRICULUM_ID" property="curriculumId"/>
+        <result column="CURRICULUM_NAME" property="curriculumName"/>
+        <result column="CURRICULUM_DISPLAY_ORDER" property="curriculumDisplayOrder"/>
+    </resultMap>
+
+    <resultMap id="studentPortalContentResultMap" type="com.yunki.lessonpt.student.query.StudentPortalContentRow">
+        <result column="CONTENT_DETAIL_ID" property="contentDetailId"/>
+        <result column="CURRICULUM_ID" property="curriculumId"/>
+        <result column="CATEGORY_ID" property="categoryId"/>
+        <result column="CATEGORY_NAME" property="categoryName"/>
+        <result column="CATEGORY_DISPLAY_ORDER" property="categoryDisplayOrder"/>
+        <result column="CONTENT_NAME" property="contentName"/>
+        <result column="CONTENT_DISPLAY_ORDER" property="contentDisplayOrder"/>
+        <result column="TARGET_BPM" property="targetBpm"/>
+        <result column="SHEET_URL" property="sheetUrl"/>
+        <result column="YOUTUBE_URL" property="youtubeUrl"/>
+        <result column="AUDIO_URL" property="audioUrl"/>
+    </resultMap>
+
+    <resultMap id="studentPortalMonitoringResultMap" type="com.yunki.lessonpt.student.query.StudentPortalMonitoringRow">
+        <result column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="CONTENT_DETAIL_ID" property="contentDetailId"/>
+        <result column="CURRENT_BPM" property="currentBpm"/>
+        <result column="PROGRESS_STATUS" property="progressStatus"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.ProgressStatusTypeHandler"/>
+    </resultMap>
+
+    <resultMap id="studentPortalHomeworkResultMap" type="com.yunki.lessonpt.student.query.StudentPortalHomeworkRow">
+        <result column="STUDENT_CURRICULUM_ID" property="studentCurriculumId"/>
+        <result column="CONTENT_DETAIL_ID" property="contentDetailId"/>
+        <result column="HOMEWORK_CONTENT" property="homeworkContent"/>
+        <result column="DEADLINE" property="deadline"/>
+        <result column="IS_COMPLETED" property="completed" jdbcType="CHAR"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.BooleanYnTypeHandler"/>
+        <result column="FEEDBACK" property="feedback"/>
+    </resultMap>
+
+    <select id="selectActiveIdentity" resultMap="studentPortalIdentityResultMap">
+        SELECT relation.TEACHER_STUDENT_ID,
+               student.STUDENT_ID,
+               student.NAME AS STUDENT_NAME
+        FROM TB_TEACHER_STUDENT_ACCESS access_row
+        JOIN TB_TEACHER_STUDENT relation
+          ON relation.TEACHER_STUDENT_ID = access_row.TEACHER_STUDENT_ID
+         AND relation.STATUS = 'Y'
+         AND relation.DELETED_AT IS NULL
+        JOIN TB_STUDENT student
+          ON student.STUDENT_ID = relation.STUDENT_ID
+         AND student.STATUS = 'Y'
+         AND student.DELETED_AT IS NULL
+        WHERE access_row.TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+          AND access_row.STATUS = 'Y'
+          AND access_row.REVOKED_AT IS NULL
+    </select>
+
+    <select id="selectActiveEnrollments" resultMap="studentPortalEnrollmentResultMap">
+        SELECT enrollment.STUDENT_CURRICULUM_ID,
+               curriculum.CURRICULUM_ID,
+               curriculum.NAME AS CURRICULUM_NAME,
+               curriculum.DISPLAY_ORDER AS CURRICULUM_DISPLAY_ORDER
+        FROM TB_TEACHER_STUDENT_ACCESS access_row
+        JOIN TB_TEACHER_STUDENT relation
+          ON relation.TEACHER_STUDENT_ID = access_row.TEACHER_STUDENT_ID
+         AND relation.STATUS = 'Y'
+         AND relation.DELETED_AT IS NULL
+        JOIN TB_TEACHER_STUDENT_LOCATION link
+          ON link.TEACHER_STUDENT_ID = relation.TEACHER_STUDENT_ID
+         AND link.STATUS = 'Y'
+         AND link.DELETED_AT IS NULL
+        JOIN TB_STUDENT_CURRICULUM enrollment
+          ON enrollment.TEACHER_STUDENT_LOCATION_ID = link.TEACHER_STUDENT_LOCATION_ID
+         AND enrollment.STATUS = 'Y'
+         AND enrollment.DELETED_AT IS NULL
+        JOIN TB_CURRICULUM curriculum
+          ON curriculum.CURRICULUM_ID = enrollment.CURRICULUM_ID
+         AND curriculum.STATUS = 'Y'
+         AND curriculum.DELETED_AT IS NULL
+        WHERE access_row.TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+          AND access_row.STATUS = 'Y'
+          AND access_row.REVOKED_AT IS NULL
+        ORDER BY curriculum.DISPLAY_ORDER, enrollment.STUDENT_CURRICULUM_ID
+    </select>
+
+    <select id="selectActiveContents" resultMap="studentPortalContentResultMap">
+        SELECT category.CURRICULUM_ID,
+               category.CATEGORY_ID,
+               category.NAME AS CATEGORY_NAME,
+               category.DISPLAY_ORDER AS CATEGORY_DISPLAY_ORDER,
+               content.CONTENT_DETAIL_ID,
+               content.NAME AS CONTENT_NAME,
+               content.DISPLAY_ORDER AS CONTENT_DISPLAY_ORDER,
+               content.TARGET_BPM,
+               content.SHEET_URL,
+               content.YOUTUBE_URL,
+               content.AUDIO_URL
+        FROM TB_CATEGORY category
+        LEFT JOIN TB_CONTENT_DETAIL content
+          ON content.CATEGORY_ID = category.CATEGORY_ID
+         AND content.STATUS = 'Y'
+         AND content.DELETED_AT IS NULL
+        WHERE category.STATUS = 'Y'
+          AND category.DELETED_AT IS NULL
+        <choose>
+            <when test="curriculumIds != null and curriculumIds.size() &gt; 0">
+                AND category.CURRICULUM_ID IN
+                <foreach collection="curriculumIds" item="curriculumId" open="(" separator="," close=")">
+                    #{curriculumId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        ORDER BY category.CURRICULUM_ID, category.DISPLAY_ORDER, category.CATEGORY_ID,
+                 content.DISPLAY_ORDER, content.CONTENT_DETAIL_ID
+    </select>
+
+    <select id="selectActiveMonitoring" resultMap="studentPortalMonitoringResultMap">
+        SELECT MONITORING_ID,
+               STUDENT_CURRICULUM_ID,
+               CONTENT_DETAIL_ID,
+               CURRENT_BPM,
+               PROGRESS_STATUS
+        FROM TB_STUDENT_MONITORING
+        WHERE STATUS = 'Y'
+          AND DELETED_AT IS NULL
+        <choose>
+            <when test="studentCurriculumIds != null and studentCurriculumIds.size() &gt; 0">
+                AND STUDENT_CURRICULUM_ID IN
+                <foreach collection="studentCurriculumIds" item="studentCurriculumId" open="(" separator="," close=")">
+                    #{studentCurriculumId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        ORDER BY STUDENT_CURRICULUM_ID, CONTENT_DETAIL_ID, MONITORING_ID
+    </select>
+
+    <select id="selectActiveHomework" resultMap="studentPortalHomeworkResultMap">
+        SELECT homework.HOMEWORK_ID,
+               monitoring.STUDENT_CURRICULUM_ID,
+               monitoring.CONTENT_DETAIL_ID,
+               homework.HOMEWORK_CONTENT,
+               homework.DEADLINE,
+               homework.IS_COMPLETED,
+               homework.FEEDBACK
+        FROM TB_HOMEWORK homework
+        JOIN TB_STUDENT_MONITORING monitoring
+          ON monitoring.MONITORING_ID = homework.MONITORING_ID
+         AND monitoring.STATUS = 'Y'
+         AND monitoring.DELETED_AT IS NULL
+        WHERE homework.STATUS = 'Y'
+          AND homework.DELETED_AT IS NULL
+        <choose>
+            <when test="studentCurriculumIds != null and studentCurriculumIds.size() &gt; 0">
+                AND monitoring.STUDENT_CURRICULUM_ID IN
+                <foreach collection="studentCurriculumIds" item="studentCurriculumId" open="(" separator="," close=")">
+                    #{studentCurriculumId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        ORDER BY homework.CREATED_AT, homework.HOMEWORK_ID
+    </select>
+</mapper>

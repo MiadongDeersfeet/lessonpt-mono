@@ -1,6 +1,9 @@
 package com.yunki.lessonpt.relationship.mapper;
 
+import java.time.LocalDateTime;
+
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import com.yunki.lessonpt.relationship.domain.TeacherStudentAccess;
 
@@ -29,4 +32,8 @@ public interface TeacherStudentAccessMapper {
     int softDeleteActiveByTeacherStudentId(Long teacherStudentId);
 
     TeacherStudentAccess lockTeacherStudentAccessById(Long teacherStudentAccessId);
+
+    int updateLastVerifiedAt(
+            @Param("teacherStudentAccessId") Long teacherStudentAccessId,
+            @Param("lastVerifiedAt") LocalDateTime lastVerifiedAt);
 }

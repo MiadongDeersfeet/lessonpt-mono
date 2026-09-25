@@ -57,6 +57,9 @@ class StudentEmailVerificationServiceTest {
     @Mock
     private OtpGenerator otpGenerator;
 
+    @Mock
+    private StudentAccessSessionService studentAccessSessionService;
+
     private final TokenHasher tokenHasher = new TokenHasher();
 
     private StudentEmailVerificationService service;
@@ -161,6 +164,7 @@ class StudentEmailVerificationServiceTest {
         service.verify("public-key", "student@lessonpt.local", "123456");
         assertThat(pending.getConsumedAt()).isEqualTo(LocalDateTime.of(2026, 9, 24, 10, 0));
         verify(studentEmailVerificationMapper).markConsumed(pending);
+        verify(studentAccessSessionService).openAfterOtp(90L);
 
         when(studentEmailVerificationMapper.selectCurrentPendingByAccessId(90L)).thenReturn(null);
         assertThatThrownBy(() -> service.verify("public-key", "student@lessonpt.local", "123456"))
@@ -250,7 +254,8 @@ class StudentEmailVerificationServiceTest {
                 studentEmailVerificationMapper,
                 otpGenerator,
                 tokenHasher,
-                Clock.fixed(instant, ZoneOffset.UTC));
+                Clock.fixed(instant, ZoneOffset.UTC),
+                studentAccessSessionService);
     }
 
     private void stubActiveChain(String email) {

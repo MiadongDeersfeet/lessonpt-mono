@@ -28,6 +28,7 @@ public class TeacherStudentAccessService {
     private final TeacherStudentMapper teacherStudentMapper;
     private final TeacherStudentAccessMapper teacherStudentAccessMapper;
     private final StudentMapper studentMapper;
+    private final StudentAccessSessionService studentAccessSessionService;
 
     /**
      * 활성 TeacherStudent에 접근권한을 연다.
@@ -71,6 +72,13 @@ public class TeacherStudentAccessService {
     public void revokeAccess(Long teacherId, Long studentId) {
         TeacherStudent relation = activeRelation(teacherId, studentId);
         lockRelation(relation.getTeacherStudentId());
+        TeacherStudentAccess access = teacherStudentAccessMapper.selectActiveByTeacherStudentId(
+                relation.getTeacherStudentId());
+        if (access == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
+        }
+        teacherStudentAccessMapper.lockTeacherStudentAccessById(access.getTeacherStudentAccessId());
+        studentAccessSessionService.revokeActiveByAccessId(access.getTeacherStudentAccessId());
         if (teacherStudentAccessMapper.softDeleteActiveByTeacherStudentId(relation.getTeacherStudentId()) != 1) {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
