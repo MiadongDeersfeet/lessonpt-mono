@@ -56,11 +56,31 @@ public class OciObjectStorageGateway implements ObjectStorageGateway {
                 .bucketName(bucketName)
                 .objectName(objectKey);
         if (rangeHeader != null && !rangeHeader.isBlank()) {
-            builder.range(Range.parse(rangeHeader));
+            builder.range(toSdkRange(rangeHeader));
         }
         GetObjectResponse response = objectStorage.getObject(builder.build());
         long length = response.getContentLength() == null ? -1L : response.getContentLength();
         return new StoredObjectContent(response.getInputStream(), length);
+    }
+
+    /**
+     * ByteRanges already resolved the browser header to {@code bytes=start-end}.
+     * OCI SDK 3.66 {@link Range#parse(String)} requires {@code bytes=start-end/length}
+     * and rejects that request header. {@link Range#Range(Long, Long)} sets the
+     * inclusive bounds the GetObject client sends.
+     */
+    private static Range toSdkRange(String httpRange) {
+        String spec = httpRange.trim();
+        if (spec.regionMatches(true, 0, "bytes=", 0, "bytes=".length())) {
+            spec = spec.substring("bytes=".length()).trim();
+        }
+        int dash = spec.indexOf('-');
+        if (dash <= 0 || dash == spec.length() - 1 || spec.indexOf('-', dash + 1) >= 0) {
+            throw new IllegalArgumentException("Resolved object range must be bytes=<start>-<end>");
+        }
+        long start = Long.parseLong(spec.substring(0, dash));
+        long end = Long.parseLong(spec.substring(dash + 1));
+        return new Range(start, end);
     }
 
     private String namespace() {

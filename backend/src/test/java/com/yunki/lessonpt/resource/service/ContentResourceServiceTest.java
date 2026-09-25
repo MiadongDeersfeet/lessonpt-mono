@@ -302,11 +302,12 @@ class ContentResourceServiceTest {
 
     @Test
     void unsatisfiableRangeIs416() {
-        ContentResource resource = stored(9L, ResourceType.AUDIO, 20L);
+        ContentResource resource = stored(9L, ResourceType.AUDIO, 100L);
         when(contentResourceMapper.selectActiveForStudent(2L, 8L, 9L)).thenReturn(resource);
-        assertThatThrownBy(() -> service.openForStudent(new StudentPrincipal(8L, 1L, 2L), 9L, "bytes=40-50", "inline"))
+        assertThatThrownBy(() -> service.openForStudent(new StudentPrincipal(8L, 1L, 2L), 9L, "bytes=100-200", "inline"))
                 .extracting(ex -> ((BusinessException) ex).errorCode())
                 .isEqualTo(ErrorCode.RESOURCE_RANGE_NOT_SATISFIABLE);
+        verify(objectStorageGateway, never()).open(any(), any());
     }
 
     private void stubOwned() {

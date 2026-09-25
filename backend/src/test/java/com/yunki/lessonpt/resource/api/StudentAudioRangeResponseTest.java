@@ -2,6 +2,9 @@ package com.yunki.lessonpt.resource.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -137,6 +140,22 @@ class StudentAudioRangeResponseTest {
                 .extracting(ex -> ((BusinessException) ex).errorCode())
                 .isEqualTo(ErrorCode.RESOURCE_RANGE_NOT_SATISFIABLE);
         assertThat(ErrorCode.RESOURCE_RANGE_NOT_SATISFIABLE.status()).isEqualTo(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE);
+        verify(objectStorageGateway, never()).open(any(), any());
+    }
+
+    @Test
+    void endPastSizeIsClampedToTheLastByte() throws Exception {
+        stubAudio();
+        byte[] slice = Arrays.copyOfRange(objectBytes(), 10, 100);
+        when(objectStorageGateway.open("audio-key", "bytes=10-99"))
+                .thenReturn(new StoredObjectContent(new ByteArrayInputStream(slice), slice.length));
+
+        ResponseEntity<StreamingResponseBody> response = write("bytes=10-999");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PARTIAL_CONTENT);
+        assertThat(response.getHeaders().getContentLength()).isEqualTo(90L);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 10-99/100");
+        assertThat(bytes(response)).isEqualTo(slice);
     }
 
     private ResponseEntity<StreamingResponseBody> write(String range) {
