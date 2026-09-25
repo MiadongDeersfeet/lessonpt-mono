@@ -279,12 +279,16 @@ a:hover { color: #08383e; }
 
 .modal h2 { margin: 0 0 8px; }
 
-.modal input {
+.modal input,
+.modal textarea {
   min-height: 40px;
   padding: 8px 10px;
   border: 1px solid #d7ddd0;
   border-radius: 8px;
+  font: inherit;
 }
+
+.modal textarea { min-height: 72px; resize: vertical; }
 
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 

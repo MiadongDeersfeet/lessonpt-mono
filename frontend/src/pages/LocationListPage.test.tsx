@@ -119,13 +119,14 @@ it('asks before deactivating a location and then refetches the list', async () =
 
 it('shows the order conflict message and does not refetch after a failed deactivate', async () => {
   const user = userEvent.setup()
-  const message = '다른 요청이 장소 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.'
-  vi.mocked(deactivateLocation).mockRejectedValue(new ApiError(409, 'ORDER_CONFLICT', message, 'trace-3', []))
+  vi.mocked(deactivateLocation).mockRejectedValue(
+    new ApiError(409, 'ORDER_CONFLICT', '다른 요청이 장소 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.', 'trace-3', []),
+  )
   render(<LocationListPage />)
 
   await user.click(await screen.findByRole('button', { name: '비활성화' }))
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '비활성화' }))
 
-  expect(await screen.findByText(message)).toBeTruthy()
+  expect(await screen.findByText('다른 요청이 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.')).toBeTruthy()
   expect(listLocations).toHaveBeenCalledTimes(1)
 })

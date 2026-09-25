@@ -27,7 +27,7 @@ export function describeError(error: unknown): ErrorView {
   if (error.status === 409 && error.code === 'ORDER_CONFLICT') {
     return {
       title: '잠시 후 다시 시도',
-      detail: error.message || '다른 요청이 장소 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.',
+      detail: '다른 요청이 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.',
       traceId: error.traceId,
     }
   }
