@@ -18,6 +18,8 @@ import com.yunki.lessonpt.relationship.domain.StudentEmailVerification;
 import com.yunki.lessonpt.relationship.domain.StudentEmailVerificationStatus;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
 import com.yunki.lessonpt.relationship.domain.TeacherStudentAccess;
+import com.yunki.lessonpt.relationship.mail.EmailSender;
+import com.yunki.lessonpt.relationship.mail.StudentOtpPurpose;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
@@ -43,6 +45,7 @@ public class StudentEmailVerificationService {
     private final TokenHasher tokenHasher;
     private final Clock clock;
     private final StudentAccessSessionService studentAccessSessionService;
+    private final EmailSender emailSender;
 
     @Transactional(noRollbackFor = BusinessException.class)
     public void issue(String publicAccessKey, String email) {
@@ -59,16 +62,18 @@ public class StudentEmailVerificationService {
             throw new BusinessException(ErrorCode.AUTH_FAILED);
         }
         invalidatePending(access.getTeacherStudentAccessId(), now);
+        String otp = otpGenerator.generate();
         StudentEmailVerification created = new StudentEmailVerification();
         created.setTeacherStudentAccessId(access.getTeacherStudentAccessId());
         created.setEmailHash(tokenHasher.hash(normalizedEmail));
-        created.setCodeHash(tokenHasher.hash(otpGenerator.generate()));
+        created.setCodeHash(tokenHasher.hash(otp));
         created.setVerificationStatus(StudentEmailVerificationStatus.PENDING);
         created.setFailedAttemptCount(0);
         created.setCreatedAt(now);
         created.setExpiresAt(now.plusMinutes(OTP_TTL_MINUTES));
         created.setUpdatedAt(now);
         expectOne(studentEmailVerificationMapper.insertStudentEmailVerification(created));
+        emailSender.sendStudentOtp(normalizedEmail, otp, StudentOtpPurpose.INVITATION_ACCESS);
     }
 
     /**

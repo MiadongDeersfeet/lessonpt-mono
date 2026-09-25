@@ -2,6 +2,17 @@
 # LESSONPT_DB_URL, LESSONPT_DB_USERNAME, LESSONPT_DB_PASSWORD
 
 spring:
+  mail:
+    host: ${SPRING_MAIL_HOST}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
     url: ${LESSONPT_DB_URL}

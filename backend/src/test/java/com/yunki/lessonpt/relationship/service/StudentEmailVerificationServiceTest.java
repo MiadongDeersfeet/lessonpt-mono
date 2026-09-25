@@ -27,6 +27,9 @@ import com.yunki.lessonpt.auth.jwt.TokenHasher;
 import com.yunki.lessonpt.common.exception.BusinessException;
 import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
+import com.yunki.lessonpt.relationship.mail.EmailDeliveryException;
+import com.yunki.lessonpt.relationship.mail.EmailSender;
+import com.yunki.lessonpt.relationship.mail.StudentOtpPurpose;
 import com.yunki.lessonpt.relationship.domain.StudentEmailVerification;
 import com.yunki.lessonpt.relationship.domain.StudentEmailVerificationStatus;
 import com.yunki.lessonpt.relationship.domain.TeacherStudent;
@@ -59,6 +62,9 @@ class StudentEmailVerificationServiceTest {
 
     @Mock
     private StudentAccessSessionService studentAccessSessionService;
+
+    @Mock
+    private EmailSender emailSender;
 
     private final TokenHasher tokenHasher = new TokenHasher();
 
@@ -93,6 +99,19 @@ class StudentEmailVerificationServiceTest {
         assertThat(stored.getVerificationStatus()).isEqualTo(StudentEmailVerificationStatus.PENDING);
         assertThat(stored.getExpiresAt()).isEqualTo(LocalDateTime.of(2026, 9, 24, 10, 10));
         assertThat(stored.getFailedAttemptCount()).isZero();
+        verify(emailSender).sendStudentOtp("student@lessonpt.local", "123456", StudentOtpPurpose.INVITATION_ACCESS);
+    }
+
+    @Test
+    void issueDoesNotSucceedWhenMailDeliveryFails() {
+        stubActiveChain("student@lessonpt.local");
+        when(otpGenerator.generate()).thenReturn("123456");
+        when(studentEmailVerificationMapper.insertStudentEmailVerification(any())).thenReturn(1);
+        doThrow(new EmailDeliveryException()).when(emailSender)
+                .sendStudentOtp("student@lessonpt.local", "123456", StudentOtpPurpose.INVITATION_ACCESS);
+
+        assertThatThrownBy(() -> service.issue("public-key", "student@lessonpt.local"))
+                .isInstanceOf(EmailDeliveryException.class);
     }
 
     @Test
@@ -255,7 +274,8 @@ class StudentEmailVerificationServiceTest {
                 otpGenerator,
                 tokenHasher,
                 Clock.fixed(instant, ZoneOffset.UTC),
-                studentAccessSessionService);
+                studentAccessSessionService,
+                emailSender);
     }
 
     private void stubActiveChain(String email) {

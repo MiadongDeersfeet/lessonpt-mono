@@ -44,6 +44,7 @@ import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
 import com.yunki.lessonpt.relationship.config.StudentSessionProperties;
 import com.yunki.lessonpt.relationship.service.IssuedStudentSession;
 import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
+import com.yunki.lessonpt.relationship.mail.EmailDeliveryException;
 import com.yunki.lessonpt.relationship.service.StudentEmailVerificationService;
 import com.yunki.lessonpt.auth.security.StudentPrincipal;
 import com.yunki.lessonpt.relationship.service.TeacherStudentAccessService;
@@ -306,9 +307,20 @@ class StudentControllerSecurityTest {
                                 {"email":"student@lessonpt.local"}
                                 """))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("요청한 대상을 찾을 수 없습니다."))
+                .andExpect(jsonPath("$.message").value("요청한 대상을 찾을 수 없습니다."));
+
+        org.mockito.Mockito.doThrow(new EmailDeliveryException())
+                .when(studentEmailVerificationService).issue("missing-key", "student@lessonpt.local");
+        mockMvc.perform(post("/api/v1/student-access/missing-key/otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"student@lessonpt.local"}
+                                """))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("COMMON_INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.otp").doesNotExist())
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("student@lessonpt.local"))));
+                        org.hamcrest.Matchers.containsString("123456"))));
 
         mockMvc.perform(post("/api/v1/student-access/missing-key/otp")
                         .contentType(MediaType.APPLICATION_JSON)

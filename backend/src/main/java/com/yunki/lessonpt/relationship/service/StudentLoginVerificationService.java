@@ -14,6 +14,8 @@ import com.yunki.lessonpt.common.exception.ErrorCode;
 import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.relationship.domain.StudentEmailVerificationStatus;
 import com.yunki.lessonpt.relationship.domain.StudentLoginVerification;
+import com.yunki.lessonpt.relationship.mail.EmailSender;
+import com.yunki.lessonpt.relationship.mail.StudentOtpPurpose;
 import com.yunki.lessonpt.relationship.mapper.StudentLoginVerificationMapper;
 import com.yunki.lessonpt.student.domain.Student;
 import com.yunki.lessonpt.student.mapper.StudentMapper;
@@ -37,6 +39,7 @@ public class StudentLoginVerificationService {
     private final TokenHasher tokenHasher;
     private final Clock clock;
     private final StudentAccessSessionService studentAccessSessionService;
+    private final EmailSender emailSender;
 
     @Transactional(noRollbackFor = BusinessException.class)
     public void issue(String email) {
@@ -49,17 +52,20 @@ public class StudentLoginVerificationService {
         if (latest != null && isIssueLocked(latest, now)) {
             throw new BusinessException(ErrorCode.AUTH_FAILED);
         }
+        String normalizedEmail = normalizeEmail(email);
         invalidatePending(student.getStudentId(), now);
+        String otp = otpGenerator.generate();
         StudentLoginVerification created = new StudentLoginVerification();
         created.setStudentId(student.getStudentId());
-        created.setEmailHash(tokenHasher.hash(normalizeEmail(email)));
-        created.setCodeHash(tokenHasher.hash(otpGenerator.generate()));
+        created.setEmailHash(tokenHasher.hash(normalizedEmail));
+        created.setCodeHash(tokenHasher.hash(otp));
         created.setVerificationStatus(StudentEmailVerificationStatus.PENDING);
         created.setFailedAttemptCount(0);
         created.setCreatedAt(now);
         created.setExpiresAt(now.plusMinutes(OTP_TTL_MINUTES));
         created.setUpdatedAt(now);
         expectOne(studentLoginVerificationMapper.insertStudentLoginVerification(created));
+        emailSender.sendStudentOtp(normalizedEmail, otp, StudentOtpPurpose.GENERAL_LOGIN);
     }
 
     @Transactional(noRollbackFor = BusinessException.class)
