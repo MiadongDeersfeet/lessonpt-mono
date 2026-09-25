@@ -1,3 +1,4 @@
+import type { ContentResource } from './curriculum.ts'
 import type { ProgressStatus, ProgressSummary } from './student.ts'
 
 export type StudentRelationshipLocation = {
@@ -31,6 +32,8 @@ export type StudentPortalContent = {
   sheetUrl: string | null
   youtubeUrl: string | null
   audioUrl: string | null
+  sheet: ContentResource | null
+  audio: ContentResource | null
   homeworks: StudentPortalHomework[]
 }
 

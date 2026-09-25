@@ -150,6 +150,8 @@ beforeEach(() => {
       sheetUrl: null,
       youtubeUrl: null,
       audioUrl: null,
+      sheet: null,
+      audio: null,
     },
     {
       contentDetailId: 16,
@@ -161,6 +163,8 @@ beforeEach(() => {
       sheetUrl: null,
       youtubeUrl: null,
       audioUrl: null,
+      sheet: null,
+      audio: null,
     },
   ])
 })

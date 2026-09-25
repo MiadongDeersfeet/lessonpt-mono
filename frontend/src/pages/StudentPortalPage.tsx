@@ -4,6 +4,7 @@ import { ApiError } from '../api/apiClient.ts'
 import { clearStudentScope, getStudentLearning, getStudentMe, isStudentScopeRequired, logoutStudent } from '../api/studentPortalApi.ts'
 import { useStudentPortal } from '../auth/StudentPortalContext.tsx'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
+import { StudentLessonResources } from '../components/student/StudentLessonResources.tsx'
 import { formErrorMessage } from '../components/feedback/describeError.ts'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
 import { ProgressValue } from '../components/student/ProgressValue.tsx'
@@ -118,9 +119,7 @@ export function StudentPortalPage() {
                   <p>{content.progressStatus ? progressStatusLabel(content.progressStatus) : '-'}</p>
                   <p>현재 BPM {formatBpm(content.currentBpm)}</p>
                   <p>목표 BPM {formatBpm(content.targetBpm)}</p>
-                  {content.sheetUrl ? <p><a href={content.sheetUrl}>악보</a></p> : null}
-                  {content.youtubeUrl ? <p><a href={content.youtubeUrl}>영상</a></p> : null}
-                  {content.audioUrl ? <p><a href={content.audioUrl}>음원</a></p> : null}
+                  <StudentLessonResources content={content} />
                   {content.homeworks.length === 0 ? <p className="quiet">과제가 없습니다.</p> : null}
                   {content.homeworks.map((homework, index) => (
                     <div className="homework-item" key={`${content.name}-${index}`}>

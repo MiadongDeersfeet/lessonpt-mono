@@ -151,6 +151,20 @@ export function CurriculumBuilderPage() {
     }
   }
 
+  function applyContentResource(updated: ContentDetail) {
+    if (!contentForm) {
+      return
+    }
+    const categoryId = contentForm.categoryId
+    setContentsByCategoryId((current) => ({
+      ...current,
+      [categoryId]: (current[categoryId] ?? []).map((row) =>
+        row.contentDetailId === updated.contentDetailId ? updated : row,
+      ),
+    }))
+    setContentForm((current) => (current ? { ...current, content: updated } : current))
+  }
+
   async function onDeactivateCategory() {
     if (!deactivateCategoryTarget) {
       return
@@ -341,6 +355,8 @@ export function CurriculumBuilderPage() {
       {contentForm ? (
         <ContentDetailFormDialog
           content={contentForm.content}
+          curriculumId={curriculumId}
+          categoryId={contentForm.categoryId}
           submitting={formSubmitting}
           error={formError}
           onClose={() => {
@@ -349,6 +365,7 @@ export function CurriculumBuilderPage() {
             }
           }}
           onSubmit={(body) => void onSaveContent(body)}
+          onContentChange={applyContentResource}
         />
       ) : null}
       {deactivateCategoryTarget ? (

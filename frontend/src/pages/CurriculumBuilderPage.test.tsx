@@ -2,7 +2,6 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ApiError } from '../api/apiClient.ts'
 import type { ContentDetailWriteBody } from '../types/curriculum.ts'
 import { CurriculumBuilderPage } from './CurriculumBuilderPage.tsx'
 
@@ -44,6 +43,8 @@ const stroke = {
   sheetUrl: 'https://sheet.example/a',
   youtubeUrl: null,
   audioUrl: null,
+  sheet: null,
+  audio: null,
 }
 
 afterEach(() => {
@@ -140,6 +141,8 @@ it('creates content with a null target bpm and null urls', async () => {
     sheetUrl: null,
     youtubeUrl: null,
     audioUrl: null,
+    sheet: null,
+    audio: null,
   })
   renderPage()
 
@@ -164,9 +167,11 @@ it('blocks target bpm outside 60 to 240 and sends the boundary values', async ()
     memo: body.memo,
     targetBpm: body.targetBpm,
     evaluationMemo: body.evaluationMemo,
-    sheetUrl: body.sheetUrl,
+    sheetUrl: null,
     youtubeUrl: body.youtubeUrl,
-    audioUrl: body.audioUrl,
+    audioUrl: null,
+    sheet: null,
+    audio: null,
   }))
   renderPage()
 
@@ -200,13 +205,8 @@ it('blocks target bpm outside 60 to 240 and sends the boundary values', async ()
   expect(createContentDetail).toHaveBeenCalledWith(3, 9, emptyContent('빠른템포', 240))
 })
 
-it('shows a sheet url length error from the server', async () => {
+it('keeps the youtube field and does not ask for sheet or audio urls', async () => {
   const user = userEvent.setup()
-  vi.mocked(createContentDetail).mockRejectedValue(
-    new ApiError(400, 'COMMON_INVALID_INPUT', '요청 값이 올바르지 않습니다.', 'trace-9', [
-      { field: 'sheetUrl', message: '악보 URL은 2000자 이하여야 합니다.' },
-    ]),
-  )
   renderPage()
 
   const readingCard = (await screen.findByText(/악보/)).closest('section')
@@ -214,14 +214,11 @@ it('shows a sheet url length error from the server', async () => {
     throw new Error('reading category missing')
   }
   await user.click(within(readingCard).getByRole('button', { name: '내용 추가' }))
-  await user.type(screen.getByLabelText('이름'), '긴주소')
-  await user.click(screen.getByLabelText('악보 URL'))
-  await user.paste('a'.repeat(2001))
-  await user.click(screen.getByRole('button', { name: '저장' }))
-
-  expect(await screen.findByText('악보 URL은 2000자 이하여야 합니다.')).toBeTruthy()
-  expect(screen.getByText('입력값을 확인해 주세요.')).toBeTruthy()
-  expect(screen.queryByText('trace-9')).toBeNull()
+  const dialog = await screen.findByRole('dialog')
+  expect(within(dialog).getByLabelText('YouTube URL')).toBeTruthy()
+  expect(within(dialog).queryByLabelText('악보 URL')).toBeNull()
+  expect(within(dialog).queryByLabelText('오디오 URL')).toBeNull()
+  expect(within(dialog).getByText('저장 후 파일을 추가할 수 있습니다.')).toBeTruthy()
 })
 
 it('updates a content detail and deactivates it after confirmation', async () => {
@@ -255,9 +252,7 @@ it('updates a content detail and deactivates it after confirmation', async () =>
     memo: '천천히',
     targetBpm: null,
     evaluationMemo: '손목',
-    sheetUrl: 'https://sheet.example/a',
     youtubeUrl: null,
-    audioUrl: null,
   })
 
   vi.mocked(listContentDetails).mockResolvedValue([])
@@ -283,9 +278,7 @@ function emptyContent(name: string, targetBpm: number | null = null): ContentDet
     memo: null,
     targetBpm,
     evaluationMemo: null,
-    sheetUrl: null,
     youtubeUrl: null,
-    audioUrl: null,
   }
 }
 

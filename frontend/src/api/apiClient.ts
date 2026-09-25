@@ -61,6 +61,31 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return response.json() as Promise<T>
 }
 
+export async function apiSend(path: string, options: { method?: string; body?: BodyInit; retried?: boolean } = {}): Promise<Response> {
+  let response: Response
+  try {
+    response = await fetch(buildUrl(path), {
+      method: options.method ?? 'GET',
+      headers: authHeaders(),
+      body: options.body,
+    })
+  } catch {
+    throw new ApiError(0, 'NETWORK', '서버에 연결하지 못했습니다.', null, [])
+  }
+  if (response.status === 401 && !options.retried) {
+    const refreshed = await refreshOnce()
+    if (refreshed) {
+      return apiSend(path, { ...options, retried: true })
+    }
+    clearTokens()
+    notifySessionLost()
+  }
+  if (!response.ok) {
+    throw await toApiError(response)
+  }
+  return response
+}
+
 function buildUrl(path: string): string {
   const base = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase
   const suffix = path.startsWith('/') ? path : `/${path}`
@@ -68,10 +93,15 @@ function buildUrl(path: string): string {
 }
 
 function headers(useAuth: boolean, hasBody: boolean): HeadersInit {
-  const result: Record<string, string> = { Accept: 'application/json' }
+  const result = authHeaders(useAuth)
   if (hasBody) {
     result['Content-Type'] = 'application/json'
   }
+  return result
+}
+
+function authHeaders(useAuth = true): Record<string, string> {
+  const result: Record<string, string> = { Accept: 'application/json' }
   if (useAuth) {
     const accessToken = readTokens()?.accessToken
     if (accessToken) {

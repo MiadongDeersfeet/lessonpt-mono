@@ -61,6 +61,8 @@ const learning = {
               sheetUrl: null,
               youtubeUrl: null,
               audioUrl: null,
+              sheet: null,
+              audio: null,
               homeworks: [{ content: '메트로놈', deadline: null, completed: true, feedback: null }],
             },
             {
@@ -71,6 +73,8 @@ const learning = {
               sheetUrl: null,
               youtubeUrl: null,
               audioUrl: null,
+              sheet: null,
+              audio: null,
               homeworks: [],
             },
             {
@@ -81,6 +85,8 @@ const learning = {
               sheetUrl: null,
               youtubeUrl: null,
               audioUrl: null,
+              sheet: null,
+              audio: null,
               homeworks: [],
             },
             {
@@ -91,6 +97,8 @@ const learning = {
               sheetUrl: null,
               youtubeUrl: null,
               audioUrl: null,
+              sheet: null,
+              audio: null,
               homeworks: [],
             },
           ],
