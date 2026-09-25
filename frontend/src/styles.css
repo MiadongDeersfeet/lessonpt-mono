@@ -230,6 +230,24 @@ a:hover { color: #08383e; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.student-portal {
+  min-height: 100vh;
+  padding: 24px 16px 48px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.student-card { display: grid; gap: 12px; }
+
+.student-card h1 { margin: 0; font-size: 1.5rem; }
+
+.student-card input {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid #d7ddd0;
+  border-radius: 8px;
+}
+
 .login-screen {
   display: grid;
   min-height: 100vh;
