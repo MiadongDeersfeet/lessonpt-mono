@@ -6,18 +6,30 @@ import { EmptyState } from '../feedback/EmptyState.tsx'
 import { ErrorState } from '../feedback/ErrorState.tsx'
 import { LoadingState } from '../feedback/LoadingState.tsx'
 import { textOrDash } from '../../student/display.ts'
+import type { Curriculum } from '../../types/curriculum.ts'
 import type { Location } from '../../types/location.ts'
 import type { LearningLocation } from '../../types/student.ts'
+import { StudentCurriculumPanel } from './StudentCurriculumPanel.tsx'
 
 type Props = {
   studentId: number
   assigned: LearningLocation[]
   catalog: Location[] | null
   catalogError: unknown
+  curriculums: Curriculum[] | null
+  curriculumCatalogError: unknown
   onRefreshLearning: () => Promise<void>
 }
 
-export function StudentLocationSection({ studentId, assigned, catalog, catalogError, onRefreshLearning }: Props) {
+export function StudentLocationSection({
+  studentId,
+  assigned,
+  catalog,
+  catalogError,
+  curriculums,
+  curriculumCatalogError,
+  onRefreshLearning,
+}: Props) {
   const [selectedId, setSelectedId] = useState('')
   const [notice, setNotice] = useState('')
   const [assignError, setAssignError] = useState<unknown>(null)
@@ -80,21 +92,29 @@ export function StudentLocationSection({ studentId, assigned, catalog, catalogEr
       {notice ? <p className="form-hint">{notice}</p> : null}
       {assigned.length === 0 ? <EmptyState message="배정된 출강처가 없습니다." /> : null}
       {assigned.map((location) => (
-        <div className="assign-row" key={location.teacherStudentLocationId}>
-          <div>
-            <strong>{location.locationName}</strong>
-            <p className="quiet">{textOrDash(location.address)}</p>
+        <div className="location-block" key={location.teacherStudentLocationId}>
+          <div className="assign-row">
+            <div>
+              <strong>{location.locationName}</strong>
+              <p className="quiet">{textOrDash(location.address)}</p>
+            </div>
+            <button
+              type="button"
+              className="button button-quiet"
+              onClick={() => {
+                setReleaseError(null)
+                setReleaseTarget(location)
+              }}
+            >
+              해제
+            </button>
           </div>
-          <button
-            type="button"
-            className="button button-quiet"
-            onClick={() => {
-              setReleaseError(null)
-              setReleaseTarget(location)
-            }}
-          >
-            해제
-          </button>
+          <StudentCurriculumPanel
+            location={location}
+            catalog={curriculums}
+            catalogError={curriculumCatalogError}
+            onRefreshLearning={onRefreshLearning}
+          />
         </div>
       ))}
       {catalogError ? <ErrorState error={catalogError} /> : null}

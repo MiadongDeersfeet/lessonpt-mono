@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/apiClient.ts'
+import { listCurriculums } from '../api/curriculumApi.ts'
 import { listLocations } from '../api/locationApi.ts'
 import { getStudentLearning } from '../api/studentApi.ts'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
@@ -9,6 +10,7 @@ import { LoadingState } from '../components/feedback/LoadingState.tsx'
 import { ProgressValue } from '../components/student/ProgressValue.tsx'
 import { StudentLocationSection } from '../components/student/StudentLocationSection.tsx'
 import { formatBpm, formatDeadline, progressStatusLabel, textOrDash } from '../student/display.ts'
+import type { Curriculum } from '../types/curriculum.ts'
 import type { Location } from '../types/location.ts'
 import type { StudentLearningDetail } from '../types/student.ts'
 
@@ -24,6 +26,8 @@ export function StudentDetailPage() {
   const [error, setError] = useState<unknown>(null)
   const [catalog, setCatalog] = useState<Location[] | null>(null)
   const [catalogError, setCatalogError] = useState<unknown>(null)
+  const [curriculums, setCurriculums] = useState<Curriculum[] | null>(null)
+  const [curriculumCatalogError, setCurriculumCatalogError] = useState<unknown>(null)
   const [tab, setTab] = useState<Tab>('profile')
 
   useEffect(() => {
@@ -72,6 +76,29 @@ export function StudentDetailPage() {
     }
   }, [invalid, studentId])
 
+  useEffect(() => {
+    if (invalid) {
+      return
+    }
+    let active = true
+    setCurriculums(null)
+    setCurriculumCatalogError(null)
+    listCurriculums()
+      .then((rows) => {
+        if (active) {
+          setCurriculums(rows)
+        }
+      })
+      .catch((caught) => {
+        if (active) {
+          setCurriculumCatalogError(caught)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [invalid, studentId])
+
   async function refreshLearning() {
     const next = await getStudentLearning(studentId)
     setDetail(next)
@@ -102,6 +129,8 @@ export function StudentDetailPage() {
           detail={detail}
           catalog={catalog}
           catalogError={catalogError}
+          curriculums={curriculums}
+          curriculumCatalogError={curriculumCatalogError}
           onRefreshLearning={refreshLearning}
         />
       ) : null}
@@ -115,11 +144,15 @@ function ProfileTab({
   detail,
   catalog,
   catalogError,
+  curriculums,
+  curriculumCatalogError,
   onRefreshLearning,
 }: {
   detail: StudentLearningDetail
   catalog: Location[] | null
   catalogError: unknown
+  curriculums: Curriculum[] | null
+  curriculumCatalogError: unknown
   onRefreshLearning: () => Promise<void>
 }) {
   return (
@@ -146,6 +179,8 @@ function ProfileTab({
         assigned={detail.locations}
         catalog={catalog}
         catalogError={catalogError}
+        curriculums={curriculums}
+        curriculumCatalogError={curriculumCatalogError}
         onRefreshLearning={onRefreshLearning}
       />
     </div>

@@ -310,6 +310,28 @@ a:hover { color: #08383e; }
   background: #fff;
 }
 
+.location-block {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #efe8dc;
+}
+
+.curriculum-panel { margin-top: 8px; }
+
+.curriculum-assignment {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.curriculum-assignment input,
+.curriculum-panel input {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d7ddd0;
+  border-radius: 8px;
+}
+
 .form-hint { margin: 0; color: #5d6876; }
 
 @media (max-width: 900px) {
