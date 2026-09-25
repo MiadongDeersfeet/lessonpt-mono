@@ -29,3 +29,20 @@ export function describeError(error: unknown): ErrorView {
   }
   return { title: '서버 오류', detail: '잠시 후 다시 시도해 주세요.', traceId: error.traceId }
 }
+
+export function fieldErrorMessage(error: unknown, field: string): string | null {
+  if (!(error instanceof ApiError)) {
+    return null
+  }
+  return error.fieldErrors.find((item) => item.field === field)?.message ?? null
+}
+
+export function formErrorMessage(error: unknown): string | null {
+  if (!(error instanceof ApiError)) {
+    return '요청을 처리하지 못했습니다.'
+  }
+  if (error.fieldErrors.length > 0) {
+    return '입력값을 확인해 주세요.'
+  }
+  return describeError(error).detail
+}

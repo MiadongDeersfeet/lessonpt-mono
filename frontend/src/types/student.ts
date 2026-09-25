@@ -14,6 +14,18 @@ export type StudentSummary = {
   teacherStudentId: number
 }
 
+export type StudentCreateBody = {
+  name: string
+  email: string | null
+  phone: string | null
+}
+
+export type StudentUpdateBody = {
+  name: string
+  email: string | null
+  phone: string | null
+}
+
 export type Homework = {
   homeworkId: number
   homeworkContent: string

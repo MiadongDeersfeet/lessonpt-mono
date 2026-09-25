@@ -244,6 +244,50 @@ a:hover { color: #08383e; }
 
 .form-error { margin: 0; color: #8d2d24; }
 
+.field-error { margin: 0 0 8px; color: #8d2d24; font-size: 0.9rem; }
+
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.button-danger { background: #8d2d24; }
+
+.button-danger:hover { background: #6d211b; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(28 36 48 / 45%);
+}
+
+.modal {
+  display: grid;
+  width: min(440px, 100%);
+  gap: 8px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 12px;
+}
+
+.modal h2 { margin: 0 0 8px; }
+
+.modal input {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d7ddd0;
+  border-radius: 8px;
+}
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
 .form-hint { margin: 0; color: #5d6876; }
 
 @media (max-width: 900px) {
