@@ -195,6 +195,7 @@ class StudentEmailVerificationMapperOracleTest {
         assertThat(stored.getAbsoluteExpiresAt()).isAfter(stored.getExpiresAt().minusSeconds(1));
 
         StudentAccessSession duplicate = new StudentAccessSession();
+        duplicate.setStudentId(stored.getStudentId());
         duplicate.setTeacherStudentAccessId(stored.getTeacherStudentAccessId());
         duplicate.setSessionTokenHash(stored.getSessionTokenHash());
         duplicate.setSessionStatus(StudentAccessSessionStatus.ACTIVE);

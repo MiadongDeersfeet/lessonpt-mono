@@ -14,6 +14,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * REST API에서 발생한 예외를 동일한 형식으로 변환한다.
@@ -70,6 +71,15 @@ public class GlobalExceptionHandler {
             logClientError(request, errorCode, exception.getMessage());
         }
         return respond(errorCode, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request) {
+        ErrorCode errorCode = ErrorCode.RESOURCE_FILE_TOO_LARGE;
+        logClientError(request, errorCode, errorCode.message());
+        return respond(errorCode, errorCode.message(), request);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

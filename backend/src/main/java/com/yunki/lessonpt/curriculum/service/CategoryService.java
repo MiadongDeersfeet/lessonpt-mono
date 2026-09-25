@@ -16,6 +16,7 @@ import com.yunki.lessonpt.curriculum.dto.CategoryUpdateRequest;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
+import com.yunki.lessonpt.resource.service.ResourceCleanup;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +27,7 @@ public class CategoryService {
     private final CategoryMapper categoryMapper;
     private final CurriculumMapper curriculumMapper;
     private final ContentDetailMapper contentDetailMapper;
+    private final ResourceCleanup resourceCleanup;
 
     @Transactional
     public Category createCategory(Long teacherId, Long curriculumId, String name) {
@@ -83,6 +85,7 @@ public class CategoryService {
     public void deleteCategory(Long teacherId, Long curriculumId, Long categoryId) {
         lockOwnedCurriculum(teacherId, curriculumId);
         Category category = requireActive(curriculumId, categoryId);
+        resourceCleanup.discardCategory(categoryId);
         contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(categoryId);
         expectOne(categoryMapper.softDeleteCategory(categoryId, curriculumId));
         categoryMapper.shiftActiveDisplayOrdersDown(curriculumId, category.getDisplayOrder());

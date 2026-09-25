@@ -38,6 +38,7 @@ import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentEmailVerificationMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentLoginVerificationMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentAccessSessionMapper;
+import com.yunki.lessonpt.resource.mapper.ContentResourceMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentLearningQueryMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentAccessMapper;
@@ -119,6 +120,9 @@ class StudentControllerSecurityTest {
 
     @MockitoBean
     private StudentPortalMapper studentPortalMapper;
+
+    @MockitoBean
+    private ContentResourceMapper contentResourceMapper;
 
     @MockitoBean
     private StudentLearningQueryMapper studentLearningQueryMapper;

@@ -29,6 +29,7 @@ import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
+import com.yunki.lessonpt.resource.service.ResourceCleanup;
 
 @ExtendWith(MockitoExtension.class)
 class ContentDetailServiceTest {
@@ -42,11 +43,15 @@ class ContentDetailServiceTest {
     @Mock
     private CurriculumMapper curriculumMapper;
 
+    @Mock
+    private ResourceCleanup resourceCleanup;
+
     private ContentDetailService contentDetailService;
 
     @BeforeEach
     void setUp() {
-        contentDetailService = new ContentDetailService(contentDetailMapper, categoryMapper, curriculumMapper);
+        contentDetailService = new ContentDetailService(
+                contentDetailMapper, categoryMapper, curriculumMapper, resourceCleanup);
     }
 
     @Test
@@ -179,7 +184,7 @@ class ContentDetailServiceTest {
         change.setMemo("새 메모");
         change.setTargetBpm(90);
         change.setSheetUrl("https://example.com/sheet");
-        change.setYoutubeUrl("https://youtu.be/scale");
+        change.setYoutubeUrl("https://youtu.be/abcdefghijk");
         change.setAudioUrl("https://example.com/scale.mp3");
         contentDetailService.updateContentDetail(8L, 40L, 50L, 90L, change);
 
@@ -190,7 +195,7 @@ class ContentDetailServiceTest {
         assertThat(updated.getMemo()).isEqualTo("새 메모");
         assertThat(updated.getTargetBpm()).isEqualTo(90);
         assertThat(updated.getSheetUrl()).isEqualTo("https://example.com/sheet");
-        assertThat(updated.getYoutubeUrl()).isEqualTo("https://youtu.be/scale");
+        assertThat(updated.getYoutubeUrl()).isEqualTo("https://youtu.be/abcdefghijk");
         assertThat(updated.getAudioUrl()).isEqualTo("https://example.com/scale.mp3");
         assertThat(updated.getDisplayOrder()).isEqualTo(1);
         verify(categoryMapper, never()).lockCategoryById(any());
@@ -204,7 +209,7 @@ class ContentDetailServiceTest {
         current.setTargetBpm(80);
         current.setEvaluationMemo("평가");
         current.setSheetUrl("https://example.com/sheet");
-        current.setYoutubeUrl("https://youtu.be/scale");
+        current.setYoutubeUrl("https://youtu.be/abcdefghijk");
         current.setAudioUrl("https://example.com/scale.mp3");
         when(contentDetailMapper.selectActiveContentDetailByIdAndCategoryId(90L, 50L)).thenReturn(current);
         when(contentDetailMapper.lockContentDetailById(90L)).thenReturn(saved(90L, 50L, 2, "스케일"));

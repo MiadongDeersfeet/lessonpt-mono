@@ -4,6 +4,10 @@
 spring:
   application:
     name: lessonpt
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
   profiles:
     # 기본은 로컬 개발. 테스트와 배포는 LESSONPT_PROFILE=test|prod 로 바꾼다.
     active: ${LESSONPT_PROFILE:local}

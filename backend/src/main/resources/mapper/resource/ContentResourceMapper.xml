@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunki.lessonpt.resource.mapper.ContentResourceMapper">
+
+    <resultMap id="contentResourceResultMap" type="com.yunki.lessonpt.resource.domain.ContentResource">
+        <id column="RESOURCE_ID" property="resourceId"/>
+        <result column="CONTENT_DETAIL_ID" property="contentDetailId"/>
+        <result column="RESOURCE_TYPE" property="resourceType"/>
+        <result column="ORIGINAL_FILE_NAME" property="originalFileName"/>
+        <result column="OBJECT_KEY" property="objectKey"/>
+        <result column="CONTENT_TYPE" property="contentType"/>
+        <result column="FILE_SIZE" property="fileSize"/>
+        <result column="CREATED_AT" property="createdAt"/>
+        <result column="UPDATED_AT" property="updatedAt"/>
+        <result column="STATUS" property="status"
+                typeHandler="com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler"/>
+        <result column="DELETED_AT" property="deletedAt"/>
+    </resultMap>
+
+    <sql id="resourceColumns">
+        RESOURCE_ID, CONTENT_DETAIL_ID, RESOURCE_TYPE, ORIGINAL_FILE_NAME, OBJECT_KEY,
+        CONTENT_TYPE, FILE_SIZE, CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
+    </sql>
+
+    <sql id="activeResource">
+        STATUS = 'Y' AND DELETED_AT IS NULL
+    </sql>
+
+    <select id="selectActiveByContentDetailIdAndType" resultMap="contentResourceResultMap">
+        SELECT <include refid="resourceColumns"/>
+        FROM TB_CONTENT_RESOURCE
+        WHERE CONTENT_DETAIL_ID = #{contentDetailId}
+          AND RESOURCE_TYPE = #{resourceType}
+          AND <include refid="activeResource"/>
+    </select>
+
+    <select id="selectActiveForTeacher" resultMap="contentResourceResultMap">
+        SELECT res.RESOURCE_ID,
+               res.CONTENT_DETAIL_ID,
+               res.RESOURCE_TYPE,
+               res.ORIGINAL_FILE_NAME,
+               res.OBJECT_KEY,
+               res.CONTENT_TYPE,
+               res.FILE_SIZE,
+               res.CREATED_AT,
+               res.UPDATED_AT,
+               res.STATUS,
+               res.DELETED_AT
+        FROM TB_CONTENT_RESOURCE res
+        JOIN TB_CONTENT_DETAIL content
+          ON content.CONTENT_DETAIL_ID = res.CONTENT_DETAIL_ID
+         AND content.STATUS = 'Y'
+         AND content.DELETED_AT IS NULL
+        JOIN TB_CATEGORY category
+          ON category.CATEGORY_ID = content.CATEGORY_ID
+         AND category.STATUS = 'Y'
+         AND category.DELETED_AT IS NULL
+        JOIN TB_CURRICULUM curriculum
+          ON curriculum.CURRICULUM_ID = category.CURRICULUM_ID
+         AND curriculum.STATUS = 'Y'
+         AND curriculum.DELETED_AT IS NULL
+        WHERE res.RESOURCE_ID = #{resourceId}
+          AND res.CONTENT_DETAIL_ID = #{contentDetailId}
+          AND content.CATEGORY_ID = #{categoryId}
+          AND curriculum.CURRICULUM_ID = #{curriculumId}
+          AND curriculum.TEACHER_ID = #{teacherId}
+          AND res.STATUS = 'Y'
+          AND res.DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveForStudent" resultMap="contentResourceResultMap">
+        SELECT res.RESOURCE_ID,
+               res.CONTENT_DETAIL_ID,
+               res.RESOURCE_TYPE,
+               res.ORIGINAL_FILE_NAME,
+               res.OBJECT_KEY,
+               res.CONTENT_TYPE,
+               res.FILE_SIZE,
+               res.CREATED_AT,
+               res.UPDATED_AT,
+               res.STATUS,
+               res.DELETED_AT
+        FROM TB_CONTENT_RESOURCE res
+        JOIN TB_CONTENT_DETAIL content
+          ON content.CONTENT_DETAIL_ID = res.CONTENT_DETAIL_ID
+         AND content.STATUS = 'Y'
+         AND content.DELETED_AT IS NULL
+        JOIN TB_CATEGORY category
+          ON category.CATEGORY_ID = content.CATEGORY_ID
+         AND category.STATUS = 'Y'
+         AND category.DELETED_AT IS NULL
+        JOIN TB_CURRICULUM curriculum
+          ON curriculum.CURRICULUM_ID = category.CURRICULUM_ID
+         AND curriculum.STATUS = 'Y'
+         AND curriculum.DELETED_AT IS NULL
+        JOIN TB_STUDENT_CURRICULUM enrollment
+          ON enrollment.CURRICULUM_ID = curriculum.CURRICULUM_ID
+         AND enrollment.STATUS = 'Y'
+         AND enrollment.DELETED_AT IS NULL
+        JOIN TB_TEACHER_STUDENT_LOCATION link
+          ON link.TEACHER_STUDENT_LOCATION_ID = enrollment.TEACHER_STUDENT_LOCATION_ID
+         AND link.STATUS = 'Y'
+         AND link.DELETED_AT IS NULL
+        JOIN TB_TEACHER_STUDENT relation
+          ON relation.TEACHER_STUDENT_ID = link.TEACHER_STUDENT_ID
+         AND relation.STATUS = 'Y'
+         AND relation.DELETED_AT IS NULL
+         AND relation.STUDENT_ID = #{studentId}
+        JOIN TB_TEACHER_STUDENT_ACCESS access_row
+          ON access_row.TEACHER_STUDENT_ID = relation.TEACHER_STUDENT_ID
+         AND access_row.TEACHER_STUDENT_ACCESS_ID = #{teacherStudentAccessId}
+         AND access_row.STATUS = 'Y'
+         AND access_row.REVOKED_AT IS NULL
+        WHERE res.RESOURCE_ID = #{resourceId}
+          AND res.STATUS = 'Y'
+          AND res.DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveByContentDetailIds" resultMap="contentResourceResultMap">
+        SELECT <include refid="resourceColumns"/>
+        FROM TB_CONTENT_RESOURCE
+        WHERE <include refid="activeResource"/>
+        <choose>
+            <when test="contentDetailIds != null and contentDetailIds.size() &gt; 0">
+                AND CONTENT_DETAIL_ID IN
+                <foreach collection="contentDetailIds" item="contentDetailId" open="(" separator="," close=")">
+                    #{contentDetailId}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectActiveObjectKeysByContentDetailId" resultType="string">
+        SELECT OBJECT_KEY
+        FROM TB_CONTENT_RESOURCE
+        WHERE CONTENT_DETAIL_ID = #{contentDetailId}
+          AND <include refid="activeResource"/>
+    </select>
+
+    <select id="selectActiveObjectKeysByCategoryId" resultType="string">
+        SELECT res.OBJECT_KEY
+        FROM TB_CONTENT_RESOURCE res
+        JOIN TB_CONTENT_DETAIL content
+          ON content.CONTENT_DETAIL_ID = res.CONTENT_DETAIL_ID
+         AND content.STATUS = 'Y'
+         AND content.DELETED_AT IS NULL
+        WHERE content.CATEGORY_ID = #{categoryId}
+          AND res.STATUS = 'Y'
+          AND res.DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveObjectKeysByCurriculumId" resultType="string">
+        SELECT res.OBJECT_KEY
+        FROM TB_CONTENT_RESOURCE res
+        JOIN TB_CONTENT_DETAIL content
+          ON content.CONTENT_DETAIL_ID = res.CONTENT_DETAIL_ID
+         AND content.STATUS = 'Y'
+         AND content.DELETED_AT IS NULL
+        JOIN TB_CATEGORY category
+          ON category.CATEGORY_ID = content.CATEGORY_ID
+         AND category.STATUS = 'Y'
+         AND category.DELETED_AT IS NULL
+        WHERE category.CURRICULUM_ID = #{curriculumId}
+          AND res.STATUS = 'Y'
+          AND res.DELETED_AT IS NULL
+    </select>
+
+    <select id="selectActiveFileSizeSum" resultType="long">
+        SELECT NVL(SUM(FILE_SIZE), 0)
+        FROM TB_CONTENT_RESOURCE
+        WHERE <include refid="activeResource"/>
+    </select>
+
+    <select id="lockStorageAdmission" resultType="long">
+        SELECT ADMISSION_ID
+        FROM TB_STORAGE_ADMISSION
+        WHERE ADMISSION_ID = 1
+        FOR UPDATE WAIT 3
+    </select>
+
+    <insert id="insertContentResource">
+        <selectKey keyProperty="resourceId" resultType="long" order="BEFORE">
+            SELECT SEQ_CONTENT_RESOURCE.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO TB_CONTENT_RESOURCE (
+            RESOURCE_ID, CONTENT_DETAIL_ID, RESOURCE_TYPE, ORIGINAL_FILE_NAME, OBJECT_KEY,
+            CONTENT_TYPE, FILE_SIZE, STATUS, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{resourceId},
+            #{contentDetailId},
+            #{resourceType},
+            #{originalFileName},
+            #{objectKey},
+            #{contentType},
+            #{fileSize},
+            #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+
+    <update id="softDeleteActiveById">
+        UPDATE TB_CONTENT_RESOURCE
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE RESOURCE_ID = #{resourceId}
+          AND CONTENT_DETAIL_ID = #{contentDetailId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteActiveByContentDetailId">
+        UPDATE TB_CONTENT_RESOURCE
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE CONTENT_DETAIL_ID = #{contentDetailId}
+          AND STATUS = 'Y'
+          AND DELETED_AT IS NULL
+    </update>
+
+    <update id="softDeleteActiveByCategoryId">
+        UPDATE TB_CONTENT_RESOURCE
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STATUS = 'Y'
+          AND DELETED_AT IS NULL
+          AND CONTENT_DETAIL_ID IN (
+              SELECT CONTENT_DETAIL_ID
+              FROM TB_CONTENT_DETAIL
+              WHERE CATEGORY_ID = #{categoryId}
+                AND STATUS = 'Y'
+                AND DELETED_AT IS NULL
+          )
+    </update>
+
+    <update id="softDeleteActiveByCurriculumId">
+        UPDATE TB_CONTENT_RESOURCE
+        SET STATUS = 'N',
+            DELETED_AT = SYSTIMESTAMP,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE STATUS = 'Y'
+          AND DELETED_AT IS NULL
+          AND CONTENT_DETAIL_ID IN (
+              SELECT content.CONTENT_DETAIL_ID
+              FROM TB_CONTENT_DETAIL content
+              JOIN TB_CATEGORY category
+                ON category.CATEGORY_ID = content.CATEGORY_ID
+              WHERE category.CURRICULUM_ID = #{curriculumId}
+                AND content.STATUS = 'Y'
+                AND content.DELETED_AT IS NULL
+                AND category.STATUS = 'Y'
+                AND category.DELETED_AT IS NULL
+          )
+    </update>
+</mapper>

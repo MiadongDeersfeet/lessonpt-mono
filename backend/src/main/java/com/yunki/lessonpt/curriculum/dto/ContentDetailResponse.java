@@ -9,6 +9,8 @@ public record ContentDetailResponse(
         String evaluationMemo,
         String sheetUrl,
         String youtubeUrl,
-        String audioUrl
+        String audioUrl,
+        com.yunki.lessonpt.resource.dto.ContentResourceResponse sheet,
+        com.yunki.lessonpt.resource.dto.ContentResourceResponse audio
 ) {
 }

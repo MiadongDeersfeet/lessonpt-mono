@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import com.oracle.bmc.auth.ConfigFileAuthenticationDetailsProvider;
 import com.oracle.bmc.objectstorage.ObjectStorage;
 import com.oracle.bmc.objectstorage.ObjectStorageClient;
+import com.yunki.lessonpt.resource.storage.ObjectStorageGateway;
+import com.yunki.lessonpt.resource.storage.UnavailableObjectStorageGateway;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -34,5 +36,11 @@ public class OciObjectStorageConfig {
                 configFile.toString(),
                 oci.getProfile());
         return ObjectStorageClient.builder().build(provider);
+    }
+
+    @Bean
+    @Profile("!local")
+    ObjectStorageGateway objectStorageGateway() {
+        return new UnavailableObjectStorageGateway();
     }
 }

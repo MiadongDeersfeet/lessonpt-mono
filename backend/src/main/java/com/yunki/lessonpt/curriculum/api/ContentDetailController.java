@@ -2,6 +2,7 @@ package com.yunki.lessonpt.curriculum.api;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +23,9 @@ import com.yunki.lessonpt.curriculum.dto.ContentDetailResponse;
 import com.yunki.lessonpt.curriculum.dto.ContentDetailUpdateRequest;
 import com.yunki.lessonpt.curriculum.service.ContentDetailChange;
 import com.yunki.lessonpt.curriculum.service.ContentDetailService;
+import com.yunki.lessonpt.resource.domain.ContentResource;
+import com.yunki.lessonpt.resource.dto.ResourcePair;
+import com.yunki.lessonpt.resource.service.ContentResourceService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class ContentDetailController {
 
     private final ContentDetailService contentDetailService;
+    private final ContentResourceService contentResourceService;
 
     @PostMapping
     public ResponseEntity<ContentDetailResponse> create(
@@ -45,7 +50,7 @@ public class ContentDetailController {
                 .path("/{contentDetailId}")
                 .buildAndExpand(created.getContentDetailId())
                 .toUri();
-        return ResponseEntity.created(uri).body(toResponse(created));
+        return ResponseEntity.created(uri).body(toResponse(created, resourcesOf(List.of(created))));
     }
 
     @GetMapping
@@ -53,8 +58,11 @@ public class ContentDetailController {
             @AuthenticationPrincipal TeacherPrincipal principal,
             @PathVariable Long curriculumId,
             @PathVariable Long categoryId) {
-        return contentDetailService.getContentDetails(principal.teacherId(), curriculumId, categoryId).stream()
-                .map(this::toResponse)
+        List<ContentDetail> details = contentDetailService.getContentDetails(
+                principal.teacherId(), curriculumId, categoryId);
+        Map<Long, ResourcePair> resources = resourcesOf(details);
+        return details.stream()
+                .map(detail -> toResponse(detail, resources))
                 .toList();
     }
 
@@ -64,8 +72,9 @@ public class ContentDetailController {
             @PathVariable Long curriculumId,
             @PathVariable Long categoryId,
             @PathVariable Long contentDetailId) {
-        return toResponse(contentDetailService.getContentDetail(
-                principal.teacherId(), curriculumId, categoryId, contentDetailId));
+        ContentDetail detail = contentDetailService.getContentDetail(
+                principal.teacherId(), curriculumId, categoryId, contentDetailId);
+        return toResponse(detail, resourcesOf(List.of(detail)));
     }
 
     @PatchMapping("/{contentDetailId}")
@@ -75,8 +84,9 @@ public class ContentDetailController {
             @PathVariable Long categoryId,
             @PathVariable Long contentDetailId,
             @Valid @RequestBody ContentDetailUpdateRequest request) {
-        return toResponse(contentDetailService.updateContentDetail(
-                principal.teacherId(), curriculumId, categoryId, contentDetailId, toChange(request)));
+        ContentDetail updated = contentDetailService.updateContentDetail(
+                principal.teacherId(), curriculumId, categoryId, contentDetailId, toChange(request));
+        return toResponse(updated, resourcesOf(List.of(updated)));
     }
 
     @DeleteMapping("/{contentDetailId}")
@@ -95,8 +105,9 @@ public class ContentDetailController {
             @PathVariable Long curriculumId,
             @PathVariable Long categoryId,
             @PathVariable Long contentDetailId) {
-        return toResponse(contentDetailService.restoreContentDetail(
-                principal.teacherId(), curriculumId, categoryId, contentDetailId));
+        ContentDetail restored = contentDetailService.restoreContentDetail(
+                principal.teacherId(), curriculumId, categoryId, contentDetailId);
+        return toResponse(restored, resourcesOf(List.of(restored)));
     }
 
     private ContentDetailChange toChange(ContentDetailCreateRequest request) {
@@ -137,7 +148,13 @@ public class ContentDetailController {
         return change;
     }
 
-    private ContentDetailResponse toResponse(ContentDetail contentDetail) {
+    private Map<Long, ResourcePair> resourcesOf(List<ContentDetail> details) {
+        List<Long> ids = details.stream().map(ContentDetail::getContentDetailId).toList();
+        return ResourcePair.byContentDetail(contentResourceService.activeForContentDetails(ids));
+    }
+
+    private ContentDetailResponse toResponse(ContentDetail contentDetail, Map<Long, ResourcePair> resources) {
+        ResourcePair pair = ResourcePair.of(resources, contentDetail.getContentDetailId());
         return new ContentDetailResponse(
                 contentDetail.getContentDetailId(),
                 contentDetail.getName(),
@@ -147,6 +164,8 @@ public class ContentDetailController {
                 contentDetail.getEvaluationMemo(),
                 contentDetail.getSheetUrl(),
                 contentDetail.getYoutubeUrl(),
-                contentDetail.getAudioUrl());
+                contentDetail.getAudioUrl(),
+                pair.sheet(),
+                pair.audio());
     }
 }

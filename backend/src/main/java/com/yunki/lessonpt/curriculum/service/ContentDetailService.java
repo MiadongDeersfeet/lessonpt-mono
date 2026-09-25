@@ -16,6 +16,8 @@ import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
+import com.yunki.lessonpt.resource.service.ResourceCleanup;
+import com.yunki.lessonpt.resource.service.YoutubeUrls;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,12 +31,14 @@ public class ContentDetailService {
     private final ContentDetailMapper contentDetailMapper;
     private final CategoryMapper categoryMapper;
     private final CurriculumMapper curriculumMapper;
+    private final ResourceCleanup resourceCleanup;
 
     @Transactional
     public ContentDetail createContentDetail(
             Long teacherId, Long curriculumId, Long categoryId, ContentDetailChange change) {
         requireName(change.getName());
         requireBpm(change.getTargetBpm());
+        YoutubeUrls.requireValid(change.getYoutubeUrl());
         requireOwnedCurriculum(teacherId, curriculumId);
         requireActiveCategory(curriculumId, categoryId);
         lockOwnedCategory(curriculumId, categoryId);
@@ -79,6 +83,9 @@ public class ContentDetailService {
         if (change.isTargetBpmSpecified()) {
             requireBpm(change.getTargetBpm());
         }
+        if (change.isYoutubeUrlSpecified()) {
+            YoutubeUrls.requireValid(change.getYoutubeUrl());
+        }
         requireOwnedCurriculum(teacherId, curriculumId);
         requireActiveCategory(curriculumId, categoryId);
         ContentDetail contentDetail = requireActive(categoryId, contentDetailId);
@@ -103,6 +110,7 @@ public class ContentDetailService {
         requireActiveCategory(curriculumId, categoryId);
         lockOwnedCategory(curriculumId, categoryId);
         ContentDetail contentDetail = requireActive(categoryId, contentDetailId);
+        resourceCleanup.discardContentDetail(contentDetailId);
         expectOne(contentDetailMapper.softDeleteContentDetail(contentDetailId, categoryId));
         contentDetailMapper.shiftActiveDisplayOrdersDown(categoryId, contentDetail.getDisplayOrder());
     }

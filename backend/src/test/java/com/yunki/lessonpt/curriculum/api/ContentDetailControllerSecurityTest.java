@@ -36,6 +36,7 @@ import com.yunki.lessonpt.common.model.RecordStatus;
 import com.yunki.lessonpt.curriculum.domain.ContentDetail;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
+import com.yunki.lessonpt.resource.mapper.ContentResourceMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
@@ -99,6 +100,9 @@ class ContentDetailControllerSecurityTest {
     private ContentDetailMapper contentDetailMapper;
 
     @MockitoBean
+    private ContentResourceMapper contentResourceMapper;
+
+    @MockitoBean
     private StudentCurriculumMapper studentCurriculumMapper;
 
     @MockitoBean
@@ -159,7 +163,7 @@ class ContentDetailControllerSecurityTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"스케일","memo":"메모","targetBpm":80,"evaluationMemo":"평가","sheetUrl":"https://example.com/sheet","youtubeUrl":"https://youtu.be/scale","audioUrl":"https://example.com/scale.mp3"}
+                                {"name":"스케일","memo":"메모","targetBpm":80,"evaluationMemo":"평가","sheetUrl":"https://example.com/sheet","youtubeUrl":"https://youtu.be/abcdefghijk","audioUrl":"https://example.com/scale.mp3"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(header().string(HttpHeaders.LOCATION, org.hamcrest.Matchers.containsString(BASE + "/90")))
@@ -170,7 +174,7 @@ class ContentDetailControllerSecurityTest {
                 .andExpect(jsonPath("$.targetBpm").value(80))
                 .andExpect(jsonPath("$.evaluationMemo").value("평가"))
                 .andExpect(jsonPath("$.sheetUrl").value("https://example.com/sheet"))
-                .andExpect(jsonPath("$.youtubeUrl").value("https://youtu.be/scale"))
+                .andExpect(jsonPath("$.youtubeUrl").value("https://youtu.be/abcdefghijk"))
                 .andExpect(jsonPath("$.audioUrl").value("https://example.com/scale.mp3"))
                 .andExpect(jsonPath("$.teacherId").doesNotExist())
                 .andExpect(jsonPath("$.curriculumId").doesNotExist())
@@ -423,7 +427,7 @@ class ContentDetailControllerSecurityTest {
         contentDetail.setTargetBpm(targetBpm);
         contentDetail.setEvaluationMemo("평가");
         contentDetail.setSheetUrl("https://example.com/sheet");
-        contentDetail.setYoutubeUrl("https://youtu.be/scale");
+        contentDetail.setYoutubeUrl("https://youtu.be/abcdefghijk");
         contentDetail.setAudioUrl("https://example.com/scale.mp3");
         contentDetail.setStatus(RecordStatus.ACTIVE);
         return contentDetail;

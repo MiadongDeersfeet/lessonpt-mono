@@ -29,6 +29,7 @@ import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
+import com.yunki.lessonpt.resource.service.ResourceCleanup;
 
 @ExtendWith(MockitoExtension.class)
 class CategoryServiceTest {
@@ -42,11 +43,14 @@ class CategoryServiceTest {
     @Mock
     private ContentDetailMapper contentDetailMapper;
 
+    @Mock
+    private ResourceCleanup resourceCleanup;
+
     private CategoryService categoryService;
 
     @BeforeEach
     void setUp() {
-        categoryService = new CategoryService(categoryMapper, curriculumMapper, contentDetailMapper);
+        categoryService = new CategoryService(categoryMapper, curriculumMapper, contentDetailMapper, resourceCleanup);
     }
 
     @Test

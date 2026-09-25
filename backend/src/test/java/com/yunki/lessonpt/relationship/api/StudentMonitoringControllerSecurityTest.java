@@ -78,6 +78,9 @@ class StudentMonitoringControllerSecurityTest {
     private TeacherMapper teacherMapper;
 
     @MockitoBean
+    private com.yunki.lessonpt.resource.mapper.ContentResourceMapper contentResourceMapper;
+
+    @MockitoBean
     private TeacherAuthSessionMapper sessionMapper;
 
     @MockitoBean

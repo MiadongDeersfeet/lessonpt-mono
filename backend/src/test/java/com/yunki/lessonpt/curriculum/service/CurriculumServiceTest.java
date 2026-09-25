@@ -28,6 +28,7 @@ import com.yunki.lessonpt.curriculum.dto.CurriculumUpdateRequest;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
+import com.yunki.lessonpt.resource.service.ResourceCleanup;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
@@ -46,11 +47,15 @@ class CurriculumServiceTest {
     @Mock
     private ContentDetailMapper contentDetailMapper;
 
+    @Mock
+    private ResourceCleanup resourceCleanup;
+
     private CurriculumService curriculumService;
 
     @BeforeEach
     void setUp() {
-        curriculumService = new CurriculumService(curriculumMapper, teacherMapper, categoryMapper, contentDetailMapper);
+        curriculumService = new CurriculumService(
+                curriculumMapper, teacherMapper, categoryMapper, contentDetailMapper, resourceCleanup);
     }
 
     @Test
