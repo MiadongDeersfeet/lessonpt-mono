@@ -28,6 +28,12 @@ vi.mock('../api/studentMonitoringApi.ts', () => ({
   deactivateMonitoring: vi.fn(),
 }))
 
+vi.mock('../api/homeworkApi.ts', () => ({
+  createHomework: vi.fn(),
+  updateHomework: vi.fn(),
+  deactivateHomework: vi.fn(),
+}))
+
 vi.mock('../api/studentCurriculumApi.ts', () => ({
   assignStudentCurriculum: vi.fn(),
   updateStudentCurriculumMemo: vi.fn(),
@@ -36,6 +42,7 @@ vi.mock('../api/studentCurriculumApi.ts', () => ({
 
 import { assignStudentLocation, listLocations, releaseStudentLocation } from '../api/locationApi.ts'
 import { listCategories, listContentDetails, listCurriculums } from '../api/curriculumApi.ts'
+import { createHomework, deactivateHomework, updateHomework as updateHomeworkRequest } from '../api/homeworkApi.ts'
 import { createMonitoring, deactivateMonitoring, updateMonitoring } from '../api/studentMonitoringApi.ts'
 import {
   assignStudentCurriculum,
@@ -122,6 +129,9 @@ beforeEach(() => {
   vi.mocked(createMonitoring).mockReset()
   vi.mocked(updateMonitoring).mockReset()
   vi.mocked(deactivateMonitoring).mockReset()
+  vi.mocked(createHomework).mockReset()
+  vi.mocked(updateHomeworkRequest).mockReset()
+  vi.mocked(deactivateHomework).mockReset()
   vi.mocked(listCategories).mockResolvedValue([{ categoryId: 8, name: '루디먼트', displayOrder: 1 }])
   vi.mocked(listContentDetails).mockResolvedValue([
     {
@@ -562,6 +572,214 @@ it('deactivates a monitoring after confirmation and refetches learning', async (
   expect(await screen.findByText('학습 기록을 비활성화했습니다.')).toBeTruthy()
   expect(getStudentLearning).toHaveBeenCalledTimes(2)
   expect(screen.queryByRole('heading', { name: '싱글' })).toBeNull()
+})
+
+const practice = {
+  homeworkId: 5,
+  homeworkContent: '메트로놈',
+  deadline: '2026-09-30T18:00:00',
+  completed: false,
+  feedback: '천천히',
+}
+
+it('lists homeworks from the learning response', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue(learningWith({ ...single, homeworks: [practice] }, null))
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  expect(await screen.findByText('메트로놈')).toBeTruthy()
+  expect(screen.getByText('마감 2026-09-30 18:00')).toBeTruthy()
+  expect(screen.getByText('피드백 천천히')).toBeTruthy()
+  expect(screen.getByText('미완료')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: '복구' })).toBeNull()
+})
+
+it('creates a homework and refetches learning', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith(single, null))
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice] }, null))
+  vi.mocked(createHomework).mockResolvedValue(practice)
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '메트로놈')
+  await user.type(screen.getByLabelText('마감 (싱글)'), '2026-09-30T18:00')
+  await user.type(screen.getByLabelText('피드백 (싱글)'), '천천히')
+  await user.click(screen.getByRole('button', { name: '과제 추가' }))
+
+  expect(createHomework).toHaveBeenCalledWith(40, {
+    homeworkContent: '메트로놈',
+    deadline: '2026-09-30T18:00:00',
+    feedback: '천천히',
+  })
+  expect(await screen.findByText('과제를 추가했습니다.')).toBeTruthy()
+  expect(getStudentLearning).toHaveBeenCalledTimes(2)
+  expect(screen.getByText('메트로놈')).toBeTruthy()
+})
+
+it('updates homework content and clears the deadline', async () => {
+  const user = userEvent.setup()
+  const edited = { ...practice, homeworkContent: '박자 연습', deadline: null, feedback: null }
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice] }, null))
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [edited] }, null))
+  vi.mocked(updateHomeworkRequest).mockResolvedValue(edited)
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click(await screen.findByRole('button', { name: '과제 수정' }))
+  const content = screen.getByLabelText('수정할 과제 내용 (싱글)')
+  await user.clear(content)
+  await user.type(content, '박자 연습')
+  await user.clear(screen.getByLabelText('수정할 마감 (싱글)'))
+  await user.clear(screen.getByLabelText('수정할 피드백 (싱글)'))
+  await user.click(screen.getByRole('button', { name: '과제 저장' }))
+
+  expect(updateHomeworkRequest).toHaveBeenCalledWith(40, 5, {
+    homeworkContent: '박자 연습',
+    deadline: null,
+    feedback: null,
+  })
+  expect(await screen.findByText('과제를 수정했습니다.')).toBeTruthy()
+  expect(getStudentLearning).toHaveBeenCalledTimes(2)
+  expect(screen.getByText('박자 연습')).toBeTruthy()
+})
+
+it('completes a homework and then cancels completion', async () => {
+  const user = userEvent.setup()
+  const done = { ...practice, completed: true }
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice] }, null))
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [done] }, null))
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice] }, null))
+  vi.mocked(updateHomeworkRequest).mockResolvedValue(done)
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click(await screen.findByRole('button', { name: '완료' }))
+  expect(updateHomeworkRequest).toHaveBeenCalledWith(40, 5, { completed: true })
+  expect(await screen.findByText('과제를 완료했습니다.')).toBeTruthy()
+  expect(screen.getByRole('button', { name: '완료 취소' })).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: '완료 취소' }))
+  expect(updateHomeworkRequest).toHaveBeenLastCalledWith(40, 5, { completed: false })
+  expect(await screen.findByText('과제 완료를 취소했습니다.')).toBeTruthy()
+  expect(getStudentLearning).toHaveBeenCalledTimes(3)
+})
+
+it('deactivates a homework after confirmation and refetches learning', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice] }, null))
+    .mockResolvedValueOnce(learningWith(single, null))
+  vi.mocked(deactivateHomework).mockResolvedValue(undefined)
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click(await screen.findByRole('button', { name: '과제 비활성화' }))
+  const dialog = await screen.findByRole('dialog')
+  expect(dialog.textContent).toContain('이 과제만 비활성화')
+  expect(dialog.textContent).toContain('학습 기록과 커리큘럼 배정은 유지')
+  expect(dialog.textContent).toContain('다시 활성화하는 화면은 제공하지 않습니다')
+  expect(deactivateHomework).not.toHaveBeenCalled()
+  await user.click(within(dialog).getByRole('button', { name: '과제 비활성화' }))
+
+  expect(deactivateHomework).toHaveBeenCalledWith(40, 5)
+  expect(await screen.findByText('과제를 비활성화했습니다.')).toBeTruthy()
+  expect(getStudentLearning).toHaveBeenCalledTimes(2)
+  expect(screen.queryByText('메트로놈')).toBeNull()
+  expect(screen.getByRole('heading', { name: '싱글' })).toBeTruthy()
+})
+
+it('allows a third homework and then hides the create form', async () => {
+  const user = userEvent.setup()
+  const second = { ...practice, homeworkId: 6, homeworkContent: '리듬' }
+  const third = { ...practice, homeworkId: 7, homeworkContent: '악센트' }
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice, second] }, null))
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice, second, third] }, null))
+  vi.mocked(createHomework).mockResolvedValue(third)
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '악센트')
+  await user.click(screen.getByRole('button', { name: '과제 추가' }))
+  expect(createHomework).toHaveBeenCalledWith(40, {
+    homeworkContent: '악센트',
+    deadline: null,
+    feedback: null,
+  })
+  expect(await screen.findByText('한 학습 항목에는 활성 과제를 최대 3개까지 등록할 수 있습니다.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: '과제 추가' })).toBeNull()
+  expect(getStudentLearning).toHaveBeenCalledTimes(2)
+})
+
+it('shows the server limit when creating a fourth homework returns 409', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue(learningWith({ ...single, homeworks: [practice] }, null))
+  vi.mocked(createHomework).mockRejectedValue(
+    new ApiError(409, 'COMMON_CONFLICT', '요청이 현재 상태와 충돌합니다.', 'trace-7', []),
+  )
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '롤')
+  await user.click(screen.getByRole('button', { name: '과제 추가' }))
+  expect(await screen.findByText('한 학습 항목에는 활성 과제를 최대 3개까지 등록할 수 있습니다.')).toBeTruthy()
+  expect(screen.queryByText('trace-7')).toBeNull()
+})
+
+it('keeps the three-homework limit independent per monitoring', async () => {
+  const user = userEvent.setup()
+  const full = [practice, { ...practice, homeworkId: 6, homeworkContent: '리듬' }, { ...practice, homeworkId: 7, homeworkContent: '악센트' }]
+  const other: Monitoring = {
+    ...single,
+    monitoringId: 41,
+    contentDetailId: 16,
+    contentDetailName: '더블',
+    homeworks: [],
+  }
+  vi.mocked(getStudentLearning).mockResolvedValue({
+    ...assignedLearning,
+    locations: [
+      {
+        ...assignedLearning.locations[0],
+        studentCurriculums: [
+          {
+            ...assignedLearning.locations[0].studentCurriculums[0],
+            monitorings: [{ ...single, homeworks: full }, other],
+          },
+        ],
+      },
+    ],
+  })
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  expect(await screen.findByText('한 학습 항목에는 활성 과제를 최대 3개까지 등록할 수 있습니다.')).toBeTruthy()
+  expect(screen.getByLabelText('과제 내용 (더블)')).toBeTruthy()
+  expect(screen.getByRole('button', { name: '과제 추가' })).toBeTruthy()
+})
+
+it('hides homeworks after the monitoring is deactivated', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith({ ...single, homeworks: [practice] }, null))
+    .mockResolvedValueOnce(learningWith(null, { completedCount: 0, totalCount: 2, percentage: 0 }))
+  vi.mocked(deactivateMonitoring).mockResolvedValue(undefined)
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  expect(await screen.findByText('메트로놈')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: '비활성화' }))
+  const dialog = await screen.findByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+
+  expect(await screen.findByText('학습 기록을 비활성화했습니다.')).toBeTruthy()
+  expect(screen.queryByText('메트로놈')).toBeNull()
+  expect(screen.queryByRole('button', { name: '과제 추가' })).toBeNull()
 })
 
 function renderPage() {

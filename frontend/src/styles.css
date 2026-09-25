@@ -136,6 +136,18 @@ a:hover { color: #08383e; }
 
 .homework-list { margin: 8px 0 0; padding-left: 18px; }
 
+.homework {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #efe8dc;
+}
+
+.homework h5 { margin: 0 0 8px; }
+
+.homework-item { margin-top: 8px; }
+
+.homework-item p { margin: 0 0 4px; }
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

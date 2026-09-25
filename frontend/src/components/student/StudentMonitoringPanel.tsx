@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ApiError } from '../../api/apiClient.ts'
+import { HomeworkPanel } from './HomeworkPanel.tsx'
 import { createMonitoring, deactivateMonitoring, updateMonitoring } from '../../api/studentMonitoringApi.ts'
 import { formErrorMessage } from '../feedback/describeError.ts'
 import { progressStatusLabel } from '../../student/display.ts'
@@ -212,6 +213,12 @@ export function StudentMonitoringPanel({
               </button>
             </div>
           )}
+          <HomeworkPanel
+            monitoringId={item.monitoringId}
+            contentName={item.contentDetailName}
+            homeworks={item.homeworks}
+            onRefreshLearning={onRefreshLearning}
+          />
         </div>
       ))}
       {catalogError ? <p className="form-error">{formErrorMessage(catalogError)}</p> : null}
