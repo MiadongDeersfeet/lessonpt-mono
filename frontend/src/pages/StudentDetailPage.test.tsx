@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ApiError } from '../api/apiClient.ts'
-import type { StudentLearningDetail } from '../types/student.ts'
+import type { Monitoring, StudentLearningDetail } from '../types/student.ts'
 import { StudentDetailPage } from './StudentDetailPage.tsx'
 
 vi.mock('../api/studentApi.ts', () => ({
@@ -18,6 +18,14 @@ vi.mock('../api/locationApi.ts', () => ({
 
 vi.mock('../api/curriculumApi.ts', () => ({
   listCurriculums: vi.fn(),
+  listCategories: vi.fn(),
+  listContentDetails: vi.fn(),
+}))
+
+vi.mock('../api/studentMonitoringApi.ts', () => ({
+  createMonitoring: vi.fn(),
+  updateMonitoring: vi.fn(),
+  deactivateMonitoring: vi.fn(),
 }))
 
 vi.mock('../api/studentCurriculumApi.ts', () => ({
@@ -27,7 +35,8 @@ vi.mock('../api/studentCurriculumApi.ts', () => ({
 }))
 
 import { assignStudentLocation, listLocations, releaseStudentLocation } from '../api/locationApi.ts'
-import { listCurriculums } from '../api/curriculumApi.ts'
+import { listCategories, listContentDetails, listCurriculums } from '../api/curriculumApi.ts'
+import { createMonitoring, deactivateMonitoring, updateMonitoring } from '../api/studentMonitoringApi.ts'
 import {
   assignStudentCurriculum,
   releaseStudentCurriculum,
@@ -107,6 +116,36 @@ beforeEach(() => {
   vi.mocked(listCurriculums).mockResolvedValue([
     { curriculumId: 3, name: '기초', displayOrder: 1 },
     { curriculumId: 4, name: '응용', displayOrder: 2 },
+  ])
+  vi.mocked(listCategories).mockReset()
+  vi.mocked(listContentDetails).mockReset()
+  vi.mocked(createMonitoring).mockReset()
+  vi.mocked(updateMonitoring).mockReset()
+  vi.mocked(deactivateMonitoring).mockReset()
+  vi.mocked(listCategories).mockResolvedValue([{ categoryId: 8, name: '루디먼트', displayOrder: 1 }])
+  vi.mocked(listContentDetails).mockResolvedValue([
+    {
+      contentDetailId: 15,
+      name: '싱글',
+      displayOrder: 1,
+      memo: null,
+      targetBpm: 80,
+      evaluationMemo: null,
+      sheetUrl: null,
+      youtubeUrl: null,
+      audioUrl: null,
+    },
+    {
+      contentDetailId: 16,
+      name: '더블',
+      displayOrder: 2,
+      memo: null,
+      targetBpm: 100,
+      evaluationMemo: null,
+      sheetUrl: null,
+      youtubeUrl: null,
+      audioUrl: null,
+    },
   ])
 })
 
@@ -326,6 +365,203 @@ it('patches the curriculum memo and refetches learning', async () => {
   expect(updateStudentCurriculumMemo).toHaveBeenCalledWith(90, 7, '저장메모')
   expect(await screen.findByText('메모를 저장했습니다.')).toBeTruthy()
   expect(getStudentLearning).toHaveBeenCalledTimes(2)
+})
+
+const single = {
+  monitoringId: 40,
+  contentDetailId: 15,
+  contentDetailName: '싱글',
+  displayOrder: 1,
+  targetBpm: 80,
+  currentBpm: null as number | null,
+  progressStatus: 'YET' as const,
+  memo: null,
+  homeworks: [],
+}
+
+function learningWith(monitoring: Monitoring | null, progress: { completedCount: number; totalCount: number; percentage: number } | null) {
+  return {
+    ...assignedLearning,
+    locations: [
+      {
+        ...assignedLearning.locations[0],
+        studentCurriculums: [
+          {
+            ...assignedLearning.locations[0].studentCurriculums[0],
+            progress,
+            monitorings: monitoring ? [monitoring] : [],
+          },
+        ],
+      },
+    ],
+  }
+}
+
+it('offers content details that do not have a monitoring yet', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue(learningWith(null, { completedCount: 0, totalCount: 2, percentage: 0 }))
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  const select = await screen.findByLabelText('학습 기록 내용')
+  expect(within(select).getByRole('option', { name: '싱글' })).toBeTruthy()
+  expect(within(select).getByRole('option', { name: '더블' })).toBeTruthy()
+  expect(screen.getByText('0.0%')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: '복구' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '과제 추가' })).toBeNull()
+})
+
+it('creates a yet monitoring without current bpm and refetches learning', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith(null, { completedCount: 0, totalCount: 2, percentage: 0 }))
+    .mockResolvedValueOnce(learningWith(single, { completedCount: 0, totalCount: 2, percentage: 0 }))
+  vi.mocked(createMonitoring).mockResolvedValue({
+    monitoringId: 40,
+    contentDetailId: 15,
+    displayOrder: 1,
+    currentBpm: null,
+    progressStatus: 'YET',
+    memo: null,
+  })
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.selectOptions(await screen.findByLabelText('학습 기록 내용'), '15')
+  await user.selectOptions(screen.getByLabelText('초기 상태'), 'YET')
+  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
+
+  expect(createMonitoring).toHaveBeenCalledWith(7, {
+    contentDetailId: 15,
+    currentBpm: null,
+    progressStatus: 'YET',
+    memo: null,
+  })
+  expect(await screen.findByText('학습 기록을 추가했습니다.')).toBeTruthy()
+  expect(getStudentLearning).toHaveBeenCalledTimes(2)
+  expect(screen.getByText('0.0%')).toBeTruthy()
+})
+
+it('rejects current bpm below 60 and sends a valid value', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue(learningWith(null, null))
+  vi.mocked(createMonitoring).mockResolvedValue({
+    monitoringId: 41,
+    contentDetailId: 16,
+    displayOrder: 1,
+    currentBpm: 90,
+    progressStatus: 'IN_PROGRESS',
+    memo: null,
+  })
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.selectOptions(await screen.findByLabelText('학습 기록 내용'), '16')
+  await user.selectOptions(screen.getByLabelText('초기 상태'), 'IN_PROGRESS')
+  await user.type(screen.getByLabelText('현재 BPM'), '59')
+  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
+  expect(await screen.findByText('현재 BPM은 60 이상 240 이하여야 합니다.')).toBeTruthy()
+  expect(createMonitoring).not.toHaveBeenCalled()
+
+  await user.clear(screen.getByLabelText('현재 BPM'))
+  await user.type(screen.getByLabelText('현재 BPM'), '90')
+  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
+  expect(createMonitoring).toHaveBeenCalledWith(7, {
+    contentDetailId: 16,
+    currentBpm: 90,
+    progressStatus: 'IN_PROGRESS',
+    memo: null,
+  })
+})
+
+it('changes status in any direction and updates progress from the server', async () => {
+  const user = userEvent.setup()
+  const completed = { ...single, progressStatus: 'COMPLETED' as const, currentBpm: 80 }
+  const stopped = { ...single, progressStatus: 'STOPPED' as const, currentBpm: null }
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith(single, { completedCount: 0, totalCount: 2, percentage: 0 }))
+    .mockResolvedValueOnce(learningWith(completed, { completedCount: 1, totalCount: 2, percentage: 50 }))
+    .mockResolvedValueOnce(learningWith(stopped, { completedCount: 0, totalCount: 2, percentage: 0 }))
+  vi.mocked(updateMonitoring).mockResolvedValue({
+    monitoringId: 40,
+    contentDetailId: 15,
+    displayOrder: 1,
+    currentBpm: 80,
+    progressStatus: 'COMPLETED',
+    memo: null,
+  })
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  expect(await screen.findByText('0.0%')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: '기록 수정' }))
+  const editor = screen.getByRole('heading', { name: '싱글' }).parentElement
+  if (!editor) {
+    throw new Error('monitoring editor missing')
+  }
+  await user.selectOptions(within(editor).getByLabelText('학습 상태'), 'COMPLETED')
+  await user.type(within(editor).getByLabelText('현재 BPM'), '80')
+  await user.click(within(editor).getByRole('button', { name: '저장' }))
+
+  expect(updateMonitoring).toHaveBeenCalledWith(7, 40, {
+    currentBpm: 80,
+    progressStatus: 'COMPLETED',
+    memo: null,
+  })
+  expect(await screen.findByText('50.0%')).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: '기록 수정' }))
+  const nextEditor = screen.getByRole('heading', { name: '싱글' }).parentElement
+  if (!nextEditor) {
+    throw new Error('monitoring editor missing')
+  }
+  await user.selectOptions(within(nextEditor).getByLabelText('학습 상태'), 'STOPPED')
+  await user.clear(within(nextEditor).getByLabelText('현재 BPM'))
+  await user.click(within(nextEditor).getByRole('button', { name: '저장' }))
+  expect(updateMonitoring).toHaveBeenLastCalledWith(7, 40, {
+    currentBpm: null,
+    progressStatus: 'STOPPED',
+    memo: null,
+  })
+  expect(await screen.findByText('0.0%')).toBeTruthy()
+  const statusRow = screen.getByRole('heading', { name: '싱글' }).parentElement
+  expect(statusRow?.textContent).toContain('중단')
+  expect(statusRow?.textContent).toContain('현재 BPM -')
+})
+
+it('shows a conflict when the content already has a monitoring', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue(learningWith(null, { completedCount: 0, totalCount: 2, percentage: 0 }))
+  vi.mocked(createMonitoring).mockRejectedValue(
+    new ApiError(409, 'COMMON_CONFLICT', '요청이 현재 상태와 충돌합니다.', 'trace-6', []),
+  )
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.selectOptions(await screen.findByLabelText('학습 기록 내용'), '15')
+  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
+  expect(await screen.findByText('이미 이 내용의 학습 기록이 있습니다.')).toBeTruthy()
+})
+
+it('deactivates a monitoring after confirmation and refetches learning', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning)
+    .mockResolvedValueOnce(learningWith(single, { completedCount: 0, totalCount: 2, percentage: 0 }))
+    .mockResolvedValueOnce(learningWith(null, { completedCount: 0, totalCount: 2, percentage: 0 }))
+  vi.mocked(deactivateMonitoring).mockResolvedValue(undefined)
+  renderPage()
+
+  await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click(await screen.findByRole('button', { name: '비활성화' }))
+  const dialog = await screen.findByRole('dialog')
+  expect(dialog.textContent).toContain('활성 과제')
+  expect(deactivateMonitoring).not.toHaveBeenCalled()
+  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+
+  expect(deactivateMonitoring).toHaveBeenCalledWith(7, 40)
+  expect(await screen.findByText('학습 기록을 비활성화했습니다.')).toBeTruthy()
+  expect(getStudentLearning).toHaveBeenCalledTimes(2)
+  expect(screen.queryByRole('heading', { name: '싱글' })).toBeNull()
 })
 
 function renderPage() {

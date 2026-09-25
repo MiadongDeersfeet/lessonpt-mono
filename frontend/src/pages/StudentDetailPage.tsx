@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/apiClient.ts'
-import { listCurriculums } from '../api/curriculumApi.ts'
+import { listCategories, listContentDetails, listCurriculums } from '../api/curriculumApi.ts'
 import { listLocations } from '../api/locationApi.ts'
 import { getStudentLearning } from '../api/studentApi.ts'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
@@ -9,7 +9,8 @@ import { ErrorState } from '../components/feedback/ErrorState.tsx'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
 import { ProgressValue } from '../components/student/ProgressValue.tsx'
 import { StudentLocationSection } from '../components/student/StudentLocationSection.tsx'
-import { formatBpm, formatDeadline, progressStatusLabel, textOrDash } from '../student/display.ts'
+import { StudentMonitoringPanel } from '../components/student/StudentMonitoringPanel.tsx'
+import { textOrDash } from '../student/display.ts'
 import type { Curriculum } from '../types/curriculum.ts'
 import type { Location } from '../types/location.ts'
 import type { StudentLearningDetail } from '../types/student.ts'
@@ -134,7 +135,7 @@ export function StudentDetailPage() {
           onRefreshLearning={refreshLearning}
         />
       ) : null}
-      {detail && tab === 'learning' ? <LearningTab detail={detail} /> : null}
+      {detail && tab === 'learning' ? <LearningTab detail={detail} onRefreshLearning={refreshLearning} /> : null}
       {detail && tab === 'access' ? <p className="lead">접근 설정은 다음 단계에서 연결합니다.</p> : null}
     </section>
   )
@@ -187,7 +188,59 @@ function ProfileTab({
   )
 }
 
-function LearningTab({ detail }: { detail: StudentLearningDetail }) {
+function LearningTab({
+  detail,
+  onRefreshLearning,
+}: {
+  detail: StudentLearningDetail
+  onRefreshLearning: () => Promise<void>
+}) {
+  const curriculumIds = [
+    ...new Set(detail.locations.flatMap((location) => location.studentCurriculums.map((item) => item.curriculumId))),
+  ]
+  const idsKey = curriculumIds.join(',')
+  const [contentsByCurriculumId, setContentsByCurriculumId] = useState<Record<number, { contentDetailId: number; name: string }[]> | null>(null)
+  const [catalogError, setCatalogError] = useState<unknown>(null)
+
+  useEffect(() => {
+    const curriculumIds = idsKey === '' ? [] : idsKey.split(',').map(Number)
+    if (curriculumIds.length === 0) {
+      setContentsByCurriculumId({})
+      return
+    }
+    let active = true
+    setContentsByCurriculumId(null)
+    setCatalogError(null)
+    Promise.all(
+      curriculumIds.map(async (curriculumId) => {
+        const categories = await listCategories(curriculumId)
+        const lists = await Promise.all(categories.map((category) => listContentDetails(curriculumId, category.categoryId)))
+        return [
+          curriculumId,
+          lists.flat().map((item) => ({ contentDetailId: item.contentDetailId, name: item.name })),
+        ] as const
+      }),
+    )
+      .then((rows) => {
+        if (!active) {
+          return
+        }
+        const next: Record<number, { contentDetailId: number; name: string }[]> = {}
+        rows.forEach(([curriculumId, contents]) => {
+          next[curriculumId] = contents
+        })
+        setContentsByCurriculumId(next)
+      })
+      .catch((caught) => {
+        if (active) {
+          setCatalogError(caught)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [idsKey])
+
   if (detail.locations.length === 0) {
     return <EmptyState message="배정된 출강처가 없습니다." />
   }
@@ -204,42 +257,13 @@ function LearningTab({ detail }: { detail: StudentLearningDetail }) {
                 <ProgressValue progress={curriculum.progress} />
               </header>
               <p className="memo">{curriculum.memo ? curriculum.memo : '메모 없음'}</p>
-              {curriculum.monitorings.length === 0 ? <EmptyState message="아직 등록된 학습 기록이 없습니다." /> : null}
-              {curriculum.monitorings.map((monitoring) => (
-                <div className="monitoring" key={monitoring.monitoringId}>
-                  <h4>{monitoring.contentDetailName}</h4>
-                  <dl className="facts facts-compact">
-                    <div>
-                      <dt>목표 BPM</dt>
-                      <dd>{formatBpm(monitoring.targetBpm)}</dd>
-                    </div>
-                    <div>
-                      <dt>현재 BPM</dt>
-                      <dd>{formatBpm(monitoring.currentBpm)}</dd>
-                    </div>
-                    <div>
-                      <dt>상태</dt>
-                      <dd>{progressStatusLabel(monitoring.progressStatus)}</dd>
-                    </div>
-                  </dl>
-                  <p className="memo">{monitoring.memo ? monitoring.memo : '메모 없음'}</p>
-                  {monitoring.homeworks.length === 0 ? (
-                    <p className="quiet">과제가 없습니다.</p>
-                  ) : (
-                    <ul className="homework-list">
-                      {monitoring.homeworks.map((homework) => (
-                        <li key={homework.homeworkId}>
-                          <p>{homework.homeworkContent}</p>
-                          <p className="quiet">
-                            마감 {formatDeadline(homework.deadline)} · {homework.completed ? '완료' : '미완료'}
-                          </p>
-                          <p className="quiet">피드백 {textOrDash(homework.feedback)}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
+              <StudentMonitoringPanel
+                studentCurriculumId={curriculum.studentCurriculumId}
+                monitorings={curriculum.monitorings}
+                contents={contentsByCurriculumId?.[curriculum.curriculumId] ?? null}
+                catalogError={catalogError}
+                onRefreshLearning={onRefreshLearning}
+              />
             </article>
           ))}
         </section>
