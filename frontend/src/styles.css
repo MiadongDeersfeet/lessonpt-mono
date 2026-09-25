@@ -364,6 +364,32 @@ a:hover { color: #08383e; }
 
 .form-hint { margin: 0; color: #5d6876; }
 
+.invitation-link {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.landing-choices {
+  display: grid;
+  gap: 12px;
+}
+
+.landing-choice {
+  display: grid;
+  gap: 6px;
+  min-height: 88px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-choice strong { font-size: 1.1rem; }
+
+.relationship-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
   .facts { grid-template-columns: 1fr; }

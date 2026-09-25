@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext.tsx'
 
 const links = [
-  { to: '/', label: '대시보드', end: true },
+  { to: '/dashboard', label: '대시보드', end: true },
   { to: '/students', label: '학생', end: false },
   { to: '/locations', label: '출강처', end: false },
   { to: '/curriculums', label: '커리큘럼', end: false },

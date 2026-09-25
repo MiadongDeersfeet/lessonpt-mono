@@ -1,6 +1,10 @@
-import { createContext, useContext, useMemo, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+
+export type StudentAuthStatus = 'UNAUTHENTICATED' | 'AUTHENTICATED_NO_SCOPE' | 'AUTHENTICATED_SCOPED'
 
 type StudentPortalContextValue = {
+  status: StudentAuthStatus
+  setStatus: (status: StudentAuthStatus) => void
   rememberAccessKey: (publicAccessKey: string) => void
   readAccessKey: () => string | null
 }
@@ -9,8 +13,11 @@ const StudentPortalContext = createContext<StudentPortalContextValue | null>(nul
 
 export function StudentPortalProvider({ children }: { children: ReactNode }) {
   const accessKeyRef = useRef<string | null>(null)
+  const [status, setStatus] = useState<StudentAuthStatus>('UNAUTHENTICATED')
   const value = useMemo<StudentPortalContextValue>(
     () => ({
+      status,
+      setStatus,
       rememberAccessKey(publicAccessKey: string) {
         accessKeyRef.current = publicAccessKey
       },
@@ -18,7 +25,7 @@ export function StudentPortalProvider({ children }: { children: ReactNode }) {
         return accessKeyRef.current
       },
     }),
-    [],
+    [status],
   )
   return <StudentPortalContext.Provider value={value}>{children}</StudentPortalContext.Provider>
 }

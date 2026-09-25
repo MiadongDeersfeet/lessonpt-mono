@@ -64,6 +64,14 @@ export type LearningLocation = {
   studentCurriculums: StudentCurriculum[]
 }
 
+export type StudentAccess = {
+  teacherStudentAccessId: number
+  teacherStudentId: number
+  publicAccessKey: string
+  createdAt: string | null
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
 export type StudentLearningDetail = {
   studentId: number
   name: string

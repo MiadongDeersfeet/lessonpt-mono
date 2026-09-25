@@ -1,5 +1,17 @@
 import type { ProgressStatus, ProgressSummary } from './student.ts'
 
+export type StudentRelationshipLocation = {
+  locationId: number
+  locationName: string
+}
+
+export type StudentRelationship = {
+  teacherStudentAccessId: number
+  teacherStudentId: number
+  teacherName: string
+  locations: StudentRelationshipLocation[]
+}
+
 export type StudentMe = {
   name: string
 }

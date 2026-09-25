@@ -1,6 +1,6 @@
 import { ApiError } from './apiClient.ts'
 import type { ErrorResponse } from '../types/api.ts'
-import type { StudentMe, StudentPortalLearning } from '../types/studentPortal.ts'
+import type { StudentMe, StudentPortalLearning, StudentRelationship } from '../types/studentPortal.ts'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
@@ -18,6 +18,20 @@ export function verifyStudentOtp(publicAccessKey: string, email: string, otp: st
   })
 }
 
+export function requestStudentLoginOtp(email: string): Promise<void> {
+  return studentRequest<void>('/v1/student-login/otp', {
+    method: 'POST',
+    body: { email },
+  })
+}
+
+export function verifyStudentLoginOtp(email: string, otp: string): Promise<{ verified: boolean }> {
+  return studentRequest<{ verified: boolean }>('/v1/student-login/otp/verify', {
+    method: 'POST',
+    body: { email, otp },
+  })
+}
+
 export function getStudentMe(): Promise<StudentMe> {
   return studentRequest<StudentMe>('/v1/student/me')
 }
@@ -26,8 +40,27 @@ export function getStudentLearning(): Promise<StudentPortalLearning> {
   return studentRequest<StudentPortalLearning>('/v1/student/learning')
 }
 
+export function listStudentRelationships(): Promise<StudentRelationship[]> {
+  return studentRequest<StudentRelationship[]>('/v1/student/relationships')
+}
+
+export function selectStudentScope(teacherStudentAccessId: number): Promise<void> {
+  return studentRequest<void>('/v1/student/session/scope', {
+    method: 'POST',
+    body: { teacherStudentAccessId },
+  })
+}
+
+export function clearStudentScope(): Promise<void> {
+  return studentRequest<void>('/v1/student/session/scope', { method: 'DELETE' })
+}
+
 export function logoutStudent(): Promise<void> {
   return studentRequest<void>('/v1/student/session/logout', { method: 'POST' })
+}
+
+export function isStudentScopeRequired(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && error.code === 'STUDENT_SCOPE_REQUIRED'
 }
 
 async function studentRequest<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {

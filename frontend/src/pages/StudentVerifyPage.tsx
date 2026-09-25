@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { verifyStudentOtp } from '../api/studentPortalApi.ts'
+import { verifyStudentLoginOtp, verifyStudentOtp } from '../api/studentPortalApi.ts'
 import { useStudentPortal } from '../auth/StudentPortalContext.tsx'
 import { fieldErrorMessage } from '../components/feedback/describeError.ts'
 import { StudentFrame, studentAuthMessage } from './StudentAccessPage.tsx'
 
 type VerifyState = {
+  flow?: 'login'
   publicAccessKey?: string
   email?: string
 }
@@ -15,19 +16,24 @@ export function StudentVerifyPage() {
   const navigate = useNavigate()
   const portal = useStudentPortal()
   const state = (location.state ?? {}) as VerifyState
-  const publicAccessKey = state.publicAccessKey ?? portal.readAccessKey() ?? ''
+  const loginFlow = state.flow === 'login'
+  const publicAccessKey = loginFlow ? '' : (state.publicAccessKey ?? portal.readAccessKey() ?? '')
   const email = state.email ?? ''
   const [otp, setOtp] = useState('')
   const [otpError, setOtpError] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  if (!publicAccessKey || !email) {
+  if ((!loginFlow && !publicAccessKey) || !email) {
     return (
       <StudentFrame>
         <h1>인증번호 확인</h1>
-        <p>접속 링크에서 이메일을 입력한 뒤 인증번호를 요청해 주세요.</p>
-        {publicAccessKey ? <Link to={`/student/access/${publicAccessKey}`}>이메일 입력으로</Link> : <Link to="/student/access">접속 안내</Link>}
+        <p>이메일로 인증번호를 다시 요청해 주세요.</p>
+        {publicAccessKey ? (
+          <Link to={`/student/access/${publicAccessKey}`}>이메일 입력으로</Link>
+        ) : (
+          <Link to="/student/login">학생 로그인</Link>
+        )}
       </StudentFrame>
     )
   }
@@ -42,8 +48,15 @@ export function StudentVerifyPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await verifyStudentOtp(publicAccessKey, email, otp.trim())
-      navigate('/student', { replace: true })
+      if (loginFlow) {
+        await verifyStudentLoginOtp(email, otp.trim())
+        portal.setStatus('AUTHENTICATED_NO_SCOPE')
+        navigate('/student/relationships', { replace: true })
+      } else {
+        await verifyStudentOtp(publicAccessKey, email, otp.trim())
+        portal.setStatus('AUTHENTICATED_SCOPED')
+        navigate('/student', { replace: true })
+      }
     } catch (caught) {
       setError(caught)
     } finally {

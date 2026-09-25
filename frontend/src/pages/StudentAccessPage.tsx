@@ -18,6 +18,7 @@ export function StudentAccessPage() {
       <StudentFrame>
         <h1>학생 접속</h1>
         <p>받은 접속 링크를 다시 열어 주세요.</p>
+        <Link to="/student/login">일반 학생 로그인</Link>
       </StudentFrame>
     )
   }

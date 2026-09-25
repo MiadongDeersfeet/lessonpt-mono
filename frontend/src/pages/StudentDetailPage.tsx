@@ -8,6 +8,7 @@ import { EmptyState } from '../components/feedback/EmptyState.tsx'
 import { ErrorState } from '../components/feedback/ErrorState.tsx'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
 import { ProgressValue } from '../components/student/ProgressValue.tsx'
+import { StudentAccessSection } from '../components/student/StudentAccessSection.tsx'
 import { StudentLocationSection } from '../components/student/StudentLocationSection.tsx'
 import { StudentMonitoringPanel } from '../components/student/StudentMonitoringPanel.tsx'
 import { textOrDash } from '../student/display.ts'
@@ -136,7 +137,7 @@ export function StudentDetailPage() {
         />
       ) : null}
       {detail && tab === 'learning' ? <LearningTab detail={detail} onRefreshLearning={refreshLearning} /> : null}
-      {detail && tab === 'access' ? <p className="lead">접근 설정은 다음 단계에서 연결합니다.</p> : null}
+      {detail && tab === 'access' ? <StudentAccessSection studentId={studentId} email={detail.email} /> : null}
     </section>
   )
 }

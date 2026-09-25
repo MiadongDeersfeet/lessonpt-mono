@@ -1,4 +1,4 @@
-import type { StudentCreateBody, StudentLearningDetail, StudentSummary, StudentUpdateBody } from '../types/student.ts'
+import type { StudentAccess, StudentCreateBody, StudentLearningDetail, StudentSummary, StudentUpdateBody } from '../types/student.ts'
 import { apiRequest } from './apiClient.ts'
 
 export function listStudents(): Promise<StudentSummary[]> {
@@ -23,4 +23,16 @@ export function updateStudent(studentId: number, body: StudentUpdateBody): Promi
 
 export function releaseStudent(studentId: number): Promise<void> {
   return apiRequest<void>(`/v1/students/${studentId}`, { method: 'DELETE' })
+}
+
+export function getStudentAccess(studentId: number): Promise<StudentAccess> {
+  return apiRequest<StudentAccess>(`/v1/students/${studentId}/access`)
+}
+
+export function createStudentAccess(studentId: number): Promise<StudentAccess> {
+  return apiRequest<StudentAccess>(`/v1/students/${studentId}/access`, { method: 'POST' })
+}
+
+export function deleteStudentAccess(studentId: number): Promise<void> {
+  return apiRequest<void>(`/v1/students/${studentId}/access`, { method: 'DELETE' })
 }
