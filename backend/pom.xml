@@ -21,7 +21,20 @@
         <java.version>21</java.version>
         <!-- Boot 4.1에 맞춰 둔 MyBatis starter. 도메인 Mapper는 아직 없다. -->
         <mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
+        <oci-java-sdk.version>3.66.0</oci-java-sdk.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.oracle.oci.sdk</groupId>
+                <artifactId>oci-java-sdk-bom</artifactId>
+                <version>${oci-java-sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -65,6 +78,16 @@
             <artifactId>oraclepki</artifactId>
             <version>${oracle-database.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.oci.sdk</groupId>
+            <artifactId>oci-java-sdk-objectstorage</artifactId>
+        </dependency>
+        <!-- ObjectStorageClient가 고르는 HTTP 구현. Jakarta와 맞는 Jersey 3만 둔다. -->
+        <dependency>
+            <groupId>com.oracle.oci.sdk</groupId>
+            <artifactId>oci-java-sdk-common-httpclient-jersey3</artifactId>
         </dependency>
 
         <dependency>
