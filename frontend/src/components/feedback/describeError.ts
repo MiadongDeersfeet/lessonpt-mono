@@ -24,6 +24,13 @@ export function describeError(error: unknown): ErrorView {
   if (error.status === 404) {
     return { title: '대상 없음', detail: '요청한 대상을 찾을 수 없습니다.', traceId: error.traceId }
   }
+  if (error.status === 409 && error.code === 'ORDER_CONFLICT') {
+    return {
+      title: '잠시 후 다시 시도',
+      detail: error.message || '다른 요청이 장소 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.',
+      traceId: error.traceId,
+    }
+  }
   if (error.status === 409) {
     return { title: '실행할 수 없음', detail: '현재 상태에서는 실행할 수 없습니다.', traceId: error.traceId }
   }

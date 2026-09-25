@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/apiClient.ts'
+import { listLocations } from '../api/locationApi.ts'
 import { getStudentLearning } from '../api/studentApi.ts'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
 import { ErrorState } from '../components/feedback/ErrorState.tsx'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
 import { ProgressValue } from '../components/student/ProgressValue.tsx'
+import { StudentLocationSection } from '../components/student/StudentLocationSection.tsx'
 import { formatBpm, formatDeadline, progressStatusLabel, textOrDash } from '../student/display.ts'
+import type { Location } from '../types/location.ts'
 import type { StudentLearningDetail } from '../types/student.ts'
 
 type Tab = 'profile' | 'learning' | 'access'
@@ -19,6 +22,8 @@ export function StudentDetailPage() {
   const invalid = !Number.isInteger(studentId) || studentId <= 0
   const [detail, setDetail] = useState<StudentLearningDetail | null>(null)
   const [error, setError] = useState<unknown>(null)
+  const [catalog, setCatalog] = useState<Location[] | null>(null)
+  const [catalogError, setCatalogError] = useState<unknown>(null)
   const [tab, setTab] = useState<Tab>('profile')
 
   useEffect(() => {
@@ -44,6 +49,35 @@ export function StudentDetailPage() {
     }
   }, [invalid, studentId])
 
+  useEffect(() => {
+    if (invalid) {
+      return
+    }
+    let active = true
+    setCatalog(null)
+    setCatalogError(null)
+    listLocations()
+      .then((rows) => {
+        if (active) {
+          setCatalog(rows)
+        }
+      })
+      .catch((caught) => {
+        if (active) {
+          setCatalogError(caught)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [invalid, studentId])
+
+  async function refreshLearning() {
+    const next = await getStudentLearning(studentId)
+    setDetail(next)
+    setError(null)
+  }
+
   return (
     <section className="page">
       <header className="page-header">
@@ -63,14 +97,31 @@ export function StudentDetailPage() {
       </div>
       {invalid || error ? <ErrorState error={error ?? invalidStudent} /> : null}
       {!invalid && !error && detail == null ? <LoadingState label="학습 정보를 불러오는 중" /> : null}
-      {detail && tab === 'profile' ? <ProfileTab detail={detail} /> : null}
+      {detail && tab === 'profile' ? (
+        <ProfileTab
+          detail={detail}
+          catalog={catalog}
+          catalogError={catalogError}
+          onRefreshLearning={refreshLearning}
+        />
+      ) : null}
       {detail && tab === 'learning' ? <LearningTab detail={detail} /> : null}
       {detail && tab === 'access' ? <p className="lead">접근 설정은 다음 단계에서 연결합니다.</p> : null}
     </section>
   )
 }
 
-function ProfileTab({ detail }: { detail: StudentLearningDetail }) {
+function ProfileTab({
+  detail,
+  catalog,
+  catalogError,
+  onRefreshLearning,
+}: {
+  detail: StudentLearningDetail
+  catalog: Location[] | null
+  catalogError: unknown
+  onRefreshLearning: () => Promise<void>
+}) {
   return (
     <div className="stack">
       <section className="card">
@@ -90,13 +141,13 @@ function ProfileTab({ detail }: { detail: StudentLearningDetail }) {
           </div>
         </dl>
       </section>
-      {detail.locations.length === 0 ? <EmptyState message="배정된 출강처가 없습니다." /> : null}
-      {detail.locations.map((location) => (
-        <section className="card" key={location.teacherStudentLocationId}>
-          <h2>{location.locationName}</h2>
-          <p>{textOrDash(location.address)}</p>
-        </section>
-      ))}
+      <StudentLocationSection
+        studentId={detail.studentId}
+        assigned={detail.locations}
+        catalog={catalog}
+        catalogError={catalogError}
+        onRefreshLearning={onRefreshLearning}
+      />
     </div>
   )
 }

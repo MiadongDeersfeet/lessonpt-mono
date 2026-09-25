@@ -288,6 +288,24 @@ a:hover { color: #08383e; }
 
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
+.assign-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.assign-row select {
+  min-height: 40px;
+  min-width: 160px;
+  padding: 8px 10px;
+  border: 1px solid #d7ddd0;
+  border-radius: 8px;
+  background: #fff;
+}
+
 .form-hint { margin: 0; color: #5d6876; }
 
 @media (max-width: 900px) {
