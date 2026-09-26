@@ -1,11 +1,11 @@
-import { Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../auth/AuthContext.tsx'
 import { RequireTeacherAuth } from '../auth/RequireTeacherAuth.tsx'
 import { AppLayout } from '../components/layout/AppLayout.tsx'
 import { CurriculumBuilderPage } from '../pages/CurriculumBuilderPage.tsx'
 import { CurriculumListPage } from '../pages/CurriculumListPage.tsx'
-import { DashboardPage } from '../pages/DashboardPage.tsx'
 import { LandingPage } from '../pages/LandingPage.tsx'
+import { NotFoundPage } from '../pages/NotFoundPage.tsx'
 import { LoginPage } from '../pages/LoginPage.tsx'
 import { LocationListPage } from '../pages/LocationListPage.tsx'
 import { StudentDetailPage } from '../pages/StudentDetailPage.tsx'
@@ -30,7 +30,7 @@ export function AppRouter() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireTeacherAuth />}>
           <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<Navigate to="/students" replace />} />
             <Route path="/students" element={<StudentListPage />} />
             <Route path="/students/:studentId" element={<StudentDetailPage />} />
             <Route path="/locations" element={<LocationListPage />} />
@@ -39,6 +39,7 @@ export function AppRouter() {
           </Route>
         </Route>
       </Route>
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

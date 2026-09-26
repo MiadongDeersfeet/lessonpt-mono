@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/apiClient.ts'
 import { listCategories, listContentDetails, listCurriculums } from '../api/curriculumApi.ts'
 import { listLocations } from '../api/locationApi.ts'
-import { getStudentLearning } from '../api/studentApi.ts'
+import { getStudentLearning, releaseStudent, updateStudent } from '../api/studentApi.ts'
+import { StudentFormDialog } from '../components/student/StudentFormDialog.tsx'
+import { ReleaseStudentDialog } from '../components/student/ReleaseStudentDialog.tsx'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
 import { ErrorState } from '../components/feedback/ErrorState.tsx'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
+import { MoreMenu } from '../components/layout/MoreMenu.tsx'
 import { ProgressValue } from '../components/student/ProgressValue.tsx'
 import { StudentAccessSection } from '../components/student/StudentAccessSection.tsx'
 import { StudentLocationSection } from '../components/student/StudentLocationSection.tsx'
 import { StudentMonitoringPanel } from '../components/student/StudentMonitoringPanel.tsx'
-import { textOrDash } from '../student/display.ts'
-import type { Curriculum } from '../types/curriculum.ts'
+import type { ContentDetail, Curriculum } from '../types/curriculum.ts'
 import type { Location } from '../types/location.ts'
-import type { StudentLearningDetail } from '../types/student.ts'
+import type { StudentLearningDetail, StudentUpdateBody } from '../types/student.ts'
 
 type Tab = 'profile' | 'learning' | 'access'
 
 const invalidStudent = new ApiError(404, 'COMMON_NOT_FOUND', '', null, [])
 
 export function StudentDetailPage() {
+  const navigate = useNavigate()
   const params = useParams()
   const studentId = Number(params.studentId)
   const invalid = !Number.isInteger(studentId) || studentId <= 0
@@ -31,6 +34,12 @@ export function StudentDetailPage() {
   const [curriculums, setCurriculums] = useState<Curriculum[] | null>(null)
   const [curriculumCatalogError, setCurriculumCatalogError] = useState<unknown>(null)
   const [tab, setTab] = useState<Tab>('profile')
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [profileError, setProfileError] = useState<unknown>(null)
+  const [profileSubmitting, setProfileSubmitting] = useState(false)
+  const [deletingStudent, setDeletingStudent] = useState(false)
+  const [deleteStudentError, setDeleteStudentError] = useState<unknown>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (invalid) {
@@ -107,11 +116,66 @@ export function StudentDetailPage() {
     setError(null)
   }
 
+  async function onDeleteStudent() {
+    setDeletingStudent(true)
+    setDeleteStudentError(null)
+    try {
+      await releaseStudent(studentId)
+      navigate('/students')
+    } catch (caught) {
+      setDeleteStudentError(caught)
+    } finally {
+      setDeletingStudent(false)
+    }
+  }
+
+  async function onUpdateProfile(id: number, body: StudentUpdateBody) {
+    setProfileSubmitting(true)
+    setProfileError(null)
+    try {
+      await updateStudent(id, body)
+      await refreshLearning()
+      setEditingProfile(false)
+    } catch (caught) {
+      setProfileError(caught)
+    } finally {
+      setProfileSubmitting(false)
+    }
+  }
+
   return (
-    <section className="page">
-      <header className="page-header">
-        <h1>{detail?.name ?? '학생'}</h1>
-        <p className="lead">학습 현황</p>
+    <section className="page detail-workspace">
+      <header className="page-header detail-header">
+        <div>
+          <Link className="back-link" to="/students">학생 목록으로</Link>
+          <h1>{detail?.name ?? '학생'}</h1>
+          {detail ? <p className="detail-identity">{identityLine(detail)}</p> : null}
+        </div>
+        {detail ? (
+          <div className="row-actions">
+            <button
+              type="button"
+              className="button detail-secondary"
+              onClick={() => {
+                setProfileError(null)
+                setEditingProfile(true)
+              }}
+            >
+              학생 편집
+            </button>
+            <MoreMenu
+              label="학생 작업"
+              items={[{
+                label: '학생 삭제',
+                danger: true,
+                onSelect: () => {
+                  setDeleteStudentError(null)
+                  setConfirmDelete(true)
+                },
+              }]}
+            />
+          </div>
+        ) : null}
       </header>
       <div className="tabs" role="tablist" aria-label="학생 상세">
         <button type="button" role="tab" aria-selected={tab === 'profile'} className="tab" onClick={() => setTab('profile')}>
@@ -134,12 +198,53 @@ export function StudentDetailPage() {
           curriculums={curriculums}
           curriculumCatalogError={curriculumCatalogError}
           onRefreshLearning={refreshLearning}
+          onOpenLearning={() => setTab('learning')}
         />
       ) : null}
       {detail && tab === 'learning' ? <LearningTab detail={detail} onRefreshLearning={refreshLearning} /> : null}
       {detail && tab === 'access' ? <StudentAccessSection studentId={studentId} email={detail.email} /> : null}
+      {detail && editingProfile ? (
+        <StudentFormDialog
+          mode="edit"
+          student={{
+            studentId: detail.studentId,
+            email: detail.email,
+            name: detail.name,
+            phone: detail.phone,
+            teacherStudentId: 0,
+          }}
+          submitting={profileSubmitting}
+          error={profileError}
+          onClose={() => {
+            if (!profileSubmitting) {
+              setEditingProfile(false)
+            }
+          }}
+          onCreate={() => undefined}
+          onUpdate={(id, body) => void onUpdateProfile(id, body)}
+        />
+      ) : null}
+      {detail && confirmDelete ? (
+        <ReleaseStudentDialog
+          name={detail.name}
+          submitting={deletingStudent}
+          error={deleteStudentError}
+          onClose={() => {
+            if (!deletingStudent) {
+              setConfirmDelete(false)
+            }
+          }}
+          onConfirm={() => void onDeleteStudent()}
+        />
+      ) : null}
     </section>
   )
+}
+
+function identityLine(detail: StudentLearningDetail): string {
+  const email = detail.email && detail.email.trim() !== '' ? detail.email : '이메일 미등록'
+  const phone = detail.phone && detail.phone.trim() !== '' ? detail.phone : '전화번호 미등록'
+  return `${email} · ${phone}`
 }
 
 function ProfileTab({
@@ -149,6 +254,7 @@ function ProfileTab({
   curriculums,
   curriculumCatalogError,
   onRefreshLearning,
+  onOpenLearning,
 }: {
   detail: StudentLearningDetail
   catalog: Location[] | null
@@ -156,36 +262,19 @@ function ProfileTab({
   curriculums: Curriculum[] | null
   curriculumCatalogError: unknown
   onRefreshLearning: () => Promise<void>
+  onOpenLearning: () => void
 }) {
   return (
-    <div className="stack">
-      <section className="card">
-        <h2>기본정보</h2>
-        <dl className="facts">
-          <div>
-            <dt>이름</dt>
-            <dd>{detail.name}</dd>
-          </div>
-          <div>
-            <dt>이메일</dt>
-            <dd>{textOrDash(detail.email)}</dd>
-          </div>
-          <div>
-            <dt>전화번호</dt>
-            <dd>{textOrDash(detail.phone)}</dd>
-          </div>
-        </dl>
-      </section>
-      <StudentLocationSection
-        studentId={detail.studentId}
-        assigned={detail.locations}
-        catalog={catalog}
-        catalogError={catalogError}
-        curriculums={curriculums}
-        curriculumCatalogError={curriculumCatalogError}
-        onRefreshLearning={onRefreshLearning}
-      />
-    </div>
+    <StudentLocationSection
+      studentId={detail.studentId}
+      assigned={detail.locations}
+      catalog={catalog}
+      catalogError={catalogError}
+      curriculums={curriculums}
+      curriculumCatalogError={curriculumCatalogError}
+      onRefreshLearning={onRefreshLearning}
+      onOpenLearning={onOpenLearning}
+    />
   )
 }
 
@@ -200,7 +289,7 @@ function LearningTab({
     ...new Set(detail.locations.flatMap((location) => location.studentCurriculums.map((item) => item.curriculumId))),
   ]
   const idsKey = curriculumIds.join(',')
-  const [contentsByCurriculumId, setContentsByCurriculumId] = useState<Record<number, { contentDetailId: number; name: string }[]> | null>(null)
+  const [contentsByCurriculumId, setContentsByCurriculumId] = useState<Record<number, (ContentDetail & { categoryId: number; categoryName: string })[]> | null>(null)
   const [catalogError, setCatalogError] = useState<unknown>(null)
 
   useEffect(() => {
@@ -218,7 +307,7 @@ function LearningTab({
         const lists = await Promise.all(categories.map((category) => listContentDetails(curriculumId, category.categoryId)))
         return [
           curriculumId,
-          lists.flat().map((item) => ({ contentDetailId: item.contentDetailId, name: item.name })),
+          lists.flatMap((items, index) => items.map(item => ({ ...item, categoryId: categories[index].categoryId, categoryName: categories[index].name }))),
         ] as const
       }),
     )
@@ -226,7 +315,7 @@ function LearningTab({
         if (!active) {
           return
         }
-        const next: Record<number, { contentDetailId: number; name: string }[]> = {}
+        const next: Record<number, (ContentDetail & { categoryId: number; categoryName: string })[]> = {}
         rows.forEach(([curriculumId, contents]) => {
           next[curriculumId] = contents
         })
@@ -246,19 +335,20 @@ function LearningTab({
     return <EmptyState message="배정된 출강처가 없습니다." />
   }
   return (
-    <div className="stack">
+    <div className="lesson-workspace">
       {detail.locations.map((location) => (
-        <section className="card" key={location.teacherStudentLocationId}>
+        <section className="lesson-block" key={location.teacherStudentLocationId}>
           <h2>{location.locationName}</h2>
           {location.studentCurriculums.length === 0 ? <EmptyState message="배정된 커리큘럼이 없습니다." /> : null}
           {location.studentCurriculums.map((curriculum) => (
             <article className="curriculum" key={curriculum.studentCurriculumId}>
               <header className="curriculum-header">
                 <h3>{curriculum.curriculumName}</h3>
-                <ProgressValue progress={curriculum.progress} />
+                <ProgressValue progress={curriculum.progress} meter />
               </header>
               <p className="memo">{curriculum.memo ? curriculum.memo : '메모 없음'}</p>
               <StudentMonitoringPanel
+                curriculumId={curriculum.curriculumId}
                 studentCurriculumId={curriculum.studentCurriculumId}
                 monitorings={curriculum.monitorings}
                 contents={contentsByCurriculumId?.[curriculum.curriculumId] ?? null}

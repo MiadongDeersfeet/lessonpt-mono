@@ -8,6 +8,8 @@ import { StudentDetailPage } from './StudentDetailPage.tsx'
 
 vi.mock('../api/studentApi.ts', () => ({
   getStudentLearning: vi.fn(),
+  updateStudent: vi.fn(),
+  releaseStudent: vi.fn(),
   getStudentAccess: vi.fn(),
   createStudentAccess: vi.fn(),
   deleteStudentAccess: vi.fn(),
@@ -52,7 +54,7 @@ import {
   releaseStudentCurriculum,
   updateStudentCurriculumMemo,
 } from '../api/studentCurriculumApi.ts'
-import { createStudentAccess, deleteStudentAccess, getStudentAccess, getStudentLearning } from '../api/studentApi.ts'
+import { createStudentAccess, deleteStudentAccess, getStudentAccess, getStudentLearning, releaseStudent } from '../api/studentApi.ts'
 
 const catalog = [
   {
@@ -114,6 +116,7 @@ afterEach(() => {
 })
 
 beforeEach(() => {
+  vi.mocked(releaseStudent).mockReset()
   vi.mocked(getStudentLearning).mockReset()
   vi.mocked(getStudentAccess).mockReset()
   vi.mocked(createStudentAccess).mockReset()
@@ -176,7 +179,8 @@ it('assigns a location and refetches the learning detail', async () => {
   })
   renderPage()
 
-  await user.selectOptions(await screen.findByLabelText('배정할 출강처'), '30')
+  await user.click(await screen.findByRole('button', { name: '+ 출강처 배정' }))
+  await user.selectOptions(screen.getByLabelText('배정할 출강처'), '30')
   await user.click(screen.getByRole('button', { name: '배정' }))
 
   expect(assignStudentLocation).toHaveBeenCalledWith(41, 30)
@@ -192,12 +196,16 @@ it('asks before releasing a location and then refetches learning', async () => {
   vi.mocked(releaseStudentLocation).mockResolvedValue(undefined)
   renderPage()
 
-  await user.click(await screen.findByRole('button', { name: '해제' }))
-  const dialog = await screen.findByRole('dialog')
+  await user.click(await screen.findByRole('button', { name: '연습실 작업' }))
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('menuitem', { name: '출강처 배정 해제' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: '연습실 작업' }))
+  await user.click(screen.getByRole('menuitem', { name: '출강처 배정 해제' }))
+  const dialog = await screen.findByRole('dialog', { name: '출강처 배정 해제' })
   expect(dialog.textContent).toContain('활성 수강')
   expect(dialog.textContent).toContain('자동으로 돌아오지 않습니다')
   expect(releaseStudentLocation).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '해제' }))
+  await user.click(within(dialog).getByRole('button', { name: '출강처 배정 해제' }))
 
   expect(releaseStudentLocation).toHaveBeenCalledWith(41, 30)
   expect(await screen.findByText('배정된 출강처가 없습니다.')).toBeTruthy()
@@ -212,7 +220,8 @@ it('shows a conflict when the location is already assigned and refreshes learnin
   )
   renderPage()
 
-  await user.selectOptions(await screen.findByLabelText('배정할 출강처'), '30')
+  await user.click(await screen.findByRole('button', { name: '+ 출강처 배정' }))
+  await user.selectOptions(screen.getByLabelText('배정할 출강처'), '30')
   await user.click(screen.getByRole('button', { name: '배정' }))
 
   expect(await screen.findByText('이미 배정된 출강처입니다.')).toBeTruthy()
@@ -236,12 +245,15 @@ const studioOnly = {
 }
 
 it('loads the curriculum catalog and hides curricula already assigned at that location', async () => {
+  const user = userEvent.setup()
   vi.mocked(getStudentLearning).mockResolvedValue(assignedLearning)
   renderPage()
 
   expect(await screen.findByText('기초')).toBeTruthy()
   expect(listCurriculums).toHaveBeenCalledTimes(1)
-  const select = await screen.findByLabelText('배정할 커리큘럼 (연습실)')
+  expect(screen.queryByLabelText('배정할 커리큘럼 (연습실)')).toBeNull()
+  await user.click(screen.getByRole('button', { name: '+ 커리큘럼 배정' }))
+  const select = screen.getByLabelText('배정할 커리큘럼 (연습실)')
   expect(within(select).queryByRole('option', { name: '기초' })).toBeNull()
   expect(within(select).getByRole('option', { name: '응용' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: '복구' })).toBeNull()
@@ -260,7 +272,8 @@ it('assigns a curriculum and refetches learning', async () => {
   })
   renderPage()
 
-  await user.selectOptions(await screen.findByLabelText('배정할 커리큘럼 (연습실)'), '3')
+  await user.click(await screen.findByRole('button', { name: '+ 커리큘럼 배정' }))
+  await user.selectOptions(screen.getByLabelText('배정할 커리큘럼 (연습실)'), '3')
   await user.type(screen.getByLabelText('배정 메모'), '노트')
   await user.click(screen.getByRole('button', { name: '커리큘럼 배정' }))
 
@@ -279,7 +292,8 @@ it('shows a conflict when the curriculum is already assigned at the location', a
   )
   renderPage()
 
-  await user.selectOptions(await screen.findByLabelText('배정할 커리큘럼 (연습실)'), '3')
+  await user.click(await screen.findByRole('button', { name: '+ 커리큘럼 배정' }))
+  await user.selectOptions(screen.getByLabelText('배정할 커리큘럼 (연습실)'), '3')
   await user.click(screen.getByRole('button', { name: '커리큘럼 배정' }))
 
   expect(await screen.findByText('이미 이 출강처에 배정된 커리큘럼입니다.')).toBeTruthy()
@@ -306,12 +320,14 @@ it('says the previous assignment was reactivated and shows the refetched memo', 
   })
   renderPage()
 
-  await user.selectOptions(await screen.findByLabelText('배정할 커리큘럼 (연습실)'), '3')
+  await user.click(await screen.findByRole('button', { name: '+ 커리큘럼 배정' }))
+  await user.selectOptions(screen.getByLabelText('배정할 커리큘럼 (연습실)'), '3')
   await user.type(screen.getByLabelText('배정 메모'), '새메모')
   await user.click(screen.getByRole('button', { name: '커리큘럼 배정' }))
 
   expect(await screen.findByText(/기존 커리큘럼 배정을 다시 활성화했습니다/)).toBeTruthy()
-  expect(screen.getByLabelText('메모').getAttribute('value') ?? (screen.getByLabelText('메모') as HTMLInputElement).value).toBe('이전메모')
+  expect(screen.getByText('이전메모')).toBeTruthy()
+  expect(screen.queryByRole('textbox', { name: '메모' })).toBeNull()
   expect(screen.queryByDisplayValue('새메모')).toBeNull()
 })
 
@@ -323,11 +339,12 @@ it('releases a curriculum assignment and refetches learning', async () => {
   vi.mocked(releaseStudentCurriculum).mockResolvedValue(undefined)
   renderPage()
 
-  await user.click(await screen.findByRole('button', { name: '배정 해제' }))
-  const dialog = await screen.findByRole('dialog')
+  await user.click(await screen.findByRole('button', { name: '기초 작업' }))
+  await user.click(screen.getByRole('menuitem', { name: '커리큘럼 배정 해제' }))
+  const dialog = await screen.findByRole('dialog', { name: '커리큘럼 배정 해제' })
   expect(dialog.textContent).toContain('모니터링과 과제 기록은 삭제되지 않습니다')
   expect(releaseStudentCurriculum).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '배정 해제' }))
+  await user.click(within(dialog).getByRole('button', { name: '커리큘럼 배정 해제' }))
 
   expect(releaseStudentCurriculum).toHaveBeenCalledWith(90, 7)
   expect(await screen.findByText('커리큘럼 배정을 해제했습니다.')).toBeTruthy()
@@ -335,6 +352,7 @@ it('releases a curriculum assignment and refetches learning', async () => {
 })
 
 it('keeps a curriculum available at another location', async () => {
+  const user = userEvent.setup()
   vi.mocked(getStudentLearning).mockResolvedValue({
     ...emptyLearning,
     locations: [
@@ -350,7 +368,8 @@ it('keeps a curriculum available at another location', async () => {
   })
   renderPage()
 
-  const other = await screen.findByLabelText('배정할 커리큘럼 (합주실)')
+  const other = await screen.findByRole('region', { name: '합주실' })
+  await user.click(within(other).getByRole('button', { name: '+ 커리큘럼 배정' }))
   expect(within(other).getByRole('option', { name: '기초' })).toBeTruthy()
 })
 
@@ -374,13 +393,45 @@ it('patches the curriculum memo and refetches learning', async () => {
   })
   renderPage()
 
-  const memo = await screen.findByLabelText('메모')
+  await user.click(await screen.findByRole('button', { name: '메모 추가' }))
+  const memo = screen.getByLabelText('메모')
   await user.type(memo, '저장메모')
-  await user.click(screen.getByRole('button', { name: '메모 저장' }))
+  await user.click(screen.getByRole('button', { name: '저장' }))
 
   expect(updateStudentCurriculumMemo).toHaveBeenCalledWith(90, 7, '저장메모')
   expect(await screen.findByText('메모를 저장했습니다.')).toBeTruthy()
+  expect(screen.getByRole('status').textContent).toBe('메모를 저장했습니다.')
   expect(getStudentLearning).toHaveBeenCalledTimes(2)
+})
+
+it('shows a saved memo as text and deletes it from edit mode', async () => {
+  const user = userEvent.setup()
+  const withMemo = {
+    ...assignedLearning,
+    locations: [
+      {
+        ...assignedLearning.locations[0],
+        studentCurriculums: [{ ...assignedLearning.locations[0].studentCurriculums[0], memo: '손목 힘이 많이 들어감' }],
+      },
+    ],
+  }
+  vi.mocked(getStudentLearning).mockResolvedValueOnce(withMemo).mockResolvedValueOnce(assignedLearning)
+  vi.mocked(updateStudentCurriculumMemo).mockResolvedValue({
+    studentCurriculumId: 7,
+    curriculumId: 3,
+    reenrolled: false,
+    memo: null,
+  })
+  renderPage()
+
+  expect(await screen.findByText('손목 힘이 많이 들어감')).toBeTruthy()
+  expect(screen.queryByRole('textbox', { name: '메모' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: '메모 편집' }))
+  expect(screen.getByRole('textbox', { name: '메모' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: '메모 삭제' }))
+
+  expect(updateStudentCurriculumMemo).toHaveBeenCalledWith(90, 7, null)
+  expect(await screen.findByText('메모를 삭제했습니다.')).toBeTruthy()
 })
 
 const single = {
@@ -419,9 +470,13 @@ it('offers content details that do not have a monitoring yet', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  const select = await screen.findByLabelText('학습 기록 내용')
-  expect(within(select).getByRole('option', { name: '싱글' })).toBeTruthy()
-  expect(within(select).getByRole('option', { name: '더블' })).toBeTruthy()
+  const category = await screen.findByLabelText('카테고리')
+  expect(within(category).getByRole('option', { name: '루디먼트' })).toBeTruthy()
+  const singleRow = screen.getByRole('cell', { name: '싱글' }).closest('tr')
+  const doubleRow = screen.getByRole('cell', { name: '더블' }).closest('tr')
+  expect(singleRow?.className).toContain('content-unlinked')
+  expect(doubleRow?.className).toContain('content-unlinked')
+  expect(within(singleRow as HTMLElement).getByRole('button', { name: '연결' })).toBeTruthy()
   expect(screen.getByText('0.0%')).toBeTruthy()
   expect(screen.queryByRole('button', { name: '복구' })).toBeNull()
   expect(screen.queryByRole('button', { name: '과제 추가' })).toBeNull()
@@ -443,9 +498,8 @@ it('creates a yet monitoring without current bpm and refetches learning', async 
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.selectOptions(await screen.findByLabelText('학습 기록 내용'), '15')
-  await user.selectOptions(screen.getByLabelText('초기 상태'), 'YET')
-  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
+  const row = (await screen.findByRole('cell', { name: '싱글' })).closest('tr')
+  await user.click(within(row as HTMLElement).getByRole('button', { name: '연결' }))
 
   expect(createMonitoring).toHaveBeenCalledWith(7, {
     contentDetailId: 15,
@@ -453,39 +507,38 @@ it('creates a yet monitoring without current bpm and refetches learning', async 
     progressStatus: 'YET',
     memo: null,
   })
-  expect(await screen.findByText('학습 기록을 추가했습니다.')).toBeTruthy()
+  expect(await screen.findByText('학습 내용을 연결했습니다.')).toBeTruthy()
   expect(getStudentLearning).toHaveBeenCalledTimes(2)
   expect(screen.getByText('0.0%')).toBeTruthy()
 })
 
 it('rejects current bpm below 60 and sends a valid value', async () => {
   const user = userEvent.setup()
-  vi.mocked(getStudentLearning).mockResolvedValue(learningWith(null, null))
-  vi.mocked(createMonitoring).mockResolvedValue({
-    monitoringId: 41,
-    contentDetailId: 16,
+  vi.mocked(getStudentLearning).mockResolvedValue(learningWith(single, null))
+  vi.mocked(updateMonitoring).mockResolvedValue({
+    monitoringId: 40,
+    contentDetailId: 15,
     displayOrder: 1,
     currentBpm: 90,
-    progressStatus: 'IN_PROGRESS',
+    progressStatus: 'YET',
     memo: null,
   })
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.selectOptions(await screen.findByLabelText('학습 기록 내용'), '16')
-  await user.selectOptions(screen.getByLabelText('초기 상태'), 'IN_PROGRESS')
-  await user.type(screen.getByLabelText('현재 BPM'), '59')
-  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
+  await user.click(await screen.findByRole('button', { name: '기록 수정' }))
+  const editor = screen.getByRole('dialog', { name: '싱글 기록 수정' })
+  await user.type(within(editor).getByLabelText('현재 BPM'), '59')
+  await user.click(within(editor).getByRole('button', { name: '저장' }))
   expect(await screen.findByText('현재 BPM은 60 이상 240 이하여야 합니다.')).toBeTruthy()
-  expect(createMonitoring).not.toHaveBeenCalled()
+  expect(updateMonitoring).not.toHaveBeenCalled()
 
-  await user.clear(screen.getByLabelText('현재 BPM'))
-  await user.type(screen.getByLabelText('현재 BPM'), '90')
-  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
-  expect(createMonitoring).toHaveBeenCalledWith(7, {
-    contentDetailId: 16,
+  await user.clear(within(editor).getByLabelText('현재 BPM'))
+  await user.type(within(editor).getByLabelText('현재 BPM'), '90')
+  await user.click(within(editor).getByRole('button', { name: '저장' }))
+  expect(updateMonitoring).toHaveBeenCalledWith(7, 40, {
     currentBpm: 90,
-    progressStatus: 'IN_PROGRESS',
+    progressStatus: 'YET',
     memo: null,
   })
 })
@@ -511,7 +564,7 @@ it('changes status in any direction and updates progress from the server', async
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
   expect(await screen.findByText('0.0%')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: '기록 수정' }))
-  const editor = screen.getByRole('heading', { name: '싱글' }).parentElement
+  const editor = screen.getByRole('dialog', { name: '싱글 기록 수정' })
   if (!editor) {
     throw new Error('monitoring editor missing')
   }
@@ -527,7 +580,7 @@ it('changes status in any direction and updates progress from the server', async
   expect(await screen.findByText('50.0%')).toBeTruthy()
 
   await user.click(screen.getByRole('button', { name: '기록 수정' }))
-  const nextEditor = screen.getByRole('heading', { name: '싱글' }).parentElement
+  const nextEditor = screen.getByRole('dialog', { name: '싱글 기록 수정' })
   if (!nextEditor) {
     throw new Error('monitoring editor missing')
   }
@@ -540,9 +593,9 @@ it('changes status in any direction and updates progress from the server', async
     memo: null,
   })
   expect(await screen.findByText('0.0%')).toBeTruthy()
-  const statusRow = screen.getByRole('heading', { name: '싱글' }).parentElement
+  const statusRow = screen.getByRole('cell', { name: '싱글' }).closest('tr')
   expect(statusRow?.textContent).toContain('중단')
-  expect(statusRow?.textContent).toContain('현재 BPM -')
+  expect(statusRow?.querySelector('[data-label="현재 / 목표 BPM"]')?.textContent).toContain('목표 80 BPM')
 })
 
 it('shows a conflict when the content already has a monitoring', async () => {
@@ -554,8 +607,8 @@ it('shows a conflict when the content already has a monitoring', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.selectOptions(await screen.findByLabelText('학습 기록 내용'), '15')
-  await user.click(screen.getByRole('button', { name: '학습 기록 추가' }))
+  const row = (await screen.findByRole('cell', { name: '싱글' })).closest('tr')
+  await user.click(within(row as HTMLElement).getByRole('button', { name: '연결' }))
   expect(await screen.findByText('이미 이 내용의 학습 기록이 있습니다.')).toBeTruthy()
 })
 
@@ -568,16 +621,19 @@ it('deactivates a monitoring after confirmation and refetches learning', async (
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click(await screen.findByRole('button', { name: '비활성화' }))
-  const dialog = await screen.findByRole('dialog')
+  await user.click(await screen.findByRole('button', { name: '싱글 학습 작업' }))
+  await user.click(screen.getByRole('menuitem', { name: '연결 해제' }))
+  const dialog = await screen.findByRole('dialog', { name: '연결 해제' })
   expect(dialog.textContent).toContain('활성 과제')
   expect(deactivateMonitoring).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+  await user.click(within(dialog).getByRole('button', { name: '연결 해제' }))
 
   expect(deactivateMonitoring).toHaveBeenCalledWith(7, 40)
-  expect(await screen.findByText('학습 기록을 비활성화했습니다.')).toBeTruthy()
+  expect(await screen.findByText('학습 연결을 해제했습니다.')).toBeTruthy()
   expect(getStudentLearning).toHaveBeenCalledTimes(2)
-  expect(screen.queryByRole('heading', { name: '싱글' })).toBeNull()
+  const row = screen.getByRole('cell', { name: '싱글' }).closest('tr')
+  expect(row?.className).toContain('content-unlinked')
+  expect(within(row as HTMLElement).getByRole('button', { name: '연결' })).toBeTruthy()
 })
 
 const practice = {
@@ -594,8 +650,9 @@ it('lists homeworks from the learning response', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   expect(await screen.findByText('메트로놈')).toBeTruthy()
-  expect(screen.getByText('마감 2026-09-30 18:00')).toBeTruthy()
+  expect(screen.getByText('마감 2026-09-30')).toBeTruthy()
   expect(screen.getByText('피드백 천천히')).toBeTruthy()
   expect(screen.getByText('미완료')).toBeTruthy()
   expect(screen.queryByRole('button', { name: '복구' })).toBeNull()
@@ -610,14 +667,17 @@ it('creates a homework and refetches learning', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '메트로놈')
-  await user.type(screen.getByLabelText('마감 (싱글)'), '2026-09-30T18:00')
+  const deadline = screen.getByLabelText('마감 (싱글)')
+  expect(deadline.getAttribute('type')).toBe('date')
+  await user.type(deadline, '2026-09-30')
   await user.type(screen.getByLabelText('피드백 (싱글)'), '천천히')
   await user.click(screen.getByRole('button', { name: '과제 추가' }))
 
   expect(createHomework).toHaveBeenCalledWith(40, {
     homeworkContent: '메트로놈',
-    deadline: '2026-09-30T18:00:00',
+    deadline: '2026-09-30T00:00:00',
     feedback: '천천히',
   })
   expect(await screen.findByText('과제를 추가했습니다.')).toBeTruthy()
@@ -635,6 +695,7 @@ it('updates homework content and clears the deadline', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   await user.click(await screen.findByRole('button', { name: '과제 수정' }))
   const content = screen.getByLabelText('수정할 과제 내용 (싱글)')
   await user.clear(content)
@@ -664,6 +725,7 @@ it('completes a homework and then cancels completion', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   await user.click(await screen.findByRole('button', { name: '완료' }))
   expect(updateHomeworkRequest).toHaveBeenCalledWith(40, 5, { completed: true })
   expect(await screen.findByText('과제를 완료했습니다.')).toBeTruthy()
@@ -684,19 +746,20 @@ it('deactivates a homework after confirmation and refetches learning', async () 
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click(await screen.findByRole('button', { name: '과제 비활성화' }))
-  const dialog = await screen.findByRole('dialog')
-  expect(dialog.textContent).toContain('이 과제만 비활성화')
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click(await screen.findByRole('button', { name: '과제 삭제' }))
+  const dialog = await screen.findByRole('dialog', { name: '과제 삭제' })
+  expect(dialog.textContent).toContain('이 과제만 삭제')
   expect(dialog.textContent).toContain('학습 기록과 커리큘럼 배정은 유지')
   expect(dialog.textContent).toContain('다시 활성화하는 화면은 제공하지 않습니다')
   expect(deactivateHomework).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '과제 비활성화' }))
+  await user.click(within(dialog).getByRole('button', { name: '삭제' }))
 
   expect(deactivateHomework).toHaveBeenCalledWith(40, 5)
-  expect(await screen.findByText('과제를 비활성화했습니다.')).toBeTruthy()
+  expect(await screen.findByText('과제를 삭제했습니다.')).toBeTruthy()
   expect(getStudentLearning).toHaveBeenCalledTimes(2)
   expect(screen.queryByText('메트로놈')).toBeNull()
-  expect(screen.getByRole('heading', { name: '싱글' })).toBeTruthy()
+  expect(screen.getByRole('cell', { name: '싱글' })).toBeTruthy()
 })
 
 it('allows a third homework and then hides the create form', async () => {
@@ -710,6 +773,7 @@ it('allows a third homework and then hides the create form', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '악센트')
   await user.click(screen.getByRole('button', { name: '과제 추가' }))
   expect(createHomework).toHaveBeenCalledWith(40, {
@@ -731,6 +795,7 @@ it('shows the server limit when creating a fourth homework returns 409', async (
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '롤')
   await user.click(screen.getByRole('button', { name: '과제 추가' }))
   expect(await screen.findByText('한 학습 항목에는 활성 과제를 최대 3개까지 등록할 수 있습니다.')).toBeTruthy()
@@ -764,7 +829,10 @@ it('keeps the three-homework limit independent per monitoring', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   expect(await screen.findByText('한 학습 항목에는 활성 과제를 최대 3개까지 등록할 수 있습니다.')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: '닫기' }))
+  await user.click(screen.getByRole('button', { name: '과제 0개' }))
   expect(screen.getByLabelText('과제 내용 (더블)')).toBeTruthy()
   expect(screen.getByRole('button', { name: '과제 추가' })).toBeTruthy()
 })
@@ -778,12 +846,15 @@ it('hides homeworks after the monitoring is deactivated', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
+  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
   expect(await screen.findByText('메트로놈')).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: '비활성화' }))
-  const dialog = await screen.findByRole('dialog')
-  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+  await user.click(screen.getByRole('button', { name: '닫기' }))
+  await user.click(screen.getByRole('button', { name: '싱글 학습 작업' }))
+  await user.click(screen.getByRole('menuitem', { name: '연결 해제' }))
+  const dialog = await screen.findByRole('dialog', { name: '연결 해제' })
+  await user.click(within(dialog).getByRole('button', { name: '연결 해제' }))
 
-  expect(await screen.findByText('학습 기록을 비활성화했습니다.')).toBeTruthy()
+  expect(await screen.findByText('학습 연결을 해제했습니다.')).toBeTruthy()
   expect(screen.queryByText('메트로놈')).toBeNull()
   expect(screen.queryByRole('button', { name: '과제 추가' })).toBeNull()
 })
@@ -860,10 +931,11 @@ it('removes the invitation after access is deactivated', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '접근설정' }))
-  await user.click(await screen.findByRole('button', { name: '접근 비활성화' }))
+  await user.click(await screen.findByRole('button', { name: '접근 해제' }))
   const dialog = await screen.findByRole('dialog')
   expect(dialog.textContent).toContain('학생 세션도 종료됩니다')
-  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+  expect(within(dialog).queryByRole('button', { name: '삭제' })).toBeNull()
+  await user.click(within(dialog).getByRole('button', { name: '접근 해제' }))
 
   expect(deleteStudentAccess).toHaveBeenCalledWith(41)
   expect(await screen.findByText('상태: 접근 권한 없음')).toBeTruthy()
@@ -925,6 +997,66 @@ it('asks for an email before opening access', async () => {
   expect(await screen.findByText('학생 이메일을 먼저 등록해 주세요.')).toBeTruthy()
   expect((screen.getByRole('button', { name: '접근 권한 열기' }) as HTMLButtonElement).disabled).toBe(true)
   expect(createStudentAccess).not.toHaveBeenCalled()
+})
+
+it('shows identity without a dash and keeps assignment closed until asked', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue({ ...assignedLearning, email: 'ani.ana.yungi@gmail.com', phone: null })
+  renderPage()
+
+  expect(await screen.findByRole('heading', { name: '기존학생' })).toBeTruthy()
+  expect(screen.getByText('ani.ana.yungi@gmail.com · 전화번호 미등록')).toBeTruthy()
+  expect(screen.queryByText('학습 현황')).toBeNull()
+  expect(screen.queryByLabelText('배정할 커리큘럼 (연습실)')).toBeNull()
+  expect(screen.queryByLabelText('배정할 출강처')).toBeNull()
+  expect(screen.getByRole('region', { name: '연습실' })).toBeTruthy()
+  expect(screen.getByText('메모 없음')).toBeTruthy()
+  expect(screen.queryByRole('menuitem', { name: '출강처 배정 해제' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: '학생 편집' }))
+  expect(screen.getByRole('dialog', { name: '학생 수정' })).toBeTruthy()
+})
+
+it('deletes the student from the overflow menu after confirmation', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue(emptyLearning)
+  vi.mocked(releaseStudent).mockResolvedValue(undefined)
+  render(
+    <MemoryRouter initialEntries={['/students/41']}>
+      <Routes>
+        <Route path="/students" element={<h1>학생</h1>} />
+        <Route path="/students/:studentId" element={<StudentDetailPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+  await user.click(await screen.findByRole('button', { name: '학생 작업' }))
+  await user.click(screen.getByRole('menuitem', { name: '학생 삭제' }))
+  const dialog = await screen.findByRole('dialog', { name: '학생 삭제' })
+  expect(dialog.textContent).toContain('학생 기록은 남고')
+  expect(releaseStudent).not.toHaveBeenCalled()
+  await user.click(within(dialog).getByRole('button', { name: '학생 삭제' }))
+
+  expect(releaseStudent).toHaveBeenCalledWith(41)
+  expect(await screen.findByRole('heading', { name: '학생' })).toBeTruthy()
+  expect(screen.queryByRole('tab', { name: '기본정보' })).toBeNull()
+})
+
+it('returns to the student list without leaving the app', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStudentLearning).mockResolvedValue(emptyLearning)
+  render(
+    <MemoryRouter initialEntries={['/students/41']}>
+      <Routes>
+        <Route path="/students" element={<h1>학생</h1>} />
+        <Route path="/students/:studentId" element={<StudentDetailPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+  expect(await screen.findByRole('heading', { name: '기존학생' })).toBeTruthy()
+  await user.click(screen.getByRole('link', { name: '학생 목록으로' }))
+  expect(await screen.findByRole('heading', { name: '학생' })).toBeTruthy()
+  expect(screen.queryByRole('tab', { name: '기본정보' })).toBeNull()
 })
 
 function renderPage() {

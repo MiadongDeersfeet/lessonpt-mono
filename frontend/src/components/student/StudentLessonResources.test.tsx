@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { StudentPortalContent } from '../../types/studentPortal.ts'
 import { StudentLessonResources } from './StudentLessonResources.tsx'
@@ -41,6 +41,10 @@ it('hides sheet and audio when they are absent', () => {
   render(<StudentLessonResources content={portalContent()} />)
   expect(screen.queryByRole('region', { name: '악보' })).toBeNull()
   expect(screen.queryByRole('region', { name: '음원' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '악보 보기' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '영상 보기' })).toBeNull()
+  expect(document.querySelector('audio')).toBeNull()
+  expect(screen.queryByText('—')).toBeNull()
   expect(screen.queryByTitle('수업 영상')).toBeNull()
   expect(fetchStudentResourceBlob).not.toHaveBeenCalled()
 })
@@ -52,6 +56,8 @@ it('previews a student pdf from a blob url and keeps audio on the direct resourc
 
   render(<StudentLessonResources content={portalContent({ sheet, audio, youtubeUrl: 'https://youtu.be/abcdefghijk' })} />)
 
+  expect(fetchStudentResourceBlob).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: '악보 보기' }))
   expect(screen.getByRole('status').textContent).toBe('악보를 불러오는 중')
   expect(screen.queryByTitle('notes.pdf 보기')).toBeNull()
   const preview = await screen.findByTitle('notes.pdf 보기')
@@ -61,12 +67,17 @@ it('previews a student pdf from a blob url and keeps audio on the direct resourc
   expect(screen.getByRole('link', { name: '악보 다운로드' }).getAttribute('href')).toBe(
     '/api/v1/student/resources/4/content?disposition=attachment',
   )
+  const player = document.querySelector('audio')
+  expect(player?.getAttribute('src')).toBe('/api/v1/student/resources/5/content?disposition=inline')
   expect(screen.getByRole('link', { name: '음원 다운로드' }).getAttribute('href')).toBe(
     '/api/v1/student/resources/5/content?disposition=attachment',
   )
-  const player = document.querySelector('audio')
-  expect(player?.getAttribute('src')).toBe('/api/v1/student/resources/5/content?disposition=inline')
+  fireEvent.click(screen.getByRole('button', { name: '닫기' }))
+  expect(screen.queryByTitle('notes.pdf 보기')).toBeNull()
+  expect(document.querySelector('audio')?.getAttribute('src')).toBe('/api/v1/student/resources/5/content?disposition=inline')
+  fireEvent.click(screen.getByRole('button', { name: '영상 보기' }))
   expect(screen.getByTitle('수업 영상').getAttribute('src')).toBe('https://www.youtube-nocookie.com/embed/abcdefghijk')
+  expect(document.querySelector('audio')?.getAttribute('src')).toBe('/api/v1/student/resources/5/content?disposition=inline')
   expect(document.body.textContent).not.toContain('Bearer')
 })
 
@@ -79,6 +90,7 @@ it('revokes the pdf blob url when the resource changes and when the preview unmo
   const view = render(
     <StudentLessonResources content={portalContent({ sheet, audio })} />,
   )
+  fireEvent.click(screen.getByRole('button', { name: '악보 보기' }))
   expect((await screen.findByTitle('notes.pdf 보기')).getAttribute('src')).toBe('blob:preview-1')
 
   view.rerender(
@@ -91,12 +103,13 @@ it('revokes the pdf blob url when the resource changes and when the preview unmo
   )
   expect((await screen.findByTitle('next.pdf 보기')).getAttribute('src')).toBe('blob:preview-2')
   expect(revoke).toHaveBeenCalledWith('blob:preview-1')
-  expect(document.querySelector('audio')?.getAttribute('src')).toBe(
-    '/api/v1/student/resources/5/content?disposition=inline',
-  )
-
-  view.unmount()
+  fireEvent.click(screen.getByRole('button', { name: '닫기' }))
   expect(revoke).toHaveBeenCalledWith('blob:preview-2')
+  expect(document.querySelector('audio')?.getAttribute('src')).toBe('/api/v1/student/resources/5/content?disposition=inline')
+  fireEvent.click(screen.getByRole('button', { name: '악보 보기' }))
+  await screen.findByTitle('next.pdf 보기')
+  view.unmount()
+  expect(revoke).toHaveBeenCalledWith('blob:preview-3')
 })
 
 it('shows a resource error and no iframe when the pdf fetch fails', async () => {
@@ -104,6 +117,7 @@ it('shows a resource error and no iframe when the pdf fetch fails', async () => 
 
   render(<StudentLessonResources content={portalContent({ sheet })} />)
 
+  fireEvent.click(screen.getByRole('button', { name: '악보 보기' }))
   expect((await screen.findByRole('alert')).textContent).toBe('악보를 불러오지 못했습니다.')
   expect(screen.queryByTitle('notes.pdf 보기')).toBeNull()
   expect(document.body.textContent).not.toContain('IllegalArgumentException')
@@ -124,6 +138,7 @@ function stubBlobUrls(create: () => string, revoke: (url: string) => void) {
 
 function portalContent(overrides: Partial<StudentPortalContent> = {}): StudentPortalContent {
   return {
+    monitoringId: 1,
     name: '싱글',
     targetBpm: null,
     currentBpm: null,

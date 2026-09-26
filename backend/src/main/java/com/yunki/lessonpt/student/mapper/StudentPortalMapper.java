@@ -5,7 +5,7 @@ import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import com.yunki.lessonpt.student.query.StudentPortalContentRow;
+import com.yunki.lessonpt.student.query.StudentPortalCategoryRow;
 import com.yunki.lessonpt.student.query.StudentPortalEnrollment;
 import com.yunki.lessonpt.student.query.StudentPortalHomeworkRow;
 import com.yunki.lessonpt.student.query.StudentPortalIdentity;
@@ -25,9 +25,9 @@ public interface StudentPortalMapper {
 
     List<StudentPortalEnrollment> selectActiveEnrollments(Long teacherStudentAccessId);
 
-    List<StudentPortalContentRow> selectActiveContents(@Param("curriculumIds") List<Long> curriculumIds);
+    List<StudentPortalCategoryRow> selectActiveCategories(@Param("curriculumIds") List<Long> curriculumIds);
 
-    List<StudentPortalMonitoringRow> selectActiveMonitoring(
+    List<StudentPortalMonitoringRow> selectActiveMonitoringContents(
             @Param("studentCurriculumIds") List<Long> studentCurriculumIds);
 
     List<StudentPortalHomeworkRow> selectActiveHomework(

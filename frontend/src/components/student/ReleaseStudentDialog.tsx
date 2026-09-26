@@ -15,9 +15,9 @@ export function ReleaseStudentDialog({ name, submitting, error, onClose, onConfi
         aria-labelledby="release-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <h2 id="release-title">연결 해제</h2>
+        <h2 id="release-title">학생 삭제</h2>
         <p>
-          {name}님과의 연결을 해제합니다. 학생 기록은 남고, 이 강사와의 관계와 출강처·수강 연결만 비활성화됩니다.
+          {name}님을 이 강사의 학생 목록에서 삭제합니다. 학생 기록은 남고, 이 강사와의 관계와 출강처·수강 연결만 해제됩니다.
         </p>
         {error ? <p className="form-error">연결을 해제하지 못했습니다. 잠시 후 다시 시도해 주세요.</p> : null}
         <div className="modal-actions">
@@ -25,7 +25,7 @@ export function ReleaseStudentDialog({ name, submitting, error, onClose, onConfi
             취소
           </button>
           <button type="button" className="button button-danger" onClick={onConfirm} disabled={submitting}>
-            {submitting ? '해제 중' : '연결 해제'}
+            {submitting ? '삭제 중' : '학생 삭제'}
           </button>
         </div>
       </div>

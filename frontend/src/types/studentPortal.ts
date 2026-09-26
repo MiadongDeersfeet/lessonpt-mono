@@ -18,6 +18,7 @@ export type StudentMe = {
 }
 
 export type StudentPortalHomework = {
+  homeworkId: number
   content: string
   deadline: string | null
   completed: boolean | null
@@ -25,6 +26,7 @@ export type StudentPortalHomework = {
 }
 
 export type StudentPortalContent = {
+  monitoringId: number
   name: string
   targetBpm: number | null
   currentBpm: number | null
@@ -37,6 +39,7 @@ export type StudentPortalContent = {
 
 export type StudentPortalCategory = {
   name: string
+  totalContentCount: number
   contents: StudentPortalContent[]
 }
 

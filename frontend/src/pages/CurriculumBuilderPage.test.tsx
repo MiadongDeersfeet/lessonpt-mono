@@ -115,14 +115,14 @@ it('creates, edits, and deactivates a category and drops its contents', async ()
   if (!edited) {
     throw new Error('edited category missing')
   }
-  await user.click(within(edited).getByRole('button', { name: '비활성화' }))
+  await user.click(within(edited).getByRole('button', { name: '카테고리 삭제' }))
   const dialog = await screen.findByRole('dialog')
   expect(dialog.textContent).toContain('활성 내용')
   expect(deactivateCategory).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+  await user.click(within(dialog).getByRole('button', { name: '삭제' }))
 
   expect(deactivateCategory).toHaveBeenCalledWith(3, 8)
-  expect(await screen.findByText('카테고리를 비활성화했습니다.')).toBeTruthy()
+  expect(await screen.findByText('카테고리를 삭제했습니다.')).toBeTruthy()
   expect(screen.queryByText('싱글')).toBeNull()
   expect(listCategories).toHaveBeenCalledTimes(2)
 })
@@ -148,7 +148,7 @@ it('creates content with a null target bpm and null urls', async () => {
   }
   await user.click(within(readingCard).getByRole('button', { name: '내용 추가' }))
   await user.type(screen.getByLabelText('이름'), '더블')
-  await user.click(screen.getByRole('button', { name: '저장' }))
+  await user.click(screen.getByRole('button', { name: '추가' }))
 
   expect(await screen.findByText('더블')).toBeTruthy()
   expect(createContentDetail).toHaveBeenCalledWith(3, 9, emptyContent('더블'))
@@ -178,24 +178,23 @@ it('blocks target bpm outside 60 to 240 and sends the boundary values', async ()
   const bpm = screen.getByLabelText('목표 BPM')
 
   await user.type(bpm, '59')
-  await user.click(screen.getByRole('button', { name: '저장' }))
+  await user.click(screen.getByRole('button', { name: '추가' }))
   expect(await screen.findByText('목표 BPM은 60 이상 240 이하여야 합니다.')).toBeTruthy()
   expect(createContentDetail).not.toHaveBeenCalled()
 
   await user.clear(bpm)
   await user.type(bpm, '241')
-  await user.click(screen.getByRole('button', { name: '저장' }))
+  await user.click(screen.getByRole('button', { name: '추가' }))
   expect(createContentDetail).not.toHaveBeenCalled()
 
   await user.clear(bpm)
   await user.type(bpm, '60')
-  await user.click(screen.getByRole('button', { name: '저장' }))
+  await user.click(screen.getByRole('button', { name: '추가' }))
   expect(createContentDetail).toHaveBeenCalledWith(3, 9, emptyContent('템포', 60))
 
-  await user.click(within(readingCard).getByRole('button', { name: '내용 추가' }))
   await user.type(screen.getByLabelText('이름'), '빠른템포')
   await user.type(screen.getByLabelText('목표 BPM'), '240')
-  await user.click(screen.getByRole('button', { name: '저장' }))
+  await user.click(screen.getByRole('button', { name: '추가' }))
   expect(createContentDetail).toHaveBeenCalledWith(3, 9, emptyContent('빠른템포', 240))
 })
 
@@ -208,11 +207,21 @@ it('keeps the youtube field and does not ask for sheet or audio urls', async () 
     throw new Error('reading category missing')
   }
   await user.click(within(readingCard).getByRole('button', { name: '내용 추가' }))
-  const dialog = await screen.findByRole('dialog')
-  expect(within(dialog).getByLabelText('YouTube URL')).toBeTruthy()
-  expect(within(dialog).queryByLabelText('악보 URL')).toBeNull()
-  expect(within(dialog).queryByLabelText('오디오 URL')).toBeNull()
-  expect(within(dialog).getByText('저장 후 파일을 추가할 수 있습니다.')).toBeTruthy()
+  const youtube = screen.getByLabelText('YouTube URL')
+  expect(youtube.getAttribute('type')).toBe('url')
+  expect(screen.queryByLabelText('악보 URL')).toBeNull()
+  expect(screen.queryByLabelText('오디오 URL')).toBeNull()
+  expect(screen.queryByRole('dialog')).toBeNull()
+
+  const contentRow = (await screen.findByText('싱글')).closest('tr')
+  if (!contentRow) {
+    throw new Error('content row missing')
+  }
+  await user.click(within(contentRow).getByRole('button', { name: '자료' }))
+  const card = await screen.findByRole('dialog', { name: '싱글 자료' })
+  expect(within(card).getByText('악보 없음')).toBeTruthy()
+  expect(within(card).getByText('음원 없음')).toBeTruthy()
+  expect(within(card).queryByLabelText('YouTube URL')).toBeNull()
 })
 
 it('updates a content detail and deactivates it after confirmation', async () => {
@@ -254,14 +263,14 @@ it('updates a content detail and deactivates it after confirmation', async () =>
   if (!row) {
     throw new Error('content row missing')
   }
-  await user.click(within(row).getByRole('button', { name: '비활성화' }))
+  await user.click(within(row).getByRole('button', { name: '내용 삭제' }))
   const confirm = await screen.findByRole('dialog')
   expect(confirm.textContent).toContain('모니터링과 과제 기록은 남습니다')
   expect(deactivateContentDetail).not.toHaveBeenCalled()
-  await user.click(within(confirm).getByRole('button', { name: '비활성화' }))
+  await user.click(within(confirm).getByRole('button', { name: '삭제' }))
 
   expect(deactivateContentDetail).toHaveBeenCalledWith(3, 8, 15)
-  expect(await screen.findByText('내용을 비활성화했습니다.')).toBeTruthy()
+  expect(await screen.findByText('내용을 삭제했습니다.')).toBeTruthy()
   expect(screen.queryByText('수정싱글')).toBeNull()
   expect(listContentDetails).toHaveBeenCalledWith(3, 8)
 })
@@ -275,6 +284,23 @@ function emptyContent(name: string, targetBpm: number | null = null): ContentDet
     youtubeUrl: null,
   }
 }
+
+it('returns to the curriculum list without leaving the app', async () => {
+  const user = userEvent.setup()
+  render(
+    <MemoryRouter initialEntries={['/curriculums/3']}>
+      <Routes>
+        <Route path="/curriculums" element={<h1>커리큘럼</h1>} />
+        <Route path="/curriculums/:curriculumId" element={<CurriculumBuilderPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+  expect(await screen.findByText('싱글')).toBeTruthy()
+  await user.click(screen.getByRole('link', { name: '커리큘럼 목록' }))
+  expect(await screen.findByRole('heading', { name: '커리큘럼' })).toBeTruthy()
+  expect(screen.queryByText('싱글')).toBeNull()
+})
 
 function renderPage() {
   render(

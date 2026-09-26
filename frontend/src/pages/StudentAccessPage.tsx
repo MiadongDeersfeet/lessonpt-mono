@@ -78,9 +78,9 @@ export function studentAuthMessage(error: unknown): string {
   return formErrorMessage(error) ?? '요청을 처리하지 못했습니다.'
 }
 
-export function StudentFrame({ children }: { children: React.ReactNode }) {
+export function StudentFrame({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <main className="student-portal">
+    <main className={`student-portal${wide ? ' student-portal-wide' : ''}`}>
       <p className="brand">LessonPT</p>
       <section className="card student-card">{children}</section>
     </main>

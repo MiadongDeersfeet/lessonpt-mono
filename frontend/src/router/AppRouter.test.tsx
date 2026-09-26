@@ -37,7 +37,7 @@ it('does not call the teacher profile from a student route', async () => {
   expect(sessionStorage.getItem('lessonpt.teacher.accessToken')).toBe('teacher-access')
 })
 
-it('keeps teacher dashboard, students, locations, and curriculums behind teacher auth', async () => {
+it('keeps teacher students, locations, and curriculums behind teacher auth', async () => {
   const user = userEvent.setup()
   saveTokens({ accessToken: 'teacher-access', refreshToken: 'teacher-refresh', accessTokenExpiresIn: 60 })
   vi.stubGlobal(
@@ -52,13 +52,19 @@ it('keeps teacher dashboard, students, locations, and curriculums behind teacher
   )
   renderRouter('/dashboard')
 
-  expect(await screen.findByRole('heading', { name: '대시보드' })).toBeTruthy()
-  expect(screen.getByRole('link', { name: '대시보드' }).getAttribute('href')).toBe('/dashboard')
-
-  await user.click(screen.getByRole('link', { name: '학생' }))
   expect(await screen.findByRole('heading', { name: '학생' })).toBeTruthy()
+  expect(screen.queryByRole('link', { name: '대시보드' })).toBeNull()
+  const students = screen.getByRole('link', { name: '학생' })
+  expect(students.getAttribute('href')).toBe('/students')
+  expect(students.getAttribute('aria-current')).toBe('page')
+  expect(students.className).toContain('active')
+  expect(screen.getByRole('link', { name: '출강처' }).getAttribute('aria-current')).toBeNull()
+  expect(sessionStorage.getItem('lessonpt.teacher.accessToken')).toBe('teacher-access')
   await user.click(screen.getByRole('link', { name: '출강처' }))
   expect(await screen.findByRole('heading', { name: '출강처' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: '출강처' }).getAttribute('aria-current')).toBe('page')
+  expect(screen.getByRole('link', { name: '학생' }).getAttribute('aria-current')).toBeNull()
+  expect(sessionStorage.getItem('lessonpt.teacher.accessToken')).toBe('teacher-access')
   await user.click(screen.getByRole('link', { name: '커리큘럼' }))
   expect(await screen.findByRole('heading', { name: '커리큘럼' })).toBeTruthy()
 })
@@ -67,6 +73,24 @@ it('sends an anonymous teacher away from the dashboard', async () => {
   renderRouter('/dashboard')
   expect(await screen.findByRole('heading', { name: '강사 로그인' })).toBeTruthy()
   expect(screen.queryByRole('heading', { name: '대시보드' })).toBeNull()
+})
+
+it('shows a not found page for an unknown route and returns home', async () => {
+  const user = userEvent.setup()
+  renderRouter('/this-route-does-not-exist')
+
+  expect(await screen.findByRole('heading', { name: '페이지를 찾을 수 없습니다.' })).toBeTruthy()
+  expect(screen.getByText('요청하신 페이지가 존재하지 않거나 이동되었습니다.')).toBeTruthy()
+  const home = screen.getByRole('link', { name: '홈으로 이동' })
+  expect(home.getAttribute('href')).toBe('/')
+  await user.click(home)
+  expect(await screen.findByRole('heading', { name: 'LessonPT' })).toBeTruthy()
+})
+
+it('keeps an unknown student id on the existing student route', async () => {
+  renderRouter('/students/not-real')
+  expect(await screen.findByRole('heading', { name: '강사 로그인' })).toBeTruthy()
+  expect(screen.queryByRole('heading', { name: '페이지를 찾을 수 없습니다.' })).toBeNull()
 })
 
 function renderRouter(path: string) {

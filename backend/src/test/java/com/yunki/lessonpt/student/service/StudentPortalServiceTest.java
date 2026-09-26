@@ -27,7 +27,7 @@ import com.yunki.lessonpt.student.dto.StudentContentView;
 import com.yunki.lessonpt.student.dto.StudentLearningResponse;
 import com.yunki.lessonpt.resource.mapper.ContentResourceMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
-import com.yunki.lessonpt.student.query.StudentPortalContentRow;
+import com.yunki.lessonpt.student.query.StudentPortalCategoryRow;
 import com.yunki.lessonpt.student.query.StudentPortalEnrollment;
 import com.yunki.lessonpt.student.query.StudentPortalHomeworkRow;
 import com.yunki.lessonpt.student.query.StudentPortalIdentity;
@@ -100,7 +100,8 @@ class StudentPortalServiceTest {
         when(studentPortalMapper.selectActiveEnrollments(90L)).thenReturn(List.of());
 
         assertThat(studentPortalService.learning(PRINCIPAL).curriculums()).isEmpty();
-        verify(studentPortalMapper, never()).selectActiveContents(org.mockito.ArgumentMatchers.anyList());
+        verify(studentPortalMapper, never()).selectActiveCategories(org.mockito.ArgumentMatchers.anyList());
+        verify(studentPortalMapper, never()).selectActiveMonitoringContents(org.mockito.ArgumentMatchers.anyList());
         verify(progressQueryMapper, never()).selectProgressByStudentCurriculumIds(org.mockito.ArgumentMatchers.anyList());
     }
 
@@ -108,16 +109,20 @@ class StudentPortalServiceTest {
     void assemblesPublicLearningTreeOncePerBatch() {
         when(studentPortalMapper.selectActiveIdentity(90L)).thenReturn(identity());
         when(studentPortalMapper.selectActiveEnrollments(90L)).thenReturn(List.of(enrollment(5L, 8L, "드럼")));
-        when(studentPortalMapper.selectActiveContents(List.of(8L))).thenReturn(List.of(
-                content(8L, 1L, "기초", 11L, "싱글"),
-                content(8L, 2L, "응용", 12L, "파라디들")));
-        StudentPortalMonitoringRow learned = new StudentPortalMonitoringRow();
-        learned.setStudentCurriculumId(5L);
-        learned.setContentDetailId(11L);
-        learned.setCurrentBpm(100);
-        learned.setProgressStatus(ProgressStatus.IN_PROGRESS);
-        when(studentPortalMapper.selectActiveMonitoring(List.of(5L))).thenReturn(List.of(learned));
+        when(studentPortalMapper.selectActiveCategories(List.of(8L))).thenReturn(List.of(
+                category(8L, 1L, "기초", 3),
+                category(8L, 2L, "응용", 5),
+                category(8L, 3L, "빈칸", 0)));
+        StudentPortalMonitoringRow single = published(5L, 1L, 11L, 501L, "싱글");
+        single.setCurrentBpm(100);
+        single.setProgressStatus(ProgressStatus.IN_PROGRESS);
+        single.setTargetBpm(120);
+        single.setYoutubeUrl("video");
+        when(studentPortalMapper.selectActiveMonitoringContents(List.of(5L))).thenReturn(List.of(
+                single,
+                published(5L, 1L, 12L, 502L, "더블")));
         StudentPortalHomeworkRow homework = new StudentPortalHomeworkRow();
+        homework.setHomeworkId(77L);
         homework.setStudentCurriculumId(5L);
         homework.setContentDetailId(11L);
         homework.setHomeworkContent("메트로놈");
@@ -131,17 +136,30 @@ class StudentPortalServiceTest {
 
         assertThat(response.curriculums()).hasSize(1);
         assertThat(response.curriculums().get(0).progress().percentage()).isEqualByComparingTo(new BigDecimal("25.0"));
-        assertThat(response.curriculums().get(0).categories()).hasSize(2);
+        assertThat(response.curriculums().get(0).categories()).hasSize(3);
+        assertThat(response.curriculums().get(0).categories().get(0).name()).isEqualTo("기초");
+        assertThat(response.curriculums().get(0).categories().get(0).totalContentCount()).isEqualTo(3);
+        assertThat(response.curriculums().get(0).categories().get(0).contents()).hasSize(2);
+        assertThat(response.curriculums().get(0).categories().get(1).name()).isEqualTo("응용");
+        assertThat(response.curriculums().get(0).categories().get(1).totalContentCount()).isEqualTo(5);
+        assertThat(response.curriculums().get(0).categories().get(1).contents()).isEmpty();
+        assertThat(response.curriculums().get(0).categories().get(2).name()).isEqualTo("빈칸");
+        assertThat(response.curriculums().get(0).categories().get(2).totalContentCount()).isEqualTo(0);
+        assertThat(response.curriculums().get(0).categories().get(2).contents()).isEmpty();
         StudentContentView withMonitoring = response.curriculums().get(0).categories().get(0).contents().get(0);
+        assertThat(withMonitoring.monitoringId()).isEqualTo(501L);
+        assertThat(withMonitoring.name()).isEqualTo("싱글");
         assertThat(withMonitoring.currentBpm()).isEqualTo(100);
         assertThat(withMonitoring.progressStatus()).isEqualTo(ProgressStatus.IN_PROGRESS);
         assertThat(withMonitoring.homeworks()).hasSize(1);
-        StudentContentView withoutMonitoring = response.curriculums().get(0).categories().get(1).contents().get(0);
-        assertThat(withoutMonitoring.currentBpm()).isNull();
-        assertThat(withoutMonitoring.progressStatus()).isNull();
-        assertThat(withoutMonitoring.homeworks()).isEmpty();
-        verify(studentPortalMapper).selectActiveContents(List.of(8L));
-        verify(studentPortalMapper).selectActiveMonitoring(List.of(5L));
+        assertThat(withMonitoring.homeworks().get(0).homeworkId()).isEqualTo(77L);
+        assertThat(response.curriculums().get(0).categories().stream()
+                .flatMap(category -> category.contents().stream())
+                .map(StudentContentView::name)
+                .toList()).containsExactly("싱글", "더블");
+        verify(contentResourceMapper).selectActiveByContentDetailIds(List.of(11L, 12L));
+        verify(studentPortalMapper).selectActiveCategories(List.of(8L));
+        verify(studentPortalMapper).selectActiveMonitoringContents(List.of(5L));
         verify(studentPortalMapper).selectActiveHomework(List.of(5L));
     }
 
@@ -149,8 +167,8 @@ class StudentPortalServiceTest {
     void omitsProgressWhenDenominatorIsZeroAndIgnoresStoppedAsIncomplete() {
         when(studentPortalMapper.selectActiveIdentity(90L)).thenReturn(identity());
         when(studentPortalMapper.selectActiveEnrollments(90L)).thenReturn(List.of(enrollment(5L, 8L, "드럼")));
-        when(studentPortalMapper.selectActiveContents(List.of(8L))).thenReturn(List.of());
-        when(studentPortalMapper.selectActiveMonitoring(List.of(5L))).thenReturn(List.of());
+        when(studentPortalMapper.selectActiveCategories(List.of(8L))).thenReturn(List.of());
+        when(studentPortalMapper.selectActiveMonitoringContents(List.of(5L))).thenReturn(List.of());
         when(studentPortalMapper.selectActiveHomework(List.of(5L))).thenReturn(List.of());
         when(progressQueryMapper.selectProgressByStudentCurriculumIds(List.of(5L))).thenReturn(List.of(progress(5L, 0, 0)));
 
@@ -177,16 +195,25 @@ class StudentPortalServiceTest {
         return enrollment;
     }
 
-    private StudentPortalContentRow content(
-            Long curriculumId, Long categoryId, String categoryName, Long contentId, String contentName) {
-        StudentPortalContentRow row = new StudentPortalContentRow();
+    private StudentPortalCategoryRow category(
+            Long curriculumId, Long categoryId, String categoryName, int totalContentCount) {
+        StudentPortalCategoryRow row = new StudentPortalCategoryRow();
         row.setCurriculumId(curriculumId);
         row.setCategoryId(categoryId);
         row.setCategoryName(categoryName);
-        row.setContentDetailId(contentId);
+        row.setTotalContentCount(totalContentCount);
+        return row;
+    }
+
+    private StudentPortalMonitoringRow published(
+            Long studentCurriculumId, Long categoryId, Long contentDetailId, Long monitoringId, String contentName) {
+        StudentPortalMonitoringRow row = new StudentPortalMonitoringRow();
+        row.setStudentCurriculumId(studentCurriculumId);
+        row.setCategoryId(categoryId);
+        row.setContentDetailId(contentDetailId);
+        row.setMonitoringId(monitoringId);
         row.setContentName(contentName);
-        row.setTargetBpm(120);
-        row.setYoutubeUrl("video");
+        row.setProgressStatus(ProgressStatus.YET);
         return row;
     }
 

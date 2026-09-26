@@ -4,14 +4,11 @@ import { ApiError } from '../api/apiClient.ts'
 import { clearStudentScope, getStudentLearning, getStudentMe, isStudentScopeRequired, logoutStudent } from '../api/studentPortalApi.ts'
 import { useStudentPortal } from '../auth/StudentPortalContext.tsx'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
-import { StudentLessonResources } from '../components/student/StudentLessonResources.tsx'
 import { formErrorMessage } from '../components/feedback/describeError.ts'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
-import { ProgressValue } from '../components/student/ProgressValue.tsx'
-import { formatBpm, formatDeadline, progressStatusLabel, textOrDash } from '../student/display.ts'
+import { StudentLearning } from '../components/student/StudentLearning.tsx'
 import type { StudentMe, StudentPortalLearning } from '../types/studentPortal.ts'
 import { StudentFrame } from './StudentAccessPage.tsx'
-
 export function StudentPortalPage() {
   const navigate = useNavigate()
   const { setStatus } = useStudentPortal()
@@ -90,7 +87,7 @@ export function StudentPortalPage() {
   }
 
   return (
-    <StudentFrame>
+    <StudentFrame wide>
       <header className="page-header-row">
         <h1>{me?.name ?? '학습 현황'}</h1>
         <button type="button" className="button button-quiet" disabled={loggingOut} onClick={() => void onOtherClass()}>
@@ -103,38 +100,7 @@ export function StudentPortalPage() {
       {loading ? <LoadingState label="학습 정보를 불러오는 중" /> : null}
       {error ? <p className="form-error">{formErrorMessage(error)}</p> : null}
       {learning && learning.curriculums.length === 0 ? <EmptyState message="배정된 커리큘럼이 없습니다." /> : null}
-      {learning?.curriculums.map((curriculum) => (
-        <article className="curriculum" key={curriculum.name}>
-          <header className="curriculum-header">
-            <h2>{curriculum.name}</h2>
-            <ProgressValue progress={curriculum.progress} />
-          </header>
-          {curriculum.categories.map((category) => (
-            <section key={category.name}>
-              <h3>{category.name}</h3>
-              {category.contents.length === 0 ? <p className="quiet">내용이 없습니다.</p> : null}
-              {category.contents.map((content) => (
-                <div className="monitoring" key={content.name}>
-                  <h4>{content.name}</h4>
-                  <p>{content.progressStatus ? progressStatusLabel(content.progressStatus) : '-'}</p>
-                  <p>현재 BPM {formatBpm(content.currentBpm)}</p>
-                  <p>목표 BPM {formatBpm(content.targetBpm)}</p>
-                  <StudentLessonResources content={content} />
-                  {content.homeworks.length === 0 ? <p className="quiet">과제가 없습니다.</p> : null}
-                  {content.homeworks.map((homework, index) => (
-                    <div className="homework-item" key={`${content.name}-${index}`}>
-                      <p>{homework.content}</p>
-                      <p>{homework.completed === true ? '완료' : '미완료'}</p>
-                      <p>마감 {formatDeadline(homework.deadline)}</p>
-                      <p>피드백 {textOrDash(homework.feedback)}</p>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </section>
-          ))}
-        </article>
-      ))}
+      {learning && learning.curriculums.length > 0 ? <StudentLearning learning={learning} /> : null}
     </StudentFrame>
   )
 }

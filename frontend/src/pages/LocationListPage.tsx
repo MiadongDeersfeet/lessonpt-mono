@@ -80,7 +80,7 @@ export function LocationListPage() {
       const rows = await listLocations()
       setLocations(rows)
       setReleaseTarget(null)
-      setNotice('출강처를 비활성화했습니다.')
+      setNotice('출강처를 삭제했습니다.')
     } catch (caught) {
       setReleaseError(caught)
     } finally {
@@ -142,7 +142,7 @@ export function LocationListPage() {
                       setReleaseTarget(location)
                     }}
                   >
-                    비활성화
+                    출강처 삭제
                   </button>
                 </td>
               </tr>

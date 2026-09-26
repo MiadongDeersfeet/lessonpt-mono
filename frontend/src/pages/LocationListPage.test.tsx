@@ -104,12 +104,12 @@ it('asks before deactivating a location and then refetches the list', async () =
   if (!row) {
     throw new Error('location row missing')
   }
-  await user.click(within(row).getByRole('button', { name: '비활성화' }))
+  await user.click(within(row).getByRole('button', { name: '출강처 삭제' }))
   const dialog = await screen.findByRole('dialog')
   expect(dialog.textContent).toContain('활성 수강')
   expect(dialog.textContent).toContain('자동으로 돌아오지 않습니다')
   expect(deactivateLocation).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+  await user.click(within(dialog).getByRole('button', { name: '삭제' }))
 
   expect(deactivateLocation).toHaveBeenCalledWith(30)
   expect(await screen.findByText('뒤연습실')).toBeTruthy()
@@ -124,8 +124,8 @@ it('shows the order conflict message and does not refetch after a failed deactiv
   )
   render(<LocationListPage />)
 
-  await user.click(await screen.findByRole('button', { name: '비활성화' }))
-  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '비활성화' }))
+  await user.click(await screen.findByRole('button', { name: '출강처 삭제' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '삭제' }))
 
   expect(await screen.findByText('다른 요청이 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.')).toBeTruthy()
   expect(listLocations).toHaveBeenCalledTimes(1)

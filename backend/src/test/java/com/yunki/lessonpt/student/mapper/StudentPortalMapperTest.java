@@ -23,6 +23,12 @@ class StudentPortalMapperTest {
         assertThat(xml).contains("curriculum.DISPLAY_ORDER");
         assertThat(xml).contains("category.DISPLAY_ORDER");
         assertThat(xml).contains("content.DISPLAY_ORDER");
+        assertThat(xml).contains("id=\"selectActiveCategories\"");
+        assertThat(xml).contains("COUNT(content.CONTENT_DETAIL_ID) AS TOTAL_CONTENT_COUNT");
+        assertThat(xml).contains("id=\"selectActiveMonitoringContents\"");
+        assertThat(xml).contains("FROM TB_STUDENT_MONITORING monitoring");
+        assertThat(xml).doesNotContain("id=\"selectActiveContents\"");
+        assertThat(xml).doesNotContain("id=\"selectActiveMonitoring\"");
         assertThat(xml).doesNotContain("MEMO");
         assertThat(xml).doesNotContain("EVALUATION_MEMO");
     }

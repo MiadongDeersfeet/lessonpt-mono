@@ -1,6 +1,7 @@
 package com.yunki.lessonpt.student.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.util.UUID;
 
@@ -38,6 +39,9 @@ import com.yunki.lessonpt.relationship.service.TeacherStudentAccessService;
 import com.yunki.lessonpt.student.domain.Student;
 import com.yunki.lessonpt.student.dto.StudentContentView;
 import com.yunki.lessonpt.student.dto.StudentLearningResponse;
+import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
+import com.yunki.lessonpt.student.query.StudentPortalCategoryRow;
+import com.yunki.lessonpt.student.query.StudentPortalMonitoringRow;
 import com.yunki.lessonpt.student.service.StudentPortalService;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
@@ -76,6 +80,8 @@ class StudentPortalMapperOracleTest {
     private TeacherStudentAccessService teacherStudentAccessService;
     @Autowired
     private StudentPortalService studentPortalService;
+    @Autowired
+    private StudentPortalMapper studentPortalMapper;
 
     @Test
     void showsOnlyTheAuthenticatedStudentsActiveLearningTree() throws Exception {
@@ -119,6 +125,9 @@ class StudentPortalMapperOracleTest {
         contentDetailMapper.insertContentDetail(visible);
         ContentDetail unmonitored = detail(first.getCategoryId(), "더블", 2);
         contentDetailMapper.insertContentDetail(unmonitored);
+        ContentDetail unpublished = detail(first.getCategoryId(), "비공개루디먼트", 3);
+        unpublished.setMemo("학생에게 보이면 안 됨");
+        contentDetailMapper.insertContentDetail(unpublished);
         ContentDetail inactive = detail(second.getCategoryId(), "비활성", 1);
         contentDetailMapper.insertContentDetail(inactive);
         contentDetailMapper.softDeleteContentDetail(inactive.getContentDetailId(), inactive.getCategoryId());
@@ -163,19 +172,125 @@ class StudentPortalMapperOracleTest {
         assertThat(learning.curriculums().get(0).progress()).isNull();
         assertThat(learning.curriculums().get(1).categories()).extracting(view -> view.name()).containsExactly("먼저", "나중");
         assertThat(learning.curriculums().get(1).progress().completedCount()).isEqualTo(1);
-        int visibleContents = learning.curriculums().get(1).categories().stream()
-                .mapToInt(category -> category.contents().size())
-                .sum();
-        assertThat(learning.curriculums().get(1).progress().totalCount()).isEqualTo(visibleContents);
+        assertThat(learning.curriculums().get(1).progress().totalCount()).isEqualTo(3);
+        assertThat(learning.curriculums().get(1).categories().get(0).totalContentCount()).isEqualTo(3);
+        assertThat(learning.curriculums().get(1).categories().get(0).contents())
+                .extracting(StudentContentView::name)
+                .containsExactly("싱글", "더블");
         StudentContentView firstContent = learning.curriculums().get(1).categories().get(0).contents().get(0);
         StudentContentView secondContent = learning.curriculums().get(1).categories().get(0).contents().get(1);
+        assertThat(firstContent.monitoringId()).isEqualTo(learned.getMonitoringId());
         assertThat(firstContent.name()).isEqualTo("싱글");
         assertThat(firstContent.currentBpm()).isEqualTo(90);
         assertThat(firstContent.homeworks()).extracting(item -> item.content()).containsExactly("연습");
+        assertThat(firstContent.homeworks().get(0).homeworkId()).isEqualTo(homework.getHomeworkId());
+        assertThat(secondContent.monitoringId()).isEqualTo(stopped.getMonitoringId());
         assertThat(secondContent.progressStatus()).isEqualTo(ProgressStatus.STOPPED);
+        assertThat(learning.curriculums().get(1).categories().get(1).totalContentCount()).isEqualTo(0);
         assertThat(learning.curriculums().get(1).categories().get(1).contents()).isEmpty();
         assertThat(learning.curriculums()).extracting(view -> view.name()).doesNotContain("다른강사");
         assertThat(firstContent.homeworks()).extracting(item -> item.content()).doesNotContain("숨김과제");
+    }
+
+    @Test
+    void categoryCountsAndMonitoringQueryKeepUnassignedDetailsUnread() throws Exception {
+        Teacher teacher = teacher();
+        teacherMapper.insertTeacher(teacher);
+        Student student = student("학생A");
+        student.setEmail("boundary." + UUID.randomUUID() + "@lessonpt.local");
+        studentMapper.insertStudent(student);
+        Student otherStudent = student("학생B");
+        otherStudent.setEmail("boundary.other." + UUID.randomUUID() + "@lessonpt.local");
+        studentMapper.insertStudent(otherStudent);
+        TeacherStudent relation = relation(teacher.getTeacherId(), student.getStudentId());
+        teacherStudentMapper.insertTeacherStudent(relation);
+        TeacherStudent otherRelation = relation(teacher.getTeacherId(), otherStudent.getStudentId());
+        teacherStudentMapper.insertTeacherStudent(otherRelation);
+        Location location = location(teacher.getTeacherId());
+        locationMapper.insertLocation(location);
+        TeacherStudentLocation link = link(relation.getTeacherStudentId(), location.getLocationId());
+        teacherStudentLocationMapper.insertTeacherStudentLocation(link);
+        Location otherLocation = location(teacher.getTeacherId());
+        otherLocation.setName("다른연습실");
+        otherLocation.setDisplayOrder(2);
+        locationMapper.insertLocation(otherLocation);
+        TeacherStudentLocation otherLink = link(otherRelation.getTeacherStudentId(), otherLocation.getLocationId());
+        teacherStudentLocationMapper.insertTeacherStudentLocation(otherLink);
+
+        Curriculum curriculum = curriculum(teacher.getTeacherId(), "기초", 1);
+        curriculumMapper.insertCurriculum(curriculum);
+        Category categoryA = category(curriculum.getCurriculumId(), "A", 1);
+        categoryMapper.insertCategory(categoryA);
+        Category categoryB = category(curriculum.getCurriculumId(), "B", 2);
+        categoryMapper.insertCategory(categoryB);
+        Category categoryC = category(curriculum.getCurriculumId(), "C", 3);
+        categoryMapper.insertCategory(categoryC);
+        Category hiddenStatus = category(curriculum.getCurriculumId(), "상태", 4);
+        categoryMapper.insertCategory(hiddenStatus);
+
+        ContentDetail detailA1 = detail(categoryA.getCategoryId(), "A1", 1);
+        contentDetailMapper.insertContentDetail(detailA1);
+        ContentDetail detailA2 = detail(categoryA.getCategoryId(), "A2", 2);
+        contentDetailMapper.insertContentDetail(detailA2);
+        ContentDetail detailA3 = detail(categoryA.getCategoryId(), "A3", 3);
+        contentDetailMapper.insertContentDetail(detailA3);
+        ContentDetail removed = detail(categoryA.getCategoryId(), "사라진상세", 4);
+        contentDetailMapper.insertContentDetail(removed);
+        contentDetailMapper.insertContentDetail(detail(categoryB.getCategoryId(), "B1", 1));
+        contentDetailMapper.insertContentDetail(detail(categoryB.getCategoryId(), "B2", 2));
+        ContentDetail hiddenDetail = detail(hiddenStatus.getCategoryId(), "D1", 1);
+        contentDetailMapper.insertContentDetail(hiddenDetail);
+
+        StudentCurriculum enrollment = enrollment(link.getTeacherStudentLocationId(), curriculum.getCurriculumId());
+        studentCurriculumMapper.insertStudentCurriculum(enrollment);
+        StudentCurriculum otherEnrollment = enrollment(otherLink.getTeacherStudentLocationId(), curriculum.getCurriculumId());
+        studentCurriculumMapper.insertStudentCurriculum(otherEnrollment);
+
+        StudentMonitoring learned = monitoring(enrollment.getStudentCurriculumId(), detailA1.getContentDetailId(), ProgressStatus.COMPLETED);
+        studentMonitoringMapper.insertStudentMonitoring(learned);
+        studentMonitoringMapper.insertStudentMonitoring(
+                monitoring(enrollment.getStudentCurriculumId(), detailA2.getContentDetailId(), ProgressStatus.IN_PROGRESS));
+        studentMonitoringMapper.insertStudentMonitoring(
+                monitoring(otherEnrollment.getStudentCurriculumId(), detailA3.getContentDetailId(), ProgressStatus.YET));
+        StudentMonitoring removedMonitoring = monitoring(
+                enrollment.getStudentCurriculumId(), removed.getContentDetailId(), ProgressStatus.IN_PROGRESS);
+        studentMonitoringMapper.insertStudentMonitoring(removedMonitoring);
+        contentDetailMapper.softDeleteContentDetail(removed.getContentDetailId(), categoryA.getCategoryId());
+        StudentMonitoring inactiveMonitoring = monitoring(
+                enrollment.getStudentCurriculumId(), hiddenDetail.getContentDetailId(), ProgressStatus.YET);
+        studentMonitoringMapper.insertStudentMonitoring(inactiveMonitoring);
+        studentMonitoringMapper.softDeleteStudentMonitoring(
+                inactiveMonitoring.getMonitoringId(), enrollment.getStudentCurriculumId());
+
+        assertThat(studentPortalMapper.selectActiveCategories(java.util.List.of(curriculum.getCurriculumId())))
+                .extracting(StudentPortalCategoryRow::getCategoryName, StudentPortalCategoryRow::getTotalContentCount)
+                .containsExactly(tuple("A", 3), tuple("B", 2), tuple("C", 0), tuple("상태", 1));
+        assertThat(studentPortalMapper.selectActiveMonitoringContents(java.util.List.of(enrollment.getStudentCurriculumId())))
+                .extracting(StudentPortalMonitoringRow::getContentName)
+                .containsExactly("A1", "A2");
+        assertThat(studentPortalMapper.selectActiveMonitoringContents(java.util.List.of(otherEnrollment.getStudentCurriculumId())))
+                .extracting(StudentPortalMonitoringRow::getContentName)
+                .containsExactly("A3");
+
+        teacherStudentAccessService.createAccess(teacher.getTeacherId(), student.getStudentId());
+        TeacherStudentAccess access = teacherStudentAccessMapper.selectActiveByTeacherStudentId(relation.getTeacherStudentId());
+        StudentPrincipal principal = new StudentPrincipal(
+                access.getTeacherStudentAccessId(), relation.getTeacherStudentId(), student.getStudentId());
+        StudentLearningResponse learning = studentPortalService.learning(principal);
+        assertThat(learning.curriculums()).hasSize(1);
+        assertThat(learning.curriculums().get(0).categories())
+                .extracting(view -> view.name(), view -> view.totalContentCount(), view -> view.contents().size())
+                .containsExactly(tuple("A", 3, 2), tuple("B", 2, 0), tuple("C", 0, 0), tuple("상태", 1, 0));
+        assertThat(learning.curriculums().get(0).categories().get(0).contents())
+                .extracting(StudentContentView::name)
+                .containsExactly("A1", "A2");
+        assertThat(learning.curriculums().get(0).progress().completedCount()).isEqualTo(1);
+        assertThat(learning.curriculums().get(0).progress().totalCount()).isEqualTo(6);
+        String publishedNames = learning.curriculums().get(0).categories().stream()
+                .flatMap(view -> view.contents().stream())
+                .map(StudentContentView::name)
+                .reduce("", (left, right) -> left + " " + right);
+        assertThat(publishedNames).doesNotContain("A3", "B1", "B2", "사라진상세", "D1");
     }
 
     private Teacher teacher() {
