@@ -23,8 +23,6 @@ lessonpt:
     # 지금 개발 Schema 이름이다. 다른 계정이면 LESSONPT_DB_EXPECTED_SCHEMA 로 바꾼다.
     expected-schema: ${LESSONPT_DB_EXPECTED_SCHEMA:DRUMMER_LMS}
   jwt:
-    # 실제 값은 LESSONPT_JWT_SECRET 환경변수로만 넣는다. 32바이트 이상이어야 한다.
-    secret: "LessonPT-Test-JWT-Secret-2026-09-25-7f4c9b2e6a1d8f3c5e0a"
     access-token-ttl: 60m
     refresh-token-ttl: 14d
   student-session:
@@ -66,6 +64,8 @@ spring:
     activate:
       on-profile: local
 lessonpt:
+  jwt:
+    secret: "LessonPT-Test-JWT-Secret-2026-09-25-7f4c9b2e6a1d8f3c5e0a"
   student-session:
     # Vite proxy로 붙는 localhost HTTP에서 쿠키가 저장되게 한다.
     secure: false

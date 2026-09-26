@@ -30,3 +30,7 @@ management:
 logging:
   level:
     com.yunki.lessonpt.common.health.SmokeMapper: info
+
+lessonpt:
+  jwt:
+    secret: ${LESSONPT_JWT_SECRET}

@@ -17,3 +17,7 @@ spring:
 logging:
   level:
     com.yunki.lessonpt.common.health.SmokeMapper: debug
+
+lessonpt:
+  jwt:
+    secret: "LessonPT-Test-JWT-Secret-2026-09-25-7f4c9b2e6a1d8f3c5e0a"

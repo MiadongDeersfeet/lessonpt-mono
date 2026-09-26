@@ -1,0 +1,63 @@
+﻿name: OCI SSH Smoke Test
+
+on:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/deploy-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ssh-smoke:
+    name: OCI SSH Connection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/lessonpt_key
+          chmod 600 ~/.ssh/lessonpt_key
+
+          ssh-keyscan -H "$OCI_HOST" >> ~/.ssh/known_hosts
+
+      - name: Verify OCI runtime
+        shell: bash
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i ~/.ssh/lessonpt_key \
+            -o BatchMode=yes \
+            "$OCI_USER@$OCI_HOST" '
+              set -e
+
+              echo "=== HOST ==="
+              hostname
+
+              echo "=== JAVA ==="
+              java -version
+
+              echo "=== NGINX ==="
+              systemctl is-active nginx
+
+              echo "=== DEPLOY DIRECTORIES ==="
+              test -d /opt/lessonpt/backend
+              test -d /var/www/lessonpt
+
+              echo "DEPLOY_SSH_OK"
+            '
