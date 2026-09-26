@@ -2,34 +2,22 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { fieldErrorMessage, formErrorMessage } from '../feedback/describeError.ts'
 import type { ContentDetail, ContentDetailWriteBody } from '../../types/curriculum.ts'
-import { ContentResources } from './ContentResources.tsx'
+import { Overlay } from '../layout/Overlay.tsx'
 
 type Props = {
-  content: ContentDetail | null
-  curriculumId: number
-  categoryId: number
+  content: ContentDetail
   submitting: boolean
   error: unknown
   onClose: () => void
   onSubmit: (body: ContentDetailWriteBody) => void
-  onContentChange: (content: ContentDetail) => void
 }
 
-export function ContentDetailFormDialog({
-  content,
-  curriculumId,
-  categoryId,
-  submitting,
-  error,
-  onClose,
-  onSubmit,
-  onContentChange,
-}: Props) {
+export function ContentDetailFormDialog({ content, submitting, error, onClose, onSubmit }: Props) {
   const [name, setName] = useState(content?.name ?? '')
   const [targetBpm, setTargetBpm] = useState(content?.targetBpm == null ? '' : String(content.targetBpm))
   const [memo, setMemo] = useState(content?.memo ?? '')
   const [evaluationMemo, setEvaluationMemo] = useState(content?.evaluationMemo ?? '')
-  const [youtubeUrl, setYoutubeUrl] = useState(content?.youtubeUrl ?? '')
+  const [youtubeUrl, setYoutubeUrl] = useState(content.youtubeUrl ?? '')
   const [nameError, setNameError] = useState('')
   const [bpmError, setBpmError] = useState('')
 
@@ -54,16 +42,14 @@ export function ContentDetailFormDialog({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <Overlay title={content ? '내용 수정' : '내용 추가'} className="content-editor" onClose={() => { if (!submitting) onClose() }}>
       <form
-        className="modal"
-        role="dialog"
-        aria-labelledby="content-form-title"
+        className="content-editor-form"
         noValidate
         onMouseDown={(event) => event.stopPropagation()}
         onSubmit={submit}
       >
-        <h2 id="content-form-title">{content ? '내용 수정' : '내용 추가'}</h2>
+        <div className="overlay-body editor-fields">
         <label htmlFor="content-name">이름</label>
         <input id="content-name" value={name} onChange={(event) => setName(event.target.value)} />
         <FieldMessage message={nameError || fieldErrorMessage(error, 'name')} />
@@ -77,20 +63,11 @@ export function ContentDetailFormDialog({
         <textarea id="content-evaluation" value={evaluationMemo} onChange={(event) => setEvaluationMemo(event.target.value)} />
         <FieldMessage message={fieldErrorMessage(error, 'evaluationMemo')} />
         <label htmlFor="content-youtube">YouTube URL</label>
-        <input id="content-youtube" value={youtubeUrl} onChange={(event) => setYoutubeUrl(event.target.value)} />
+        <input id="content-youtube" type="url" inputMode="url" value={youtubeUrl} onChange={(event) => setYoutubeUrl(withoutLeadingSpace(event.target.value))} />
         <FieldMessage message={fieldErrorMessage(error, 'youtubeUrl')} />
-        {content ? (
-          <ContentResources
-            curriculumId={curriculumId}
-            categoryId={categoryId}
-            content={content}
-            onContentChange={onContentChange}
-          />
-        ) : (
-          <p className="quiet">저장 후 파일을 추가할 수 있습니다.</p>
-        )}
         {error && !nameError && !bpmError ? <p className="form-error">{formErrorMessage(error)}</p> : null}
-        <div className="modal-actions">
+        </div>
+        <div className="modal-actions overlay-footer">
           <button type="button" className="button button-quiet" onClick={onClose} disabled={submitting}>
             취소
           </button>
@@ -99,7 +76,7 @@ export function ContentDetailFormDialog({
           </button>
         </div>
       </form>
-    </div>
+    </Overlay>
   )
 }
 
@@ -116,6 +93,10 @@ function parseBpm(value: string): number | null | 'invalid' {
     return 'invalid'
   }
   return parsed
+}
+
+function withoutLeadingSpace(value: string): string {
+  return value.replace(/^\s+/, '')
 }
 
 function emptyToNull(value: string): string | null {

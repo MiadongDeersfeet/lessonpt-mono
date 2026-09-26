@@ -11,7 +11,7 @@ import type { Curriculum } from '../types/curriculum.ts'
 type FormState = { mode: 'create' } | { mode: 'edit'; curriculum: Curriculum }
 
 const deactivateMessage =
-  '이 커리큘럼을 비활성화합니다. 활성 카테고리와 내용도 함께 비활성화됩니다. 학생 수강, 모니터링, 과제 기록은 남고, 커리큘럼을 다시 활성화해도 카테고리와 내용은 자동으로 돌아오지 않습니다.'
+  '이 커리큘럼을 삭제합니다. 활성 카테고리와 내용도 함께 삭제됩니다. 학생 수강, 모니터링, 과제 기록은 남고, 커리큘럼을 다시 활성화해도 카테고리와 내용은 자동으로 돌아오지 않습니다.'
 
 export function CurriculumListPage() {
   const [curriculums, setCurriculums] = useState<Curriculum[] | null>(null)
@@ -82,7 +82,7 @@ export function CurriculumListPage() {
       await deactivateCurriculum(releaseTarget.curriculumId)
       setCurriculums(await listCurriculums())
       setReleaseTarget(null)
-      setNotice('커리큘럼을 비활성화했습니다.')
+      setNotice('커리큘럼을 삭제했습니다.')
     } catch (caught) {
       setReleaseError(caught)
     } finally {
@@ -123,7 +123,7 @@ export function CurriculumListPage() {
               <tr key={curriculum.curriculumId}>
                 <td>{curriculum.displayOrder}</td>
                 <td>
-                  <Link to={`/curriculums/${curriculum.curriculumId}`}>{curriculum.name}</Link>
+                  <Link className="name-link" to={`/curriculums/${curriculum.curriculumId}`}>{curriculum.name}</Link>
                 </td>
                 <td className="row-actions">
                   <button
@@ -144,7 +144,7 @@ export function CurriculumListPage() {
                       setReleaseTarget(curriculum)
                     }}
                   >
-                    비활성화
+                    커리큘럼 삭제
                   </button>
                 </td>
               </tr>
@@ -174,7 +174,8 @@ export function CurriculumListPage() {
       ) : null}
       {releaseTarget ? (
         <DeactivateDialog
-          title="커리큘럼 비활성화"
+          title="커리큘럼 삭제"
+          confirmLabel="삭제"
           message={deactivateMessage}
           submitting={releaseSubmitting}
           error={releaseError}

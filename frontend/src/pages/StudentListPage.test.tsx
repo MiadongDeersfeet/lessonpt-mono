@@ -10,9 +10,11 @@ vi.mock('../api/studentApi.ts', () => ({
   createStudent: vi.fn(),
   updateStudent: vi.fn(),
   releaseStudent: vi.fn(),
+  getStudentLearning: vi.fn(),
+  getStudentAccess: vi.fn(),
 }))
 
-import { createStudent, listStudents, releaseStudent, updateStudent } from '../api/studentApi.ts'
+import { createStudent, getStudentAccess, getStudentLearning, listStudents, releaseStudent, updateStudent } from '../api/studentApi.ts'
 
 const listed = {
   studentId: 10,
@@ -31,7 +33,17 @@ beforeEach(() => {
   vi.mocked(createStudent).mockReset()
   vi.mocked(updateStudent).mockReset()
   vi.mocked(releaseStudent).mockReset()
+  vi.mocked(getStudentLearning).mockReset()
+  vi.mocked(getStudentAccess).mockReset()
   vi.mocked(listStudents).mockResolvedValue([listed])
+  vi.mocked(getStudentLearning).mockResolvedValue({
+    studentId: 10,
+    name: '기존학생',
+    email: listed.email,
+    phone: null,
+    locations: [],
+  })
+  vi.mocked(getStudentAccess).mockRejectedValue(new ApiError(404, 'COMMON_NOT_FOUND', '요청한 대상을 찾을 수 없습니다.', null, []))
 })
 
 it('creates a student and shows the new row without another list request', async () => {
@@ -98,13 +110,63 @@ it('asks before releasing a student and then removes the row', async () => {
   vi.mocked(releaseStudent).mockResolvedValue(undefined)
   renderPage()
 
-  await user.click(await screen.findByRole('button', { name: '연결 해제' }))
+  await user.click(await screen.findByRole('button', { name: '학생 삭제' }))
   const dialog = await screen.findByRole('dialog')
+  expect(dialog.textContent).toContain('학생 기록은 남고')
   expect(releaseStudent).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '연결 해제' }))
+  await user.click(within(dialog).getByRole('button', { name: '학생 삭제' }))
 
   expect(releaseStudent).toHaveBeenCalledWith(10)
   expect(await screen.findByText('등록된 학생이 없습니다.')).toBeTruthy()
+})
+
+it('shows location, curriculum, progress, portal, and a memo indicator on each row', async () => {
+  vi.mocked(getStudentLearning).mockResolvedValue({
+    studentId: 10,
+    name: '기존학생',
+    email: listed.email,
+    phone: null,
+    locations: [
+      {
+        teacherStudentLocationId: 1,
+        locationId: 2,
+        locationName: '수원 레슨실',
+        address: null,
+        studentCurriculums: [
+          {
+            studentCurriculumId: 7,
+            curriculumId: 3,
+            curriculumName: 'Drum Basic',
+            reenrolled: false,
+            memo: '손목 힘이 많이 들어감',
+            progress: { completedCount: 8, totalCount: 25, percentage: 32 },
+            monitorings: [],
+          },
+        ],
+      },
+    ],
+  })
+  vi.mocked(getStudentAccess).mockResolvedValue({
+    teacherStudentAccessId: 4,
+    teacherStudentId: 20,
+    publicAccessKey: 'key',
+    createdAt: null,
+    status: 'ACTIVE',
+  })
+  renderPage()
+
+  expect(await screen.findByText('수원 레슨실')).toBeTruthy()
+  const studentLink = screen.getByRole('link', { name: '기존학생' })
+  expect(studentLink.getAttribute('href')).toBe('/students/10')
+  expect(studentLink.className).toContain('name-link')
+  expect(screen.getByRole('columnheader', { name: '이메일' })).toBeTruthy()
+  expect(screen.getByRole('columnheader', { name: '전화번호' })).toBeTruthy()
+  expect(screen.queryByRole('columnheader', { name: '연락' })).toBeNull()
+  expect(screen.getByText('student@lessonpt.test')).toBeTruthy()
+  expect(screen.getByText('Drum Basic')).toBeTruthy()
+  expect(screen.getByText('진행 32.0%')).toBeTruthy()
+  expect(screen.getByText('Portal 활성')).toBeTruthy()
+  expect(screen.getByLabelText('메모가 있습니다.').getAttribute('title')).toBe('메모가 있습니다.')
 })
 
 function renderPage() {

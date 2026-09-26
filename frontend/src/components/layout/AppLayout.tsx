@@ -2,7 +2,6 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext.tsx'
 
 const links = [
-  { to: '/dashboard', label: '대시보드', end: true },
   { to: '/students', label: '학생', end: false },
   { to: '/locations', label: '출강처', end: false },
   { to: '/curriculums', label: '커리큘럼', end: false },
@@ -11,12 +10,17 @@ const links = [
 export function AppLayout() {
   const { teacher, logout } = useAuth()
   return (
-    <div className="shell">
+    <div className="shell"><a className="skip-link" href="#main-content">본문으로 이동</a>
       <aside className="sidebar">
-        <p className="brand">LessonPT</p>
+        <p className="brand">LessonPT</p><p className="brand-note">TEACHING STUDIO</p>
         <nav aria-label="주요 메뉴">
           {links.map((link) => (
-            <NavLink key={link.to} to={link.to} end={link.end} className="nav-link">
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+            >
               {link.label}
             </NavLink>
           ))}
@@ -32,7 +36,7 @@ export function AppLayout() {
             로그아웃
           </button>
         </header>
-        <main className="content">
+        <main className="content" id="main-content" tabIndex={-1}>
           <Outlet />
         </main>
       </div>

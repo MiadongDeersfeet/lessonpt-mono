@@ -5,6 +5,7 @@ import java.util.List;
 import com.yunki.lessonpt.common.model.ProgressStatus;
 
 public record StudentContentView(
+        Long monitoringId,
         String name,
         Integer targetBpm,
         Integer currentBpm,

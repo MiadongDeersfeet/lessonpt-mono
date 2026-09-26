@@ -11,6 +11,19 @@ it('shows a missing progress separately from zero percent', () => {
   expect(screen.getByText('0.0%')).toBeTruthy()
 })
 
+it('draws a thin meter from the server percentage', () => {
+  const view = render(<ProgressValue meter progress={{ completedCount: 0, totalCount: 4, percentage: 0 }} />)
+  const fill = () => view.container.querySelector('.progress-meter-fill')?.getAttribute('style') ?? ''
+  expect(view.container.querySelector('.progress-value')).toBeNull()
+  expect(fill()).toContain('width: 0%')
+
+  view.rerender(<ProgressValue meter progress={{ completedCount: 1, totalCount: 4, percentage: 35.7 }} />)
+  expect(fill()).toContain('width: 35.7%')
+
+  view.rerender(<ProgressValue meter progress={{ completedCount: 4, totalCount: 4, percentage: 100 }} />)
+  expect(fill()).toContain('width: 100%')
+})
+
 it('maps progress status labels without changing the API value', () => {
   expect(progressStatusLabel('YET')).toBe('시작 전')
   expect(progressStatusLabel('IN_PROGRESS')).toBe('진행 중')

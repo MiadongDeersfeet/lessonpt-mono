@@ -106,7 +106,7 @@ export function StudentAccessSection({ studentId, email }: { studentId: number; 
               초대 링크 복사
             </button>
             <button type="button" className="button button-danger" disabled={submitting} onClick={() => setConfirming(true)}>
-              접근 비활성화
+              접근 해제
             </button>
           </div>
         </>
@@ -124,7 +124,8 @@ export function StudentAccessSection({ studentId, email }: { studentId: number; 
       {actionError && !confirming ? <p className="form-error">{accessActionMessage(actionError)}</p> : null}
       {confirming ? (
         <DeactivateDialog
-          title="접근 비활성화"
+          title="접근 해제"
+          confirmLabel="접근 해제"
           message="학생 포털 접근이 중지됩니다. 현재 이 접근권한으로 로그인된 학생 세션도 종료됩니다. 다시 열면 새 초대 링크가 생성됩니다."
           submitting={submitting}
           error={actionError}

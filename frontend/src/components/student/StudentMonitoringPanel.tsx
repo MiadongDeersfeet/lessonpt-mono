@@ -1,19 +1,36 @@
 import { useState } from 'react'
 import { ApiError } from '../../api/apiClient.ts'
-import { HomeworkPanel } from './HomeworkPanel.tsx'
 import { createMonitoring, deactivateMonitoring, updateMonitoring } from '../../api/studentMonitoringApi.ts'
-import { formErrorMessage } from '../feedback/describeError.ts'
-import { progressStatusLabel } from '../../student/display.ts'
+import type { ContentDetail } from '../../types/curriculum.ts'
 import type { Monitoring, ProgressStatus } from '../../types/student.ts'
+import { progressStatusLabel } from '../../student/display.ts'
+import { formErrorMessage } from '../feedback/describeError.ts'
+import { MoreMenu } from '../layout/MoreMenu.tsx'
+import { Overlay } from '../layout/Overlay.tsx'
+import { ResizableTable } from '../layout/ResizableTable.tsx'
+import { ResourceButtons } from '../curriculum/ResourceButtons.tsx'
+import { BpmGauge } from './BpmGauge.tsx'
+import { HomeworkPanel } from './HomeworkPanel.tsx'
 
 const statuses: ProgressStatus[] = ['YET', 'IN_PROGRESS', 'COMPLETED', 'STOPPED']
 
-type ContentOption = {
-  contentDetailId: number
-  name: string
+type ContentOption = ContentDetail & { categoryId: number; categoryName: string }
+const columns = [
+  { key: 'name', label: '내용', width: 280, min: 180 },
+  { key: 'status', label: '상태', width: 120, min: 96 },
+  { key: 'bpm', label: '현재 / 목표 BPM', width: 180, min: 150 },
+  { key: 'resources', label: '자료', width: 180, min: 120 },
+  { key: 'actions', label: '작업', width: 188, min: 150 },
+]
+const statusMark: Record<ProgressStatus, string> = {
+  YET: '○',
+  IN_PROGRESS: '●',
+  COMPLETED: '●',
+  STOPPED: '–',
 }
 
 type Props = {
+  curriculumId: number
   studentCurriculumId: number
   monitorings: Monitoring[]
   contents: ContentOption[] | null
@@ -22,19 +39,18 @@ type Props = {
 }
 
 export function StudentMonitoringPanel({
+  curriculumId,
   studentCurriculumId,
   monitorings,
   contents,
   catalogError,
   onRefreshLearning,
 }: Props) {
-  const [selectedId, setSelectedId] = useState('')
-  const [createStatus, setCreateStatus] = useState<ProgressStatus>('YET')
-  const [createBpm, setCreateBpm] = useState('')
-  const [createMemo, setCreateMemo] = useState('')
+  const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [homeworkBusy, setHomeworkBusy] = useState(false)
+  const [homeworkId, setHomeworkId] = useState<number | null>(null)
+  const [connectingId, setConnectingId] = useState<number | null>(null)
   const [createError, setCreateError] = useState<unknown>(null)
-  const [bpmError, setBpmError] = useState('')
-  const [creating, setCreating] = useState(false)
   const [notice, setNotice] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editStatus, setEditStatus] = useState<ProgressStatus>('YET')
@@ -47,43 +63,30 @@ export function StudentMonitoringPanel({
   const [releaseError, setReleaseError] = useState<unknown>(null)
   const [releasing, setReleasing] = useState(false)
 
-  const monitoredIds = new Set(monitorings.map((item) => item.contentDetailId))
-  const available = contents?.filter((item) => !monitoredIds.has(item.contentDetailId)) ?? []
+  const categories = groupByCategory(contents ?? [])
+  const selected = categories.find((category) => category.categoryId === categoryId) ?? categories[0] ?? null
+  const monitoringByContentId = new Map(monitorings.map((item) => [item.contentDetailId, item]))
 
-  async function onCreate() {
-    const contentDetailId = Number(selectedId)
-    if (!Number.isInteger(contentDetailId) || contentDetailId <= 0) {
-      return
-    }
-    const bpm = parseBpm(createBpm)
-    if (bpm === 'invalid') {
-      setBpmError('현재 BPM은 60 이상 240 이하여야 합니다.')
-      return
-    }
-    setBpmError('')
-    setCreating(true)
+  async function onConnect(contentDetailId: number) {
+    setConnectingId(contentDetailId)
     setCreateError(null)
     setNotice('')
     try {
       await createMonitoring(studentCurriculumId, {
         contentDetailId,
-        currentBpm: bpm,
-        progressStatus: createStatus,
-        memo: emptyToNull(createMemo),
+        currentBpm: null,
+        progressStatus: 'YET',
+        memo: null,
       })
       await onRefreshLearning()
-      setSelectedId('')
-      setCreateBpm('')
-      setCreateMemo('')
-      setCreateStatus('YET')
-      setNotice('학습 기록을 추가했습니다.')
+      setNotice('학습 내용을 연결했습니다.')
     } catch (caught) {
       setCreateError(caught)
       if (shouldRefresh(caught)) {
         await refreshQuietly(onRefreshLearning)
       }
     } finally {
-      setCreating(false)
+      setConnectingId(null)
     }
   }
 
@@ -135,7 +138,7 @@ export function StudentMonitoringPanel({
       await deactivateMonitoring(studentCurriculumId, releaseTarget.monitoringId)
       await onRefreshLearning()
       setReleaseTarget(null)
-      setNotice('학습 기록을 비활성화했습니다.')
+      setNotice('학습 연결을 해제했습니다.')
     } catch (caught) {
       setReleaseError(caught)
       if (shouldRefresh(caught)) {
@@ -146,136 +149,137 @@ export function StudentMonitoringPanel({
     }
   }
 
+  const categorySelectId = `lesson-category-${studentCurriculumId}`
+
   return (
     <div className="monitoring-panel">
       {notice ? <p className="form-hint">{notice}</p> : null}
-      {monitorings.length === 0 ? <p className="quiet">아직 등록된 학습 기록이 없습니다.</p> : null}
-      {monitorings.map((item) => (
-        <div className="monitoring" key={item.monitoringId}>
-          <h4>{item.contentDetailName}</h4>
-          {editingId === item.monitoringId ? (
+      {catalogError ? <p className="form-error">{formErrorMessage(catalogError)}</p> : null}
+      {contents == null && !catalogError ? <p className="quiet">내용 목록을 불러오는 중</p> : null}
+      {contents && categories.length === 0 ? <p className="quiet">등록된 내용이 없습니다.</p> : null}
+      {selected ? (
+        <div className="lesson-toolbar">
+          <div className="lesson-category">
+            <label htmlFor={categorySelectId}>카테고리</label>
+            <select
+              id={categorySelectId}
+              className="lesson-category-select"
+              value={selected.categoryId}
+              onChange={(event) => setCategoryId(Number(event.target.value))}
+            >
+              {categories.map((category) => (
+                <option key={category.categoryId} value={category.categoryId}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="lesson-sheet">
+          <ResizableTable columns={columns} storageKey="teacher-learning" label={`${selected.name} 학습 내용`} fill>
+            {selected.contents.map((content) => {
+              const linked = monitoringByContentId.get(content.contentDetailId)
+              const resources = <ResourceButtons content={content} blankWhenEmpty teacher={{ curriculumId, categoryId: content.categoryId, contentDetailId: content.contentDetailId }} />
+              if (!linked) {
+                return (
+                  <tr key={content.contentDetailId} className="content-unlinked">
+                    <td data-label="내용" className="content-name">{content.name}</td>
+                    <td data-label="상태"><span className="lesson-status lesson-status-unlinked"><span aria-hidden="true">○</span>미연결</span></td>
+                    <td data-label="현재 / 목표 BPM" />
+                    <td data-label="자료">{resources}</td>
+                    <td data-label="작업">
+                      <button
+                        type="button"
+                        className="text-action connect-action"
+                        disabled={connectingId === content.contentDetailId}
+                        onClick={() => void onConnect(content.contentDetailId)}
+                      >
+                        {connectingId === content.contentDetailId ? '연결 중' : '연결'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              }
+              return (
+                <tr key={linked.monitoringId}>
+                  <td data-label="내용" className="content-name">{linked.contentDetailName}</td>
+                  <td data-label="상태">
+                    <span className={`lesson-status lesson-status-${linked.progressStatus}`}>
+                      <span aria-hidden="true">{statusMark[linked.progressStatus]}</span>
+                      {progressStatusLabel(linked.progressStatus)}
+                    </span>
+                  </td>
+                  <td data-label="현재 / 목표 BPM"><BpmGauge current={linked.currentBpm} target={linked.targetBpm} /></td>
+                  <td data-label="자료">{resources}</td>
+                  <td data-label="작업">
+                    <div className="row-actions">
+                      <button type="button" className="text-action" aria-label="기록 수정" onClick={() => startEdit(linked)}>수정</button>
+                      <button type="button" className="text-action" aria-label={`과제 ${linked.homeworks.length}개`} onClick={() => setHomeworkId(linked.monitoringId)}>과제 {linked.homeworks.length}</button>
+                      <MoreMenu
+                        label={`${linked.contentDetailName} 학습 작업`}
+                        items={[{
+                          label: '연결 해제',
+                          danger: true,
+                          onSelect: () => {
+                            setReleaseError(null)
+                            setReleaseTarget(linked)
+                          },
+                        }]}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </ResizableTable>
+          </div>
+        </div>
+      ) : null}
+      {monitorings.filter((item) => item.monitoringId === editingId).map((item) => (
+        <Overlay key={item.monitoringId} title={`${item.contentDetailName} 기록 수정`} className="content-editor" onClose={() => { if (!saving) setEditingId(null) }}>
+          <div className="overlay-body">
             <div className="stack">
               <label htmlFor={`status-${item.monitoringId}`}>학습 상태</label>
-              <select
-                id={`status-${item.monitoringId}`}
-                value={editStatus}
-                onChange={(event) => setEditStatus(event.target.value as ProgressStatus)}
-              >
+              <select id={`status-${item.monitoringId}`} value={editStatus} onChange={(event) => setEditStatus(event.target.value as ProgressStatus)}>
                 {statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {progressStatusLabel(status)}
-                  </option>
+                  <option key={status} value={status}>{progressStatusLabel(status)}</option>
                 ))}
               </select>
               <label htmlFor={`bpm-${item.monitoringId}`}>현재 BPM</label>
-              <input
-                id={`bpm-${item.monitoringId}`}
-                inputMode="numeric"
-                value={editBpm}
-                onChange={(event) => setEditBpm(event.target.value)}
-              />
+              <input id={`bpm-${item.monitoringId}`} inputMode="numeric" value={editBpm} onChange={(event) => setEditBpm(event.target.value)} />
               {editBpmError ? <p className="field-error">{editBpmError}</p> : null}
-              {fieldErrorMessageSafe(editError, 'currentBpm') ? (
-                <p className="field-error">{fieldErrorMessageSafe(editError, 'currentBpm')}</p>
-              ) : null}
+              {fieldErrorMessageSafe(editError, 'currentBpm') ? <p className="field-error">{fieldErrorMessageSafe(editError, 'currentBpm')}</p> : null}
               <label htmlFor={`memo-${item.monitoringId}`}>메모</label>
-              <input
-                id={`memo-${item.monitoringId}`}
-                value={editMemo}
-                onChange={(event) => setEditMemo(event.target.value)}
-              />
+              <input id={`memo-${item.monitoringId}`} value={editMemo} onChange={(event) => setEditMemo(event.target.value)} />
               {editError ? <p className="form-error">{formErrorMessage(editError)}</p> : null}
               <div className="row-actions">
-                <button type="button" className="button" disabled={saving} onClick={() => void onSave(item)}>
-                  {saving ? '저장 중' : '저장'}
-                </button>
-                <button type="button" className="button button-quiet" onClick={() => setEditingId(null)} disabled={saving}>
-                  취소
-                </button>
+                <button type="button" className="button" disabled={saving} onClick={() => void onSave(item)}>{saving ? '저장 중' : '저장'}</button>
+                <button type="button" className="button button-quiet" onClick={() => setEditingId(null)} disabled={saving}>취소</button>
               </div>
             </div>
-          ) : (
-            <div className="row-actions">
-              <span>{progressStatusLabel(item.progressStatus)}</span>
-              <span>현재 BPM {item.currentBpm == null ? '-' : item.currentBpm}</span>
-              <button type="button" className="button button-quiet" onClick={() => startEdit(item)}>
-                기록 수정
-              </button>
-              <button
-                type="button"
-                className="button button-quiet"
-                onClick={() => {
-                  setReleaseError(null)
-                  setReleaseTarget(item)
-                }}
-              >
-                비활성화
-              </button>
-            </div>
-          )}
-          <HomeworkPanel
-            monitoringId={item.monitoringId}
-            contentName={item.contentDetailName}
-            homeworks={item.homeworks}
-            onRefreshLearning={onRefreshLearning}
-          />
-        </div>
+          </div>
+        </Overlay>
       ))}
-      {catalogError ? <p className="form-error">{formErrorMessage(catalogError)}</p> : null}
-      {contents == null && !catalogError ? <p className="quiet">내용 목록을 불러오는 중</p> : null}
-      {contents && available.length === 0 ? <p className="quiet">기록을 추가할 내용이 없습니다.</p> : null}
-      {contents && available.length > 0 ? (
-        <div className="assign-row">
-          <label htmlFor={`new-content-${studentCurriculumId}`}>학습 기록 내용</label>
-          <select id={`new-content-${studentCurriculumId}`} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
-            <option value="">선택</option>
-            {available.map((item) => (
-              <option key={item.contentDetailId} value={item.contentDetailId}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-          <label htmlFor={`new-status-${studentCurriculumId}`}>초기 상태</label>
-          <select
-            id={`new-status-${studentCurriculumId}`}
-            value={createStatus}
-            onChange={(event) => setCreateStatus(event.target.value as ProgressStatus)}
-          >
-            {statuses.map((status) => (
-              <option key={status} value={status}>
-                {progressStatusLabel(status)}
-              </option>
-            ))}
-          </select>
-          <label htmlFor={`new-bpm-${studentCurriculumId}`}>현재 BPM</label>
-          <input
-            id={`new-bpm-${studentCurriculumId}`}
-            inputMode="numeric"
-            value={createBpm}
-            onChange={(event) => setCreateBpm(event.target.value)}
-          />
-          {bpmError ? <p className="field-error">{bpmError}</p> : null}
-          <button type="button" className="button" disabled={creating || selectedId === ''} onClick={() => void onCreate()}>
-            {creating ? '추가 중' : '학습 기록 추가'}
-          </button>
-        </div>
-      ) : null}
+      {monitorings.filter((item) => item.monitoringId === homeworkId).map((item) => (
+        <Overlay key={item.monitoringId} title={`${item.contentDetailName} 과제`} className="content-editor" onClose={() => { if (!homeworkBusy) setHomeworkId(null) }}>
+          <div className="overlay-body">
+            <HomeworkPanel onBusyChange={setHomeworkBusy} monitoringId={item.monitoringId} contentName={item.contentDetailName} homeworks={item.homeworks} onRefreshLearning={onRefreshLearning} />
+          </div>
+        </Overlay>
+      ))}
       {createError ? <p className="form-error">{createErrorMessage(createError)}</p> : null}
       {releaseTarget ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !releasing && setReleaseTarget(null)}>
           <div className="modal" role="dialog" aria-labelledby="deactivate-monitoring" onMouseDown={(event) => event.stopPropagation()}>
-            <h2 id="deactivate-monitoring">학습 기록 비활성화</h2>
+            <h2 id="deactivate-monitoring">연결 해제</h2>
             <p>
-              {releaseTarget.contentDetailName} 학습 기록을 비활성화합니다. 이 기록의 활성 과제도 함께 비활성화됩니다.
-              커리큘럼 배정과 내용 자체는 지우지 않습니다. 학습 기록을 다시 활성화해도 과제는 자동으로 돌아오지 않습니다.
+              {releaseTarget.contentDetailName} 학습 연결을 해제합니다. 이 기록의 활성 과제도 함께 해제됩니다.
+              커리큘럼 배정과 내용 자체는 지우지 않습니다. 다시 연결해도 과제는 자동으로 돌아오지 않습니다.
             </p>
             {releaseError ? <p className="form-error">{formErrorMessage(releaseError)}</p> : null}
             <div className="modal-actions">
-              <button type="button" className="button button-quiet" disabled={releasing} onClick={() => setReleaseTarget(null)}>
-                취소
-              </button>
+              <button type="button" className="button button-quiet" disabled={releasing} onClick={() => setReleaseTarget(null)}>취소</button>
               <button type="button" className="button button-danger" disabled={releasing} onClick={() => void onDeactivate()}>
-                {releasing ? '처리 중' : '비활성화'}
+                {releasing ? '처리 중' : '연결 해제'}
               </button>
             </div>
           </div>
@@ -283,6 +287,19 @@ export function StudentMonitoringPanel({
       ) : null}
     </div>
   )
+}
+
+function groupByCategory(contents: ContentOption[]) {
+  const groups: { categoryId: number; name: string; contents: ContentOption[] }[] = []
+  for (const content of contents) {
+    const current = groups.find((group) => group.categoryId === content.categoryId)
+    if (current) {
+      current.contents.push(content)
+    } else {
+      groups.push({ categoryId: content.categoryId, name: content.categoryName, contents: [content] })
+    }
+  }
+  return groups
 }
 
 function parseBpm(value: string): number | null | 'invalid' {

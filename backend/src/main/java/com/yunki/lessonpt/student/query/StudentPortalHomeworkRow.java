@@ -11,6 +11,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class StudentPortalHomeworkRow {
 
+    private Long homeworkId;
     private Long studentCurriculumId;
     private Long contentDetailId;
     private String homeworkContent;

@@ -25,7 +25,7 @@ import com.yunki.lessonpt.relationship.service.ProgressQueryService;
 import com.yunki.lessonpt.resource.dto.ResourcePair;
 import com.yunki.lessonpt.resource.mapper.ContentResourceMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
-import com.yunki.lessonpt.student.query.StudentPortalContentRow;
+import com.yunki.lessonpt.student.query.StudentPortalCategoryRow;
 import com.yunki.lessonpt.student.query.StudentPortalEnrollment;
 import com.yunki.lessonpt.student.query.StudentPortalHomeworkRow;
 import com.yunki.lessonpt.student.query.StudentPortalIdentity;
@@ -73,21 +73,16 @@ public class StudentPortalService {
         }
         List<Long> curriculumIds = enrollments.stream().map(StudentPortalEnrollment::getCurriculumId).distinct().toList();
         List<Long> enrollmentIds = enrollments.stream().map(StudentPortalEnrollment::getStudentCurriculumId).toList();
-        List<StudentPortalContentRow> contents = studentPortalMapper.selectActiveContents(curriculumIds);
-        List<Long> contentDetailIds = contents.stream()
-                .map(StudentPortalContentRow::getContentDetailId)
-                .filter(id -> id != null)
-                .distinct()
-                .toList();
+        List<StudentPortalCategoryRow> categories = studentPortalMapper.selectActiveCategories(curriculumIds);
+        List<StudentPortalMonitoringRow> published = studentPortalMapper.selectActiveMonitoringContents(enrollmentIds);
         Map<Long, ResourcePair> resources = ResourcePair.byContentDetail(
-                contentResourceMapper.selectActiveByContentDetailIds(contentDetailIds));
-        List<StudentPortalMonitoringRow> monitoring = studentPortalMapper.selectActiveMonitoring(enrollmentIds);
+                contentResourceMapper.selectActiveByContentDetailIds(publishedContentDetailIds(published)));
         List<StudentPortalHomeworkRow> homework = studentPortalMapper.selectActiveHomework(enrollmentIds);
         Map<Long, StudentCurriculumProgressView> progress = new LinkedHashMap<>();
         for (StudentCurriculumProgressView view : progressQueryMapper.selectProgressByStudentCurriculumIds(enrollmentIds)) {
             progress.put(view.getStudentCurriculumId(), view);
         }
-        return new StudentLearningResponse(assemble(enrollments, contents, monitoring, homework, progress, resources));
+        return new StudentLearningResponse(assemble(enrollments, categories, published, homework, progress, resources));
     }
 
     private void requireStudent(StudentPrincipal principal) {
@@ -139,71 +134,80 @@ public class StudentPortalService {
 
     private List<StudentCurriculumView> assemble(
             List<StudentPortalEnrollment> enrollments,
-            List<StudentPortalContentRow> contents,
-            List<StudentPortalMonitoringRow> monitoring,
+            List<StudentPortalCategoryRow> categories,
+            List<StudentPortalMonitoringRow> published,
             List<StudentPortalHomeworkRow> homework,
             Map<Long, StudentCurriculumProgressView> progress,
             Map<Long, ResourcePair> resources) {
-        Map<Long, List<StudentPortalContentRow>> contentsByCurriculum = new LinkedHashMap<>();
-        for (StudentPortalContentRow row : contents) {
-            contentsByCurriculum.computeIfAbsent(row.getCurriculumId(), ignored -> new ArrayList<>()).add(row);
+        Map<Long, List<StudentPortalCategoryRow>> categoriesByCurriculum = new LinkedHashMap<>();
+        for (StudentPortalCategoryRow row : categories) {
+            categoriesByCurriculum.computeIfAbsent(row.getCurriculumId(), ignored -> new ArrayList<>()).add(row);
         }
-        Map<String, StudentPortalMonitoringRow> monitoringByKey = new LinkedHashMap<>();
-        for (StudentPortalMonitoringRow row : monitoring) {
-            monitoringByKey.putIfAbsent(key(row.getStudentCurriculumId(), row.getContentDetailId()), row);
+        Map<String, List<StudentPortalMonitoringRow>> publishedByCategory = new LinkedHashMap<>();
+        for (StudentPortalMonitoringRow row : published) {
+            publishedByCategory.computeIfAbsent(key(row.getStudentCurriculumId(), row.getCategoryId()), ignored -> new ArrayList<>())
+                    .add(row);
         }
         Map<String, List<StudentHomeworkView>> homeworkByKey = new LinkedHashMap<>();
         for (StudentPortalHomeworkRow row : homework) {
             homeworkByKey.computeIfAbsent(key(row.getStudentCurriculumId(), row.getContentDetailId()), ignored -> new ArrayList<>())
-                    .add(new StudentHomeworkView(row.getHomeworkContent(), row.getDeadline(), row.getCompleted(), row.getFeedback()));
+                    .add(new StudentHomeworkView(
+                            row.getHomeworkId(),
+                            row.getHomeworkContent(),
+                            row.getDeadline(),
+                            row.getCompleted(),
+                            row.getFeedback()));
         }
         List<StudentCurriculumView> views = new ArrayList<>();
         for (StudentPortalEnrollment enrollment : enrollments) {
             views.add(new StudentCurriculumView(
                     enrollment.getCurriculumName(),
                     progressQueryService.summarize(progress.get(enrollment.getStudentCurriculumId())),
-                    categories(enrollment.getStudentCurriculumId(),
-                            contentsByCurriculum.getOrDefault(enrollment.getCurriculumId(), List.of()),
-                            monitoringByKey,
+                    categoryViews(enrollment.getStudentCurriculumId(),
+                            categoriesByCurriculum.getOrDefault(enrollment.getCurriculumId(), List.of()),
+                            publishedByCategory,
                             homeworkByKey,
                             resources)));
         }
         return views;
     }
 
-    private List<StudentCategoryView> categories(
+    private List<StudentCategoryView> categoryViews(
             Long studentCurriculumId,
-            List<StudentPortalContentRow> rows,
-            Map<String, StudentPortalMonitoringRow> monitoringByKey,
+            List<StudentPortalCategoryRow> rows,
+            Map<String, List<StudentPortalMonitoringRow>> publishedByCategory,
             Map<String, List<StudentHomeworkView>> homeworkByKey,
             Map<Long, ResourcePair> resources) {
-        Map<Long, StudentCategoryView> categories = new LinkedHashMap<>();
-        Map<Long, List<StudentContentView>> contents = new LinkedHashMap<>();
-        for (StudentPortalContentRow row : rows) {
-            categories.putIfAbsent(row.getCategoryId(), new StudentCategoryView(row.getCategoryName(), List.of()));
-            if (row.getContentDetailId() == null) {
-                contents.putIfAbsent(row.getCategoryId(), new ArrayList<>());
-                continue;
-            }
-            StudentPortalMonitoringRow learned = monitoringByKey.get(key(studentCurriculumId, row.getContentDetailId()));
-            contents.computeIfAbsent(row.getCategoryId(), ignored -> new ArrayList<>())
-                    .add(new StudentContentView(
-                            row.getContentName(),
-                            row.getTargetBpm(),
-                            learned == null ? null : learned.getCurrentBpm(),
-                            learned == null ? null : learned.getProgressStatus(),
-                            row.getYoutubeUrl(),
-                            ResourcePair.of(resources, row.getContentDetailId()).sheet(),
-                            ResourcePair.of(resources, row.getContentDetailId()).audio(),
-                            homeworkByKey.getOrDefault(key(studentCurriculumId, row.getContentDetailId()), List.of())));
-        }
         List<StudentCategoryView> ordered = new ArrayList<>();
-        for (Map.Entry<Long, StudentCategoryView> entry : categories.entrySet()) {
-            ordered.add(new StudentCategoryView(
-                    entry.getValue().name(),
-                    List.copyOf(contents.getOrDefault(entry.getKey(), List.of()))));
+        for (StudentPortalCategoryRow row : rows) {
+            List<StudentContentView> contents = new ArrayList<>();
+            for (StudentPortalMonitoringRow learned : publishedByCategory.getOrDefault(
+                    key(studentCurriculumId, row.getCategoryId()), List.of())) {
+                contents.add(new StudentContentView(
+                        learned.getMonitoringId(),
+                        learned.getContentName(),
+                        learned.getTargetBpm(),
+                        learned.getCurrentBpm(),
+                        learned.getProgressStatus(),
+                        learned.getYoutubeUrl(),
+                        ResourcePair.of(resources, learned.getContentDetailId()).sheet(),
+                        ResourcePair.of(resources, learned.getContentDetailId()).audio(),
+                        homeworkByKey.getOrDefault(key(studentCurriculumId, learned.getContentDetailId()), List.of())));
+            }
+            int totalContentCount = row.getTotalContentCount() == null ? 0 : row.getTotalContentCount();
+            ordered.add(new StudentCategoryView(row.getCategoryName(), totalContentCount, List.copyOf(contents)));
         }
         return ordered;
+    }
+
+    private List<Long> publishedContentDetailIds(List<StudentPortalMonitoringRow> published) {
+        List<Long> ids = new ArrayList<>();
+        for (StudentPortalMonitoringRow row : published) {
+            if (row.getContentDetailId() != null && !ids.contains(row.getContentDetailId())) {
+                ids.add(row.getContentDetailId());
+            }
+        }
+        return ids;
     }
 
     private String key(Long studentCurriculumId, Long contentDetailId) {

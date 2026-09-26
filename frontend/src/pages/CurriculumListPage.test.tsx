@@ -86,12 +86,12 @@ it('asks before deactivating and then refetches the curriculum list', async () =
   if (!row) {
     throw new Error('curriculum row missing')
   }
-  await user.click(within(row).getByRole('button', { name: '비활성화' }))
+  await user.click(within(row).getByRole('button', { name: '커리큘럼 삭제' }))
   const dialog = await screen.findByRole('dialog')
   expect(dialog.textContent).toContain('활성 카테고리와 내용')
   expect(dialog.textContent).toContain('자동으로 돌아오지 않습니다')
   expect(deactivateCurriculum).not.toHaveBeenCalled()
-  await user.click(within(dialog).getByRole('button', { name: '비활성화' }))
+  await user.click(within(dialog).getByRole('button', { name: '삭제' }))
 
   expect(deactivateCurriculum).toHaveBeenCalledWith(3)
   expect(await screen.findByText('다음과정')).toBeTruthy()
@@ -107,8 +107,8 @@ it('shows a neutral order conflict message', async () => {
   )
   renderPage()
 
-  await user.click(await screen.findByRole('button', { name: '비활성화' }))
-  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '비활성화' }))
+  await user.click(await screen.findByRole('button', { name: '커리큘럼 삭제' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '삭제' }))
 
   expect(await screen.findByText('다른 요청이 순서를 변경 중입니다. 잠시 후 다시 시도해 주세요.')).toBeTruthy()
   expect(screen.queryByText('장소 순서')).toBeNull()

@@ -1,20 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/apiClient.ts'
 import { createHomework, deactivateHomework, updateHomework } from '../../api/homeworkApi.ts'
 import { formErrorMessage } from '../feedback/describeError.ts'
 import { formatDeadline, textOrDash } from '../../student/display.ts'
 import type { Homework } from '../../types/student.ts'
 
+import { Overlay } from '../layout/Overlay.tsx'
+
 const maxActiveHomeworks = 3
 
 type Props = {
+  onBusyChange?: (busy: boolean) => void
   monitoringId: number
   contentName: string
   homeworks: Homework[]
   onRefreshLearning: () => Promise<void>
 }
 
-export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshLearning }: Props) {
+export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshLearning, onBusyChange }: Props) {
   const [content, setContent] = useState('')
   const [deadline, setDeadline] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -34,6 +37,8 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
   const [releaseError, setReleaseError] = useState<unknown>(null)
   const [releasing, setReleasing] = useState(false)
 
+  useEffect(() => { onBusyChange?.(creating || saving || busyId != null || releasing) }, [creating, saving, busyId, releasing, onBusyChange])
+
   const atLimit = homeworks.length >= maxActiveHomeworks
   const contentLabel = `과제 내용 (${contentName})`
   const deadlineLabel = `마감 (${contentName})`
@@ -51,7 +56,7 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
     try {
       await createHomework(monitoringId, {
         homeworkContent: content.trim(),
-        deadline: fromDateTimeLocal(deadline),
+        deadline: fromDateInput(deadline),
         feedback: emptyToNull(feedback),
       })
       await onRefreshLearning()
@@ -72,7 +77,7 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
   function startEdit(item: Homework) {
     setEditingId(item.homeworkId)
     setEditContent(item.homeworkContent)
-    setEditDeadline(toDateTimeLocal(item.deadline))
+    setEditDeadline(toDateInput(item.deadline))
     setEditFeedback(item.feedback ?? '')
     setEditContentError('')
     setEditError(null)
@@ -90,7 +95,7 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
     try {
       await updateHomework(monitoringId, item.homeworkId, {
         homeworkContent: editContent.trim(),
-        deadline: fromDateTimeLocal(editDeadline),
+        deadline: fromDateInput(editDeadline),
         feedback: emptyToNull(editFeedback),
       })
       await onRefreshLearning()
@@ -134,7 +139,7 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
       await deactivateHomework(monitoringId, releaseTarget.homeworkId)
       await onRefreshLearning()
       setReleaseTarget(null)
-      setNotice('과제를 비활성화했습니다.')
+      setNotice('과제를 삭제했습니다.')
     } catch (caught) {
       setReleaseError(caught)
       if (shouldRefresh(caught)) {
@@ -167,7 +172,7 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
               <label htmlFor={`edit-hw-deadline-${item.homeworkId}`}>수정할 {deadlineLabel}</label>
               <input
                 id={`edit-hw-deadline-${item.homeworkId}`}
-                type="datetime-local"
+                type="date"
                 value={editDeadline}
                 onChange={(event) => setEditDeadline(event.target.value)}
               />
@@ -227,7 +232,7 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
                     setReleaseTarget(item)
                   }}
                 >
-                  과제 비활성화
+                  과제 삭제
                 </button>
               </div>
             </>
@@ -247,7 +252,7 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
           <label htmlFor={`hw-deadline-${monitoringId}`}>{deadlineLabel}</label>
           <input
             id={`hw-deadline-${monitoringId}`}
-            type="datetime-local"
+            type="date"
             value={deadline}
             onChange={(event) => setDeadline(event.target.value)}
           />
@@ -260,11 +265,9 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
       )}
       {createError ? <p className="form-error">{createErrorMessage(createError)}</p> : null}
       {releaseTarget ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => !releasing && setReleaseTarget(null)}>
-          <div className="modal" role="dialog" aria-labelledby={`deactivate-homework-${monitoringId}`} onMouseDown={(event) => event.stopPropagation()}>
-            <h2 id={`deactivate-homework-${monitoringId}`}>과제 비활성화</h2>
+        <Overlay title="과제 삭제" onClose={() => { if (!releasing) setReleaseTarget(null) }}><div className="overlay-body">
             <p>
-              이 과제만 비활성화합니다. 학습 기록과 커리큘럼 배정은 유지됩니다. 과제를 다시 활성화하는 화면은 제공하지 않습니다.
+              이 과제만 삭제합니다. 학습 기록과 커리큘럼 배정은 유지됩니다. 과제를 다시 활성화하는 화면은 제공하지 않습니다.
             </p>
             {releaseError ? <p className="form-error">{formErrorMessage(releaseError)}</p> : null}
             <div className="modal-actions">
@@ -272,29 +275,29 @@ export function HomeworkPanel({ monitoringId, contentName, homeworks, onRefreshL
                 취소
               </button>
               <button type="button" className="button button-danger" disabled={releasing} onClick={() => void onDeactivate()}>
-                {releasing ? '처리 중' : '과제 비활성화'}
+                {releasing ? '처리 중' : '삭제'}
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       ) : null}
     </div>
   )
 }
 
-function toDateTimeLocal(value: string | null): string {
+function toDateInput(value: string | null): string {
   if (!value) {
     return ''
   }
-  return value.slice(0, 16)
+  return value.slice(0, 10)
 }
 
-function fromDateTimeLocal(value: string): string | null {
+function fromDateInput(value: string): string | null {
   const trimmed = value.trim()
   if (trimmed === '') {
     return null
   }
-  return trimmed.length === 16 ? `${trimmed}:00` : trimmed
+  return trimmed.length === 10 ? `${trimmed}T00:00:00` : trimmed
 }
 
 function emptyToNull(value: string): string | null {

@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { deleteContentResource, fetchTeacherResourceBlob, uploadContentResource } from '../../api/resourceApi.ts'
 import { AUDIO_MAX_BYTES, PDF_MAX_BYTES, formatFileSize } from '../../resource/fileSize.ts'
 import { uploadErrorMessage } from '../../resource/uploadError.ts'
 import type { ContentDetail, ContentResource } from '../../types/curriculum.ts'
+
+import { ResourceButtons } from './ResourceButtons.tsx'
+import { Overlay } from '../layout/Overlay.tsx'
 
 type Props = {
   curriculumId: number
@@ -13,7 +16,7 @@ type Props = {
 
 export function ContentResources({ curriculumId, categoryId, content, onContentChange }: Props) {
   return (
-    <div className="resource-panel">
+    <div className="resource-panel"><p className="form-hint">파일 업로드·교체·삭제는 즉시 반영됩니다. 내용 편집을 취소해도 파일 변경은 유지됩니다.</p>
       <ResourceSlot
         kind="sheet"
         title="악보"
@@ -71,46 +74,7 @@ function ResourceSlot({
   const [error, setError] = useState('')
   const [warning, setWarning] = useState('')
   const [confirming, setConfirming] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const inputId = `${kind}-file-${content.contentDetailId}`
-
-  useEffect(() => {
-    if (kind !== 'audio' || resource == null) {
-      return
-    }
-    let active = true
-    let objectUrl = ''
-    void fetchTeacherResourceBlob(curriculumId, categoryId, content.contentDetailId, resource.resourceId, 'inline')
-      .then((blob) => {
-        objectUrl = URL.createObjectURL(blob)
-        if (active) {
-          setAudioUrl(objectUrl)
-        } else {
-          URL.revokeObjectURL(objectUrl)
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError('음원을 불러오지 못했습니다.')
-        }
-      })
-    return () => {
-      active = false
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl)
-      }
-      setAudioUrl(null)
-    }
-  }, [kind, resource, curriculumId, categoryId, content.contentDetailId])
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-      }
-    }
-  }, [previewUrl])
 
   async function onFile(file: File | undefined) {
     if (!file || busy) {
@@ -169,28 +133,6 @@ function ResourceSlot({
     }
   }
 
-  async function onPreview() {
-    if (!resource || busy) {
-      return
-    }
-    setBusy(true)
-    setError('')
-    try {
-      const blob = await fetchTeacherResourceBlob(
-        curriculumId,
-        categoryId,
-        content.contentDetailId,
-        resource.resourceId,
-        'inline',
-      )
-      setPreviewUrl(URL.createObjectURL(blob))
-    } catch (caught) {
-      setError(uploadErrorMessage(caught, kind))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function onDownload() {
     if (!resource || busy) {
       return
@@ -225,10 +167,7 @@ function ResourceSlot({
         <>
           <p>{resource.originalFileName}</p>
           <p>{formatFileSize(resource.fileSize)}</p>
-          {kind === 'audio' && audioUrl ? <audio controls src={audioUrl} /> : null}
-          {kind === 'sheet' && previewUrl ? (
-            <iframe className="resource-preview" title={`${resource.originalFileName} 미리보기`} src={previewUrl} />
-          ) : null}
+          <ResourceButtons only={kind} content={content} teacher={{ curriculumId, categoryId, contentDetailId: content.contentDetailId }} />
         </>
       ) : (
         <p className="quiet">{emptyLabel}</p>
@@ -248,11 +187,6 @@ function ResourceSlot({
         />
         {resource ? (
           <>
-            {kind === 'sheet' ? (
-              <button type="button" className="button button-quiet" disabled={busy} onClick={() => void onPreview()}>
-                보기
-              </button>
-            ) : null}
             <button type="button" className="button button-quiet" disabled={busy} onClick={() => void onDownload()}>
               다운로드
             </button>
@@ -262,13 +196,11 @@ function ResourceSlot({
           </>
         ) : null}
       </div>
-      {busy ? <p>올리는 중</p> : null}
+      {busy ? <p role="status">처리 중</p> : null}
       {warning ? <p className="storage-warning">{warning}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
       {confirming && resource ? (
-        <div className="modal-backdrop" role="presentation">
-          <div className="modal" role="dialog" aria-labelledby={`${kind}-delete-title`}>
-            <h2 id={`${kind}-delete-title`}>{title} 삭제</h2>
+        <Overlay title={`${title} 삭제`} onClose={() => { if (!busy) setConfirming(false) }}><div className="overlay-body">
             <p>이 파일을 삭제합니다. 삭제한 파일은 복구할 수 없습니다.</p>
             <div className="modal-actions">
               <button type="button" className="button button-quiet" disabled={busy} onClick={() => setConfirming(false)}>
@@ -279,7 +211,7 @@ function ResourceSlot({
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       ) : null}
     </section>
   )

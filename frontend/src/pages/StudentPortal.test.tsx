@@ -52,8 +52,10 @@ const learning = {
       categories: [
         {
           name: '루디먼트',
+          totalContentCount: 4,
           contents: [
             {
+              monitoringId: 1,
               name: '싱글',
               targetBpm: 80,
               currentBpm: null,
@@ -61,9 +63,10 @@ const learning = {
               youtubeUrl: null,
               sheet: null,
               audio: null,
-              homeworks: [{ content: '메트로놈', deadline: null, completed: true, feedback: null }],
+              homeworks: [{ homeworkId: 11, content: '메트로놈', deadline: null, completed: true, feedback: null }],
             },
             {
+              monitoringId: 2,
               name: '더블',
               targetBpm: null,
               currentBpm: 90,
@@ -74,6 +77,7 @@ const learning = {
               homeworks: [],
             },
             {
+              monitoringId: 3,
               name: '파라디들',
               targetBpm: null,
               currentBpm: null,
@@ -84,6 +88,7 @@ const learning = {
               homeworks: [],
             },
             {
+              monitoringId: 4,
               name: '플램',
               targetBpm: null,
               currentBpm: null,
@@ -159,16 +164,18 @@ it('verifies the otp and loads me and learning from the cookie session', async (
   expect(getStudentLearning).toHaveBeenCalledTimes(1)
   expect(screen.getByText('진행률 계산 대상 없음')).toBeTruthy()
   expect(screen.getByText('50.0%')).toBeTruthy()
-  const single = screen.getByRole('heading', { name: '싱글' }).parentElement
+  expect(screen.queryByRole('table')).toBeNull()
+  expect(localStorage.getItem('lessonpt.ui.columns.v1.student-portal')).toBeNull()
+  const single = screen.getByRole('heading', { name: '싱글' }).closest('article')
   expect(single?.textContent).toContain('시작 전')
-  expect(single?.textContent).toContain('현재 BPM -')
+  expect(single?.textContent).toContain('현재 BPM - / 목표 BPM 80')
   expect(single?.textContent).toContain('메트로놈')
   expect(single?.textContent).toContain('완료')
-  expect(single?.textContent).toContain('마감 -')
-  expect(single?.textContent).toContain('피드백 -')
-  expect(screen.getByRole('heading', { name: '더블' }).parentElement?.textContent).toContain('진행 중')
-  expect(screen.getByRole('heading', { name: '파라디들' }).parentElement?.textContent).toContain('완료')
-  expect(screen.getByRole('heading', { name: '플램' }).parentElement?.textContent).toContain('중단')
+  expect(single?.textContent).toContain('기한 -')
+  expect(single?.textContent).not.toContain('미완료')
+  expect(screen.getByRole('heading', { name: '더블' }).closest('article')?.textContent).toContain('진행 중')
+  expect(screen.getByRole('heading', { name: '파라디들' }).closest('article')?.textContent).toContain('완료')
+  expect(screen.getByRole('heading', { name: '플램' }).closest('article')?.textContent).toContain('중단')
   expect(screen.queryByRole('button', { name: '기록 수정' })).toBeNull()
   expect(screen.queryByRole('button', { name: '과제 추가' })).toBeNull()
   expect(screen.queryByRole('button', { name: '비활성화' })).toBeNull()

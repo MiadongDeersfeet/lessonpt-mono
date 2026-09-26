@@ -11,8 +11,13 @@ import lombok.Setter;
 @NoArgsConstructor
 public class StudentPortalMonitoringRow {
 
+    private Long monitoringId;
     private Long studentCurriculumId;
+    private Long categoryId;
     private Long contentDetailId;
+    private String contentName;
+    private Integer targetBpm;
+    private String youtubeUrl;
     private Integer currentBpm;
     private ProgressStatus progressStatus;
 }
