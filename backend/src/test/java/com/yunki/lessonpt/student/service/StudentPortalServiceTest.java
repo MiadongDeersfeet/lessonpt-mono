@@ -25,6 +25,7 @@ import com.yunki.lessonpt.relationship.service.ProgressQueryService;
 import com.yunki.lessonpt.relationship.query.StudentCurriculumProgressView;
 import com.yunki.lessonpt.student.dto.StudentContentView;
 import com.yunki.lessonpt.student.dto.StudentLearningResponse;
+import com.yunki.lessonpt.resource.mapper.ContentResourceMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
 import com.yunki.lessonpt.student.query.StudentPortalContentRow;
 import com.yunki.lessonpt.student.query.StudentPortalEnrollment;
@@ -43,6 +44,9 @@ class StudentPortalServiceTest {
     @Mock
     private ProgressQueryMapper progressQueryMapper;
 
+    @Mock
+    private ContentResourceMapper contentResourceMapper;
+
     private StudentPortalService studentPortalService;
 
     @BeforeEach
@@ -50,7 +54,8 @@ class StudentPortalServiceTest {
         studentPortalService = new StudentPortalService(
                 studentPortalMapper,
                 progressQueryMapper,
-                new ProgressQueryService(null, null, null, null, null));
+                new ProgressQueryService(null, null, null, null, null),
+                contentResourceMapper);
     }
 
     @Test
@@ -181,9 +186,7 @@ class StudentPortalServiceTest {
         row.setContentDetailId(contentId);
         row.setContentName(contentName);
         row.setTargetBpm(120);
-        row.setSheetUrl("sheet");
         row.setYoutubeUrl("video");
-        row.setAudioUrl("audio");
         return row;
     }
 

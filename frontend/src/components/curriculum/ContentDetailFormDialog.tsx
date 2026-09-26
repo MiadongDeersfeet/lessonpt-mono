@@ -2,23 +2,34 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { fieldErrorMessage, formErrorMessage } from '../feedback/describeError.ts'
 import type { ContentDetail, ContentDetailWriteBody } from '../../types/curriculum.ts'
+import { ContentResources } from './ContentResources.tsx'
 
 type Props = {
   content: ContentDetail | null
+  curriculumId: number
+  categoryId: number
   submitting: boolean
   error: unknown
   onClose: () => void
   onSubmit: (body: ContentDetailWriteBody) => void
+  onContentChange: (content: ContentDetail) => void
 }
 
-export function ContentDetailFormDialog({ content, submitting, error, onClose, onSubmit }: Props) {
+export function ContentDetailFormDialog({
+  content,
+  curriculumId,
+  categoryId,
+  submitting,
+  error,
+  onClose,
+  onSubmit,
+  onContentChange,
+}: Props) {
   const [name, setName] = useState(content?.name ?? '')
   const [targetBpm, setTargetBpm] = useState(content?.targetBpm == null ? '' : String(content.targetBpm))
   const [memo, setMemo] = useState(content?.memo ?? '')
   const [evaluationMemo, setEvaluationMemo] = useState(content?.evaluationMemo ?? '')
-  const [sheetUrl, setSheetUrl] = useState(content?.sheetUrl ?? '')
   const [youtubeUrl, setYoutubeUrl] = useState(content?.youtubeUrl ?? '')
-  const [audioUrl, setAudioUrl] = useState(content?.audioUrl ?? '')
   const [nameError, setNameError] = useState('')
   const [bpmError, setBpmError] = useState('')
 
@@ -38,9 +49,7 @@ export function ContentDetailFormDialog({ content, submitting, error, onClose, o
       memo: emptyToNull(memo),
       targetBpm: bpm,
       evaluationMemo: emptyToNull(evaluationMemo),
-      sheetUrl: emptyToNull(sheetUrl),
       youtubeUrl: emptyToNull(youtubeUrl),
-      audioUrl: emptyToNull(audioUrl),
     })
   }
 
@@ -67,15 +76,19 @@ export function ContentDetailFormDialog({ content, submitting, error, onClose, o
         <label htmlFor="content-evaluation">평가 메모</label>
         <textarea id="content-evaluation" value={evaluationMemo} onChange={(event) => setEvaluationMemo(event.target.value)} />
         <FieldMessage message={fieldErrorMessage(error, 'evaluationMemo')} />
-        <label htmlFor="content-sheet">악보 URL</label>
-        <input id="content-sheet" value={sheetUrl} onChange={(event) => setSheetUrl(event.target.value)} />
-        <FieldMessage message={fieldErrorMessage(error, 'sheetUrl')} />
         <label htmlFor="content-youtube">YouTube URL</label>
         <input id="content-youtube" value={youtubeUrl} onChange={(event) => setYoutubeUrl(event.target.value)} />
         <FieldMessage message={fieldErrorMessage(error, 'youtubeUrl')} />
-        <label htmlFor="content-audio">오디오 URL</label>
-        <input id="content-audio" value={audioUrl} onChange={(event) => setAudioUrl(event.target.value)} />
-        <FieldMessage message={fieldErrorMessage(error, 'audioUrl')} />
+        {content ? (
+          <ContentResources
+            curriculumId={curriculumId}
+            categoryId={categoryId}
+            content={content}
+            onContentChange={onContentChange}
+          />
+        ) : (
+          <p className="quiet">저장 후 파일을 추가할 수 있습니다.</p>
+        )}
         {error && !nameError && !bpmError ? <p className="form-error">{formErrorMessage(error)}</p> : null}
         <div className="modal-actions">
           <button type="button" className="button button-quiet" onClick={onClose} disabled={submitting}>

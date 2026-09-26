@@ -27,11 +27,14 @@ import com.yunki.lessonpt.location.mapper.LocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentLocationMapper;
 import com.yunki.lessonpt.relationship.mapper.TeacherStudentMapper;
 import com.yunki.lessonpt.student.mapper.StudentMapper;
+import com.yunki.lessonpt.resource.storage.ObjectStorageGateway;
+import com.yunki.lessonpt.resource.storage.UnavailableObjectStorageGateway;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -47,6 +50,9 @@ class LessonPtApplicationTests {
 
     @MockitoBean
     private TeacherMapper teacherMapper;
+
+    @MockitoBean
+    private com.yunki.lessonpt.resource.mapper.ContentResourceMapper contentResourceMapper;
 
     @MockitoBean
     private CurriculumMapper curriculumMapper;
@@ -105,6 +111,9 @@ class LessonPtApplicationTests {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectStorageGateway objectStorageGateway;
+
     @Test
     void healthShowsOracleDownWhenDatasourceIsMissing() throws Exception {
         mockMvc.perform(get("/actuator/health"))
@@ -138,6 +147,10 @@ class LessonPtApplicationTests {
                     .contains("FROM USER_TABLES")
                     .contains("collection=\"tableNames\"");
         }
+        assertThat(objectStorageGateway).isInstanceOf(UnavailableObjectStorageGateway.class);
+        assertThatThrownBy(() -> objectStorageGateway.delete("teachers/1/contents/2/audio/a.mp3"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Object storage is not configured.");
         assertThat(SchemaV3Tables.NAMES).containsExactly(
                 "TB_TEACHER",
                 "TB_TEACHER_AUTH_SESSION",

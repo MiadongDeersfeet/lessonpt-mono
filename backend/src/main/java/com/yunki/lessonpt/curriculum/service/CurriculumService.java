@@ -16,6 +16,7 @@ import com.yunki.lessonpt.curriculum.dto.CurriculumUpdateRequest;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
 import com.yunki.lessonpt.curriculum.mapper.CurriculumMapper;
+import com.yunki.lessonpt.resource.service.ResourceCleanup;
 import com.yunki.lessonpt.teacher.domain.Teacher;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
 
@@ -29,6 +30,7 @@ public class CurriculumService {
     private final TeacherMapper teacherMapper;
     private final CategoryMapper categoryMapper;
     private final ContentDetailMapper contentDetailMapper;
+    private final ResourceCleanup resourceCleanup;
 
     @Transactional
     public Curriculum createCurriculum(Long teacherId, String name) {
@@ -81,6 +83,7 @@ public class CurriculumService {
     public void deleteCurriculum(Long teacherId, Long curriculumId) {
         lockActiveTeacher(teacherId);
         Curriculum curriculum = requireActive(teacherId, curriculumId);
+        resourceCleanup.discardCurriculum(curriculumId);
         List<Category> categories = categoryMapper.selectActiveCategoriesByCurriculumId(curriculumId);
         for (Category category : categories) {
             contentDetailMapper.softDeleteActiveContentDetailsByCategoryId(category.getCategoryId());

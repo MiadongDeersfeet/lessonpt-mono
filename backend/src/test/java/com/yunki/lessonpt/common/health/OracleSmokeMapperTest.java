@@ -49,7 +49,7 @@ class OracleSmokeMapperTest {
 
     @Test
     void schemaV3TablesExist() {
-        assertThat(SchemaV3Tables.EXPECTED_COUNT).isEqualTo(15);
+        assertThat(SchemaV3Tables.EXPECTED_COUNT).isEqualTo(16);
         assertThat(diagnosticMapper.countExistingTables(SchemaV3Tables.NAMES))
                 .isEqualTo(SchemaV3Tables.EXPECTED_COUNT);
     }

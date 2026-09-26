@@ -273,6 +273,10 @@ a:hover { color: #08383e; }
 }
 
 .form-error { margin: 0; color: #8d2d24; }
+.resource-panel { display: grid; gap: 12px; margin-top: 8px; }
+.resource-slot { display: grid; gap: 6px; }
+.resource-preview { width: 100%; height: 320px; border: 1px solid #d5dbe3; }
+.storage-warning { margin: 0; color: #8a5a12; }
 
 .field-error { margin: 0 0 8px; color: #8d2d24; font-size: 0.9rem; }
 

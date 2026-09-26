@@ -15,12 +15,8 @@ public class ContentDetailChange {
     private boolean targetBpmSpecified;
     private String evaluationMemo;
     private boolean evaluationMemoSpecified;
-    private String sheetUrl;
-    private boolean sheetUrlSpecified;
     private String youtubeUrl;
     private boolean youtubeUrlSpecified;
-    private String audioUrl;
-    private boolean audioUrlSpecified;
 
     public boolean isNameSpecified() {
         return nameSpecified;
@@ -74,19 +70,6 @@ public class ContentDetailChange {
         this.evaluationMemo = evaluationMemo;
     }
 
-    public boolean isSheetUrlSpecified() {
-        return sheetUrlSpecified;
-    }
-
-    public String getSheetUrl() {
-        return sheetUrl;
-    }
-
-    public void setSheetUrl(String sheetUrl) {
-        this.sheetUrlSpecified = true;
-        this.sheetUrl = sheetUrl;
-    }
-
     public boolean isYoutubeUrlSpecified() {
         return youtubeUrlSpecified;
     }
@@ -98,18 +81,5 @@ public class ContentDetailChange {
     public void setYoutubeUrl(String youtubeUrl) {
         this.youtubeUrlSpecified = true;
         this.youtubeUrl = youtubeUrl;
-    }
-
-    public boolean isAudioUrlSpecified() {
-        return audioUrlSpecified;
-    }
-
-    public String getAudioUrl() {
-        return audioUrl;
-    }
-
-    public void setAudioUrl(String audioUrl) {
-        this.audioUrlSpecified = true;
-        this.audioUrl = audioUrl;
     }
 }

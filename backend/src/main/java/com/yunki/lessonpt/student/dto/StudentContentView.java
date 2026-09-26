@@ -9,8 +9,8 @@ public record StudentContentView(
         Integer targetBpm,
         Integer currentBpm,
         ProgressStatus progressStatus,
-        String sheetUrl,
         String youtubeUrl,
-        String audioUrl,
+        com.yunki.lessonpt.resource.dto.ContentResourceResponse sheet,
+        com.yunki.lessonpt.resource.dto.ContentResourceResponse audio,
         List<StudentHomeworkView> homeworks) {
 }

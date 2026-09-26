@@ -21,14 +21,8 @@ public class ValidContentDetailUpdateValidator
                 && (request.getTargetBpm() < 60 || request.getTargetBpm() > 240)) {
             return violation(context, "targetBpm", "목표 BPM은 60 이상 240 이하여야 합니다.");
         }
-        if (request.isSheetUrlSpecified() && request.getSheetUrl() != null && request.getSheetUrl().length() > 2000) {
-            return violation(context, "sheetUrl", "악보 URL은 2000자 이하여야 합니다.");
-        }
         if (request.isYoutubeUrlSpecified() && request.getYoutubeUrl() != null && request.getYoutubeUrl().length() > 2000) {
             return violation(context, "youtubeUrl", "영상 URL은 2000자 이하여야 합니다.");
-        }
-        if (request.isAudioUrlSpecified() && request.getAudioUrl() != null && request.getAudioUrl().length() > 2000) {
-            return violation(context, "audioUrl", "음원 URL은 2000자 이하여야 합니다.");
         }
         return true;
     }

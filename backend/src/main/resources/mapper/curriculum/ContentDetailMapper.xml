@@ -11,9 +11,7 @@
         <result column="MEMO" property="memo" jdbcType="CLOB"/>
         <result column="TARGET_BPM" property="targetBpm"/>
         <result column="EVALUATION_MEMO" property="evaluationMemo" jdbcType="CLOB"/>
-        <result column="SHEET_URL" property="sheetUrl"/>
         <result column="YOUTUBE_URL" property="youtubeUrl"/>
-        <result column="AUDIO_URL" property="audioUrl"/>
         <result column="CREATED_AT" property="createdAt"/>
         <result column="UPDATED_AT" property="updatedAt"/>
         <result column="STATUS" property="status"
@@ -23,7 +21,7 @@
 
     <sql id="contentDetailColumns">
         CONTENT_DETAIL_ID, CATEGORY_ID, NAME, DISPLAY_ORDER,
-        MEMO, TARGET_BPM, EVALUATION_MEMO, SHEET_URL, YOUTUBE_URL, AUDIO_URL,
+        MEMO, TARGET_BPM, EVALUATION_MEMO, YOUTUBE_URL,
         CREATED_AT, UPDATED_AT, STATUS, DELETED_AT
     </sql>
 
@@ -66,7 +64,7 @@
         </selectKey>
         INSERT INTO TB_CONTENT_DETAIL (
             CONTENT_DETAIL_ID, CATEGORY_ID, NAME, DISPLAY_ORDER,
-            MEMO, TARGET_BPM, EVALUATION_MEMO, SHEET_URL, YOUTUBE_URL, AUDIO_URL,
+            MEMO, TARGET_BPM, EVALUATION_MEMO, YOUTUBE_URL,
             STATUS, CREATED_AT, UPDATED_AT
         ) VALUES (
             #{contentDetailId},
@@ -76,9 +74,7 @@
             #{memo,jdbcType=CLOB},
             #{targetBpm,jdbcType=NUMERIC},
             #{evaluationMemo,jdbcType=CLOB},
-            #{sheetUrl,jdbcType=VARCHAR},
             #{youtubeUrl,jdbcType=VARCHAR},
-            #{audioUrl,jdbcType=VARCHAR},
             #{status,jdbcType=CHAR,typeHandler=com.yunki.lessonpt.common.mybatis.typehandler.RecordStatusTypeHandler},
             SYSTIMESTAMP,
             SYSTIMESTAMP
@@ -91,9 +87,7 @@
             MEMO = #{memo,jdbcType=CLOB},
             TARGET_BPM = #{targetBpm,jdbcType=NUMERIC},
             EVALUATION_MEMO = #{evaluationMemo,jdbcType=CLOB},
-            SHEET_URL = #{sheetUrl,jdbcType=VARCHAR},
             YOUTUBE_URL = #{youtubeUrl,jdbcType=VARCHAR},
-            AUDIO_URL = #{audioUrl,jdbcType=VARCHAR},
             UPDATED_AT = SYSTIMESTAMP
         WHERE CONTENT_DETAIL_ID = #{contentDetailId}
           AND CATEGORY_ID = #{categoryId}

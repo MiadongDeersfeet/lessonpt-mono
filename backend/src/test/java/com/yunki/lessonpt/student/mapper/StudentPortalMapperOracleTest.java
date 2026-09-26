@@ -115,7 +115,6 @@ class StudentPortalMapperOracleTest {
         categoryMapper.insertCategory(first);
         ContentDetail visible = detail(first.getCategoryId(), "싱글", 1);
         visible.setTargetBpm(120);
-        visible.setSheetUrl("sheet");
         visible.setMemo("숨김");
         contentDetailMapper.insertContentDetail(visible);
         ContentDetail unmonitored = detail(first.getCategoryId(), "더블", 2);

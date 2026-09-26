@@ -147,9 +147,9 @@ beforeEach(() => {
       memo: null,
       targetBpm: 80,
       evaluationMemo: null,
-      sheetUrl: null,
       youtubeUrl: null,
-      audioUrl: null,
+      sheet: null,
+      audio: null,
     },
     {
       contentDetailId: 16,
@@ -158,9 +158,9 @@ beforeEach(() => {
       memo: null,
       targetBpm: 100,
       evaluationMemo: null,
-      sheetUrl: null,
       youtubeUrl: null,
-      audioUrl: null,
+      sheet: null,
+      audio: null,
     },
   ])
 })

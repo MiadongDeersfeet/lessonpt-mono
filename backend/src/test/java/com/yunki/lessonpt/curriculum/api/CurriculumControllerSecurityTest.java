@@ -33,6 +33,7 @@ import com.yunki.lessonpt.curriculum.domain.Curriculum;
 import com.yunki.lessonpt.curriculum.dto.CurriculumUpdateRequest;
 import com.yunki.lessonpt.curriculum.mapper.CategoryMapper;
 import com.yunki.lessonpt.curriculum.mapper.ContentDetailMapper;
+import com.yunki.lessonpt.resource.mapper.ContentResourceMapper;
 import com.yunki.lessonpt.relationship.mapper.StudentCurriculumMapper;
 import com.yunki.lessonpt.relationship.mapper.HomeworkMapper;
 import com.yunki.lessonpt.relationship.mapper.ProgressQueryMapper;
@@ -91,6 +92,9 @@ class CurriculumControllerSecurityTest {
 
     @MockitoBean
     private ContentDetailMapper contentDetailMapper;
+
+    @MockitoBean
+    private ContentResourceMapper contentResourceMapper;
 
     @MockitoBean
     private StudentCurriculumMapper studentCurriculumMapper;

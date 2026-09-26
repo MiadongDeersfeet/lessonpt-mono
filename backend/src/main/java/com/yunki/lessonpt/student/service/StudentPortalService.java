@@ -22,6 +22,8 @@ import com.yunki.lessonpt.student.dto.StudentMeResponse;
 import com.yunki.lessonpt.student.dto.StudentRelationshipLocationResponse;
 import com.yunki.lessonpt.student.dto.StudentRelationshipResponse;
 import com.yunki.lessonpt.relationship.service.ProgressQueryService;
+import com.yunki.lessonpt.resource.dto.ResourcePair;
+import com.yunki.lessonpt.resource.mapper.ContentResourceMapper;
 import com.yunki.lessonpt.student.mapper.StudentPortalMapper;
 import com.yunki.lessonpt.student.query.StudentPortalContentRow;
 import com.yunki.lessonpt.student.query.StudentPortalEnrollment;
@@ -39,6 +41,7 @@ public class StudentPortalService {
     private final StudentPortalMapper studentPortalMapper;
     private final ProgressQueryMapper progressQueryMapper;
     private final ProgressQueryService progressQueryService;
+    private final ContentResourceMapper contentResourceMapper;
 
     @Transactional(readOnly = true)
     public StudentMeResponse me(StudentPrincipal principal) {
@@ -71,13 +74,20 @@ public class StudentPortalService {
         List<Long> curriculumIds = enrollments.stream().map(StudentPortalEnrollment::getCurriculumId).distinct().toList();
         List<Long> enrollmentIds = enrollments.stream().map(StudentPortalEnrollment::getStudentCurriculumId).toList();
         List<StudentPortalContentRow> contents = studentPortalMapper.selectActiveContents(curriculumIds);
+        List<Long> contentDetailIds = contents.stream()
+                .map(StudentPortalContentRow::getContentDetailId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        Map<Long, ResourcePair> resources = ResourcePair.byContentDetail(
+                contentResourceMapper.selectActiveByContentDetailIds(contentDetailIds));
         List<StudentPortalMonitoringRow> monitoring = studentPortalMapper.selectActiveMonitoring(enrollmentIds);
         List<StudentPortalHomeworkRow> homework = studentPortalMapper.selectActiveHomework(enrollmentIds);
         Map<Long, StudentCurriculumProgressView> progress = new LinkedHashMap<>();
         for (StudentCurriculumProgressView view : progressQueryMapper.selectProgressByStudentCurriculumIds(enrollmentIds)) {
             progress.put(view.getStudentCurriculumId(), view);
         }
-        return new StudentLearningResponse(assemble(enrollments, contents, monitoring, homework, progress));
+        return new StudentLearningResponse(assemble(enrollments, contents, monitoring, homework, progress, resources));
     }
 
     private void requireStudent(StudentPrincipal principal) {
@@ -132,7 +142,8 @@ public class StudentPortalService {
             List<StudentPortalContentRow> contents,
             List<StudentPortalMonitoringRow> monitoring,
             List<StudentPortalHomeworkRow> homework,
-            Map<Long, StudentCurriculumProgressView> progress) {
+            Map<Long, StudentCurriculumProgressView> progress,
+            Map<Long, ResourcePair> resources) {
         Map<Long, List<StudentPortalContentRow>> contentsByCurriculum = new LinkedHashMap<>();
         for (StudentPortalContentRow row : contents) {
             contentsByCurriculum.computeIfAbsent(row.getCurriculumId(), ignored -> new ArrayList<>()).add(row);
@@ -154,7 +165,8 @@ public class StudentPortalService {
                     categories(enrollment.getStudentCurriculumId(),
                             contentsByCurriculum.getOrDefault(enrollment.getCurriculumId(), List.of()),
                             monitoringByKey,
-                            homeworkByKey)));
+                            homeworkByKey,
+                            resources)));
         }
         return views;
     }
@@ -163,7 +175,8 @@ public class StudentPortalService {
             Long studentCurriculumId,
             List<StudentPortalContentRow> rows,
             Map<String, StudentPortalMonitoringRow> monitoringByKey,
-            Map<String, List<StudentHomeworkView>> homeworkByKey) {
+            Map<String, List<StudentHomeworkView>> homeworkByKey,
+            Map<Long, ResourcePair> resources) {
         Map<Long, StudentCategoryView> categories = new LinkedHashMap<>();
         Map<Long, List<StudentContentView>> contents = new LinkedHashMap<>();
         for (StudentPortalContentRow row : rows) {
@@ -179,9 +192,9 @@ public class StudentPortalService {
                             row.getTargetBpm(),
                             learned == null ? null : learned.getCurrentBpm(),
                             learned == null ? null : learned.getProgressStatus(),
-                            row.getSheetUrl(),
                             row.getYoutubeUrl(),
-                            row.getAudioUrl(),
+                            ResourcePair.of(resources, row.getContentDetailId()).sheet(),
+                            ResourcePair.of(resources, row.getContentDetailId()).audio(),
                             homeworkByKey.getOrDefault(key(studentCurriculumId, row.getContentDetailId()), List.of())));
         }
         List<StudentCategoryView> ordered = new ArrayList<>();
