@@ -7,9 +7,7 @@ public record ContentDetailResponse(
         String memo,
         Integer targetBpm,
         String evaluationMemo,
-        String sheetUrl,
         String youtubeUrl,
-        String audioUrl,
         com.yunki.lessonpt.resource.dto.ContentResourceResponse sheet,
         com.yunki.lessonpt.resource.dto.ContentResourceResponse audio
 ) {

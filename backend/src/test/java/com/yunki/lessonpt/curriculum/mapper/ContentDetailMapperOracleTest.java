@@ -62,10 +62,10 @@ class ContentDetailMapperOracleTest {
         String memo = "악보 메모 " + "가".repeat(400);
         String evaluationMemo = "평가 메모 " + "나".repeat(400);
         ContentDetail first = detail(categoryA.getCategoryId(), "스케일", 1, 60, memo, evaluationMemo,
-                "https://example.com/sheet", "https://youtu.be/scale", "https://example.com/scale.mp3");
-        ContentDetail second = detail(categoryA.getCategoryId(), "코드", 2, 240, null, null, null, null, null);
-        ContentDetail third = detail(categoryA.getCategoryId(), "마무리", 3, null, null, null, null, null, null);
-        ContentDetail other = detail(categoryB.getCategoryId(), "유지", 1, 80, "다른 메모", null, null, null, null);
+                "https://youtu.be/scale");
+        ContentDetail second = detail(categoryA.getCategoryId(), "코드", 2, 240, null, null, null);
+        ContentDetail third = detail(categoryA.getCategoryId(), "마무리", 3, null, null, null, null);
+        ContentDetail other = detail(categoryB.getCategoryId(), "유지", 1, 80, "다른 메모", null, null);
         contentDetailMapper.insertContentDetail(first);
         contentDetailMapper.insertContentDetail(second);
         contentDetailMapper.insertContentDetail(third);
@@ -77,9 +77,7 @@ class ContentDetailMapperOracleTest {
         assertThat(reloaded.getMemo()).isEqualTo(memo);
         assertThat(reloaded.getEvaluationMemo()).isEqualTo(evaluationMemo);
         assertThat(reloaded.getTargetBpm()).isEqualTo(60);
-        assertThat(reloaded.getSheetUrl()).isEqualTo("https://example.com/sheet");
         assertThat(reloaded.getYoutubeUrl()).isEqualTo("https://youtu.be/scale");
-        assertThat(reloaded.getAudioUrl()).isEqualTo("https://example.com/scale.mp3");
         assertThat(contentDetailMapper.selectActiveContentDetailById(second.getContentDetailId()).getTargetBpm())
                 .isEqualTo(240);
         assertThat(contentDetailMapper.selectActiveContentDetailById(third.getContentDetailId()).getTargetBpm())
@@ -93,9 +91,7 @@ class ContentDetailMapperOracleTest {
         first.setMemo(null);
         first.setTargetBpm(null);
         first.setEvaluationMemo(null);
-        first.setSheetUrl(null);
         first.setYoutubeUrl(null);
-        first.setAudioUrl(null);
         assertThat(contentDetailMapper.updateContentDetail(first)).isEqualTo(1);
         ContentDetail cleared = contentDetailMapper.selectActiveContentDetailByIdAndCategoryId(
                 first.getContentDetailId(), categoryA.getCategoryId());
@@ -104,9 +100,7 @@ class ContentDetailMapperOracleTest {
         assertThat(cleared.getMemo()).isNull();
         assertThat(cleared.getTargetBpm()).isNull();
         assertThat(cleared.getEvaluationMemo()).isNull();
-        assertThat(cleared.getSheetUrl()).isNull();
         assertThat(cleared.getYoutubeUrl()).isNull();
-        assertThat(cleared.getAudioUrl()).isNull();
 
         assertThat(contentDetailMapper.softDeleteContentDetail(first.getContentDetailId(), categoryA.getCategoryId()))
                 .isEqualTo(1);
@@ -151,9 +145,9 @@ class ContentDetailMapperOracleTest {
         categoryMapper.insertCategory(categoryA2);
         categoryMapper.insertCategory(categoryB1);
 
-        ContentDetail detailA1 = detail(categoryA1.getCategoryId(), "A1", 1, null, null, null, null, null, null);
-        ContentDetail detailA2 = detail(categoryA2.getCategoryId(), "A2", 1, null, null, null, null, null, null);
-        ContentDetail detailB1 = detail(categoryB1.getCategoryId(), "B1", 1, null, null, null, null, null, null);
+        ContentDetail detailA1 = detail(categoryA1.getCategoryId(), "A1", 1, null, null, null, null);
+        ContentDetail detailA2 = detail(categoryA2.getCategoryId(), "A2", 1, null, null, null, null);
+        ContentDetail detailB1 = detail(categoryB1.getCategoryId(), "B1", 1, null, null, null, null);
         contentDetailMapper.insertContentDetail(detailA1);
         contentDetailMapper.insertContentDetail(detailA2);
         contentDetailMapper.insertContentDetail(detailB1);
@@ -227,9 +221,7 @@ class ContentDetailMapperOracleTest {
             Integer targetBpm,
             String memo,
             String evaluationMemo,
-            String sheetUrl,
-            String youtubeUrl,
-            String audioUrl) {
+            String youtubeUrl) {
         ContentDetail contentDetail = new ContentDetail();
         contentDetail.setCategoryId(categoryId);
         contentDetail.setName(name);
@@ -237,9 +229,7 @@ class ContentDetailMapperOracleTest {
         contentDetail.setTargetBpm(targetBpm);
         contentDetail.setMemo(memo);
         contentDetail.setEvaluationMemo(evaluationMemo);
-        contentDetail.setSheetUrl(sheetUrl);
         contentDetail.setYoutubeUrl(youtubeUrl);
-        contentDetail.setAudioUrl(audioUrl);
         contentDetail.setStatus(RecordStatus.ACTIVE);
         return contentDetail;
     }

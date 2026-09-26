@@ -26,9 +26,7 @@ export type ContentDetail = {
   memo: string | null
   targetBpm: number | null
   evaluationMemo: string | null
-  sheetUrl: string | null
   youtubeUrl: string | null
-  audioUrl: string | null
   sheet: ContentResource | null
   audio: ContentResource | null
 }

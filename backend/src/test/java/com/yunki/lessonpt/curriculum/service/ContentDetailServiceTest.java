@@ -175,7 +175,6 @@ class ContentDetailServiceTest {
         ContentDetail current = saved(90L, 50L, 1, "스케일");
         current.setMemo("기존");
         current.setTargetBpm(80);
-        current.setSheetUrl("https://example.com/old");
         when(contentDetailMapper.selectActiveContentDetailByIdAndCategoryId(90L, 50L)).thenReturn(current);
         when(contentDetailMapper.lockContentDetailById(90L)).thenReturn(saved(90L, 50L, 1, "스케일"));
         when(contentDetailMapper.updateContentDetail(any())).thenReturn(1);
@@ -183,9 +182,7 @@ class ContentDetailServiceTest {
         ContentDetailChange change = named("스케일 연습");
         change.setMemo("새 메모");
         change.setTargetBpm(90);
-        change.setSheetUrl("https://example.com/sheet");
         change.setYoutubeUrl("https://youtu.be/abcdefghijk");
-        change.setAudioUrl("https://example.com/scale.mp3");
         contentDetailService.updateContentDetail(8L, 40L, 50L, 90L, change);
 
         ArgumentCaptor<ContentDetail> captor = ArgumentCaptor.forClass(ContentDetail.class);
@@ -194,9 +191,7 @@ class ContentDetailServiceTest {
         assertThat(updated.getName()).isEqualTo("스케일 연습");
         assertThat(updated.getMemo()).isEqualTo("새 메모");
         assertThat(updated.getTargetBpm()).isEqualTo(90);
-        assertThat(updated.getSheetUrl()).isEqualTo("https://example.com/sheet");
         assertThat(updated.getYoutubeUrl()).isEqualTo("https://youtu.be/abcdefghijk");
-        assertThat(updated.getAudioUrl()).isEqualTo("https://example.com/scale.mp3");
         assertThat(updated.getDisplayOrder()).isEqualTo(1);
         verify(categoryMapper, never()).lockCategoryById(any());
     }
@@ -208,9 +203,7 @@ class ContentDetailServiceTest {
         current.setMemo("기존");
         current.setTargetBpm(80);
         current.setEvaluationMemo("평가");
-        current.setSheetUrl("https://example.com/sheet");
         current.setYoutubeUrl("https://youtu.be/abcdefghijk");
-        current.setAudioUrl("https://example.com/scale.mp3");
         when(contentDetailMapper.selectActiveContentDetailByIdAndCategoryId(90L, 50L)).thenReturn(current);
         when(contentDetailMapper.lockContentDetailById(90L)).thenReturn(saved(90L, 50L, 2, "스케일"));
         when(contentDetailMapper.updateContentDetail(any())).thenReturn(1);
@@ -219,9 +212,7 @@ class ContentDetailServiceTest {
         change.setMemo(null);
         change.setTargetBpm(null);
         change.setEvaluationMemo(null);
-        change.setSheetUrl(null);
         change.setYoutubeUrl(null);
-        change.setAudioUrl(null);
         contentDetailService.updateContentDetail(8L, 40L, 50L, 90L, change);
 
         ArgumentCaptor<ContentDetail> captor = ArgumentCaptor.forClass(ContentDetail.class);
@@ -231,9 +222,7 @@ class ContentDetailServiceTest {
         assertThat(updated.getMemo()).isNull();
         assertThat(updated.getTargetBpm()).isNull();
         assertThat(updated.getEvaluationMemo()).isNull();
-        assertThat(updated.getSheetUrl()).isNull();
         assertThat(updated.getYoutubeUrl()).isNull();
-        assertThat(updated.getAudioUrl()).isNull();
         assertThat(updated.getDisplayOrder()).isEqualTo(2);
     }
 

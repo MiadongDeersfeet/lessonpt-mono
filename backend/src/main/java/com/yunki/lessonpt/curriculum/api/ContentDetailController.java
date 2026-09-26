@@ -116,9 +116,7 @@ public class ContentDetailController {
         change.setMemo(request.memo());
         change.setTargetBpm(request.targetBpm());
         change.setEvaluationMemo(request.evaluationMemo());
-        change.setSheetUrl(request.sheetUrl());
         change.setYoutubeUrl(request.youtubeUrl());
-        change.setAudioUrl(request.audioUrl());
         return change;
     }
 
@@ -136,14 +134,8 @@ public class ContentDetailController {
         if (request.isEvaluationMemoSpecified()) {
             change.setEvaluationMemo(request.getEvaluationMemo());
         }
-        if (request.isSheetUrlSpecified()) {
-            change.setSheetUrl(request.getSheetUrl());
-        }
         if (request.isYoutubeUrlSpecified()) {
             change.setYoutubeUrl(request.getYoutubeUrl());
-        }
-        if (request.isAudioUrlSpecified()) {
-            change.setAudioUrl(request.getAudioUrl());
         }
         return change;
     }
@@ -162,9 +154,7 @@ public class ContentDetailController {
                 contentDetail.getMemo(),
                 contentDetail.getTargetBpm(),
                 contentDetail.getEvaluationMemo(),
-                contentDetail.getSheetUrl(),
                 contentDetail.getYoutubeUrl(),
-                contentDetail.getAudioUrl(),
                 pair.sheet(),
                 pair.audio());
     }

@@ -40,9 +40,7 @@ const stroke = {
   memo: '천천히',
   targetBpm: 80,
   evaluationMemo: '손목',
-  sheetUrl: 'https://sheet.example/a',
   youtubeUrl: null,
-  audioUrl: null,
   sheet: null,
   audio: null,
 }
@@ -138,9 +136,7 @@ it('creates content with a null target bpm and null urls', async () => {
     memo: null,
     targetBpm: null,
     evaluationMemo: null,
-    sheetUrl: null,
     youtubeUrl: null,
-    audioUrl: null,
     sheet: null,
     audio: null,
   })
@@ -167,9 +163,7 @@ it('blocks target bpm outside 60 to 240 and sends the boundary values', async ()
     memo: body.memo,
     targetBpm: body.targetBpm,
     evaluationMemo: body.evaluationMemo,
-    sheetUrl: null,
     youtubeUrl: body.youtubeUrl,
-    audioUrl: null,
     sheet: null,
     audio: null,
   }))

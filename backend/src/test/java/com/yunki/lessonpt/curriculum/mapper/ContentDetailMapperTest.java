@@ -41,7 +41,7 @@ class ContentDetailMapperTest {
                 .collect(Collectors.toSet());
         assertThat(properties).containsExactlyInAnyOrder(
                 "contentDetailId", "categoryId", "name", "displayOrder",
-                "memo", "targetBpm", "evaluationMemo", "sheetUrl", "youtubeUrl", "audioUrl",
+                "memo", "targetBpm", "evaluationMemo", "youtubeUrl",
                 "createdAt", "updatedAt", "status", "deletedAt");
         ResultMapping status = mapping(resultMap, "status");
         assertThat(status.getTypeHandler()).isInstanceOf(RecordStatusTypeHandler.class);
@@ -93,9 +93,7 @@ class ContentDetailMapperTest {
                 "MEMO = ?",
                 "TARGET_BPM = ?",
                 "EVALUATION_MEMO = ?",
-                "SHEET_URL = ?",
                 "YOUTUBE_URL = ?",
-                "AUDIO_URL = ?",
                 "CATEGORY_ID = ?");
         assertThat(update).doesNotContain("DISPLAY_ORDER");
         assertThat(xml).contains("jdbcType=CLOB", "jdbcType=NUMERIC", "jdbcType=VARCHAR");

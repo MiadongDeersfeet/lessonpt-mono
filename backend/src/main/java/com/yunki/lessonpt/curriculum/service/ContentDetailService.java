@@ -51,9 +51,7 @@ public class ContentDetailService {
         contentDetail.setMemo(change.getMemo());
         contentDetail.setTargetBpm(change.getTargetBpm());
         contentDetail.setEvaluationMemo(change.getEvaluationMemo());
-        contentDetail.setSheetUrl(change.getSheetUrl());
         contentDetail.setYoutubeUrl(change.getYoutubeUrl());
-        contentDetail.setAudioUrl(change.getAudioUrl());
         contentDetail.setStatus(RecordStatus.ACTIVE);
         expectOne(contentDetailMapper.insertContentDetail(contentDetail));
         return requireActive(categoryId, contentDetail.getContentDetailId());
@@ -149,14 +147,8 @@ public class ContentDetailService {
         if (change.isEvaluationMemoSpecified()) {
             contentDetail.setEvaluationMemo(change.getEvaluationMemo());
         }
-        if (change.isSheetUrlSpecified()) {
-            contentDetail.setSheetUrl(change.getSheetUrl());
-        }
         if (change.isYoutubeUrlSpecified()) {
             contentDetail.setYoutubeUrl(change.getYoutubeUrl());
-        }
-        if (change.isAudioUrlSpecified()) {
-            contentDetail.setAudioUrl(change.getAudioUrl());
         }
     }
 

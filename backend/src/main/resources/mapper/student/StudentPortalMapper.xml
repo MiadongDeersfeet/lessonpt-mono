@@ -25,9 +25,7 @@
         <result column="CONTENT_NAME" property="contentName"/>
         <result column="CONTENT_DISPLAY_ORDER" property="contentDisplayOrder"/>
         <result column="TARGET_BPM" property="targetBpm"/>
-        <result column="SHEET_URL" property="sheetUrl"/>
         <result column="YOUTUBE_URL" property="youtubeUrl"/>
-        <result column="AUDIO_URL" property="audioUrl"/>
     </resultMap>
 
     <resultMap id="studentPortalMonitoringResultMap" type="com.yunki.lessonpt.student.query.StudentPortalMonitoringRow">
@@ -158,9 +156,7 @@
                content.NAME AS CONTENT_NAME,
                content.DISPLAY_ORDER AS CONTENT_DISPLAY_ORDER,
                content.TARGET_BPM,
-               content.SHEET_URL,
-               content.YOUTUBE_URL,
-               content.AUDIO_URL
+               content.YOUTUBE_URL
         FROM TB_CATEGORY category
         LEFT JOIN TB_CONTENT_DETAIL content
           ON content.CATEGORY_ID = category.CATEGORY_ID

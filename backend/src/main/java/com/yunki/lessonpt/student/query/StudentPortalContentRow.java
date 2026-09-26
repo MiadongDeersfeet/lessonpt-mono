@@ -17,7 +17,5 @@ public class StudentPortalContentRow {
     private String contentName;
     private Integer contentDisplayOrder;
     private Integer targetBpm;
-    private String sheetUrl;
     private String youtubeUrl;
-    private String audioUrl;
 }

@@ -192,9 +192,7 @@ public class StudentPortalService {
                             row.getTargetBpm(),
                             learned == null ? null : learned.getCurrentBpm(),
                             learned == null ? null : learned.getProgressStatus(),
-                            row.getSheetUrl(),
                             row.getYoutubeUrl(),
-                            row.getAudioUrl(),
                             ResourcePair.of(resources, row.getContentDetailId()).sheet(),
                             ResourcePair.of(resources, row.getContentDetailId()).audio(),
                             homeworkByKey.getOrDefault(key(studentCurriculumId, row.getContentDetailId()), List.of())));

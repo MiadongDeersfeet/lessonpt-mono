@@ -29,9 +29,7 @@ export type StudentPortalContent = {
   targetBpm: number | null
   currentBpm: number | null
   progressStatus: ProgressStatus | null
-  sheetUrl: string | null
   youtubeUrl: string | null
-  audioUrl: string | null
   sheet: ContentResource | null
   audio: ContentResource | null
   homeworks: StudentPortalHomework[]

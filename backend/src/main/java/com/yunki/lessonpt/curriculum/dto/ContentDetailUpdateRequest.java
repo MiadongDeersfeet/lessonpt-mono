@@ -18,12 +18,8 @@ public class ContentDetailUpdateRequest {
     private boolean targetBpmSpecified;
     private String evaluationMemo;
     private boolean evaluationMemoSpecified;
-    private String sheetUrl;
-    private boolean sheetUrlSpecified;
     private String youtubeUrl;
     private boolean youtubeUrlSpecified;
-    private String audioUrl;
-    private boolean audioUrlSpecified;
 
     @JsonIgnore
     public boolean isNameSpecified() {
@@ -86,21 +82,6 @@ public class ContentDetailUpdateRequest {
     }
 
     @JsonIgnore
-    public boolean isSheetUrlSpecified() {
-        return sheetUrlSpecified;
-    }
-
-    public String getSheetUrl() {
-        return sheetUrl;
-    }
-
-    @JsonProperty("sheetUrl")
-    public void setSheetUrl(String sheetUrl) {
-        this.sheetUrlSpecified = true;
-        this.sheetUrl = sheetUrl;
-    }
-
-    @JsonIgnore
     public boolean isYoutubeUrlSpecified() {
         return youtubeUrlSpecified;
     }
@@ -113,20 +94,5 @@ public class ContentDetailUpdateRequest {
     public void setYoutubeUrl(String youtubeUrl) {
         this.youtubeUrlSpecified = true;
         this.youtubeUrl = youtubeUrl;
-    }
-
-    @JsonIgnore
-    public boolean isAudioUrlSpecified() {
-        return audioUrlSpecified;
-    }
-
-    public String getAudioUrl() {
-        return audioUrl;
-    }
-
-    @JsonProperty("audioUrl")
-    public void setAudioUrl(String audioUrl) {
-        this.audioUrlSpecified = true;
-        this.audioUrl = audioUrl;
     }
 }

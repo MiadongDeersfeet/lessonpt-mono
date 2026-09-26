@@ -25,9 +25,7 @@ public class ContentDetail {
     private String memo;
     private Integer targetBpm;
     private String evaluationMemo;
-    private String sheetUrl;
     private String youtubeUrl;
-    private String audioUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private RecordStatus status;

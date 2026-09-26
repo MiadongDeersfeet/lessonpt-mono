@@ -10,8 +10,6 @@ public record ContentDetailCreateRequest(
         String memo,
         @Min(60) @Max(240) Integer targetBpm,
         String evaluationMemo,
-        @Size(max = 2000) String sheetUrl,
-        @Size(max = 2000) String youtubeUrl,
-        @Size(max = 2000) String audioUrl
+        @Size(max = 2000) String youtubeUrl
 ) {
 }

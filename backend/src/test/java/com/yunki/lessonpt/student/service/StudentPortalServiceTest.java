@@ -186,9 +186,7 @@ class StudentPortalServiceTest {
         row.setContentDetailId(contentId);
         row.setContentName(contentName);
         row.setTargetBpm(120);
-        row.setSheetUrl("sheet");
         row.setYoutubeUrl("video");
-        row.setAudioUrl("audio");
         return row;
     }
 

@@ -163,7 +163,7 @@ class ContentDetailControllerSecurityTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"스케일","memo":"메모","targetBpm":80,"evaluationMemo":"평가","sheetUrl":"https://example.com/sheet","youtubeUrl":"https://youtu.be/abcdefghijk","audioUrl":"https://example.com/scale.mp3"}
+                                {"name":"스케일","memo":"메모","targetBpm":80,"evaluationMemo":"평가","youtubeUrl":"https://youtu.be/abcdefghijk"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(header().string(HttpHeaders.LOCATION, org.hamcrest.Matchers.containsString(BASE + "/90")))
@@ -173,9 +173,9 @@ class ContentDetailControllerSecurityTest {
                 .andExpect(jsonPath("$.memo").value("메모"))
                 .andExpect(jsonPath("$.targetBpm").value(80))
                 .andExpect(jsonPath("$.evaluationMemo").value("평가"))
-                .andExpect(jsonPath("$.sheetUrl").value("https://example.com/sheet"))
                 .andExpect(jsonPath("$.youtubeUrl").value("https://youtu.be/abcdefghijk"))
-                .andExpect(jsonPath("$.audioUrl").value("https://example.com/scale.mp3"))
+                .andExpect(jsonPath("$.sheet").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.audio").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.teacherId").doesNotExist())
                 .andExpect(jsonPath("$.curriculumId").doesNotExist())
                 .andExpect(jsonPath("$.categoryId").doesNotExist())
@@ -219,7 +219,7 @@ class ContentDetailControllerSecurityTest {
         expectBadField("""
                 {"name":"스케일","targetBpm":241}
                 """, "targetBpm");
-        expectBadField("{\"name\":\"스케일\",\"sheetUrl\":\"" + "a".repeat(2001) + "\"}", "sheetUrl");
+        expectBadField("{\"name\":\"스케일\",\"youtubeUrl\":\"" + "a".repeat(2001) + "\"}", "youtubeUrl");
     }
 
     @Test
@@ -321,7 +321,6 @@ class ContentDetailControllerSecurityTest {
         org.assertj.core.api.Assertions.assertThat(combined.isYoutubeUrlSpecified()).isTrue();
         org.assertj.core.api.Assertions.assertThat(combined.getYoutubeUrl()).isNull();
         org.assertj.core.api.Assertions.assertThat(combined.isNameSpecified()).isFalse();
-        org.assertj.core.api.Assertions.assertThat(combined.isSheetUrlSpecified()).isFalse();
     }
 
     @Test
@@ -349,7 +348,7 @@ class ContentDetailControllerSecurityTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"targetBpm":null,"sheetUrl":null}
+                                {"targetBpm":null,"youtubeUrl":null}
                                 """))
                 .andExpect(status().isOk());
     }
@@ -426,9 +425,7 @@ class ContentDetailControllerSecurityTest {
         contentDetail.setMemo(memo);
         contentDetail.setTargetBpm(targetBpm);
         contentDetail.setEvaluationMemo("평가");
-        contentDetail.setSheetUrl("https://example.com/sheet");
         contentDetail.setYoutubeUrl("https://youtu.be/abcdefghijk");
-        contentDetail.setAudioUrl("https://example.com/scale.mp3");
         contentDetail.setStatus(RecordStatus.ACTIVE);
         return contentDetail;
     }
