@@ -61,3 +61,42 @@ jobs:
 
               echo "DEPLOY_SSH_OK"
             '
+
+      - name: Verify deployment prerequisites
+        shell: bash
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i ~/.ssh/lessonpt_key \
+            -o BatchMode=yes \
+            "$OCI_USER@$OCI_HOST" '
+              set -euo pipefail
+
+              echo "=== SUDO ==="
+              sudo -n true
+
+              echo "=== SERVICE FILE ==="
+              test -f /etc/systemd/system/lessonpt.service
+              grep -Fqx "Environment=\"LESSONPT_PROFILE=prod\"" /etc/systemd/system/lessonpt.service
+              grep -Fqx "EnvironmentFile=-/etc/lessonpt/lessonpt.env" /etc/systemd/system/lessonpt.service
+
+              echo "=== DEPLOY DIRECTORY WRITE ==="
+              sudo -n -u opc test -w /opt/lessonpt/backend
+              sudo -n -u opc test -w /var/www/lessonpt
+
+              echo "=== NGINX LOCAL ==="
+              curl -fsSI http://127.0.0.1/
+
+              echo "=== DISK ==="
+              df -h /
+
+              echo "=== MEMORY ==="
+              free -h
+              swapon --show
+
+              echo "DEPLOY_PREFLIGHT_OK"
+            '
