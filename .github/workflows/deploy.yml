@@ -3,8 +3,7 @@ name: Deploy LessonPT
 on:
   push:
     branches:
-      - feature/deployment-cicd
-      - main
+      - dev
 
 permissions:
   contents: read
