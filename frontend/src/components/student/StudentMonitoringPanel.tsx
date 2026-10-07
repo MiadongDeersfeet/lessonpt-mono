@@ -213,7 +213,7 @@ export function StudentMonitoringPanel({
                   <td data-label="작업">
                     <div className="row-actions">
                       <button type="button" className="text-action" aria-label="기록 수정" onClick={() => startEdit(linked)}>수정</button>
-                      <button type="button" className="text-action" aria-label={`과제 ${linked.homeworks.length}개`} onClick={() => setHomeworkId(linked.monitoringId)}>과제 {linked.homeworks.length}</button>
+                      <button type="button" className="text-action" onClick={() => setHomeworkId(linked.monitoringId)}>숙제</button>
                       <MoreMenu
                         label={`${linked.contentDetailName} 학습 작업`}
                         items={[{

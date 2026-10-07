@@ -650,7 +650,7 @@ it('lists homeworks from the learning response', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   expect(await screen.findByText('메트로놈')).toBeTruthy()
   expect(screen.getByText('마감 2026-09-30')).toBeTruthy()
   expect(screen.getByText('피드백 천천히')).toBeTruthy()
@@ -667,7 +667,7 @@ it('creates a homework and refetches learning', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '메트로놈')
   const deadline = screen.getByLabelText('마감 (싱글)')
   expect(deadline.getAttribute('type')).toBe('date')
@@ -695,7 +695,7 @@ it('updates homework content and clears the deadline', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   await user.click(await screen.findByRole('button', { name: '과제 수정' }))
   const content = screen.getByLabelText('수정할 과제 내용 (싱글)')
   await user.clear(content)
@@ -725,7 +725,7 @@ it('completes a homework and then cancels completion', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   await user.click(await screen.findByRole('button', { name: '완료' }))
   expect(updateHomeworkRequest).toHaveBeenCalledWith(40, 5, { completed: true })
   expect(await screen.findByText('과제를 완료했습니다.')).toBeTruthy()
@@ -746,7 +746,7 @@ it('deactivates a homework after confirmation and refetches learning', async () 
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   await user.click(await screen.findByRole('button', { name: '과제 삭제' }))
   const dialog = await screen.findByRole('dialog', { name: '과제 삭제' })
   expect(dialog.textContent).toContain('이 과제만 삭제')
@@ -773,7 +773,7 @@ it('allows a third homework and then hides the create form', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '악센트')
   await user.click(screen.getByRole('button', { name: '과제 추가' }))
   expect(createHomework).toHaveBeenCalledWith(40, {
@@ -795,7 +795,7 @@ it('shows the server limit when creating a fourth homework returns 409', async (
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   await user.type(await screen.findByLabelText('과제 내용 (싱글)'), '롤')
   await user.click(screen.getByRole('button', { name: '과제 추가' }))
   expect(await screen.findByText('한 학습 항목에는 활성 과제를 최대 3개까지 등록할 수 있습니다.')).toBeTruthy()
@@ -829,10 +829,14 @@ it('keeps the three-homework limit independent per monitoring', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   expect(await screen.findByText('한 학습 항목에는 활성 과제를 최대 3개까지 등록할 수 있습니다.')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: '닫기' }))
-  await user.click(screen.getByRole('button', { name: '과제 0개' }))
+  const doubleRow = screen.getByRole('cell', { name: '더블' }).closest('tr')
+  if (!doubleRow) {
+    throw new Error('더블 행이 없습니다.')
+  }
+  await user.click(within(doubleRow).getByRole('button', { name: '숙제' }))
   expect(screen.getByLabelText('과제 내용 (더블)')).toBeTruthy()
   expect(screen.getByRole('button', { name: '과제 추가' })).toBeTruthy()
 })
@@ -846,7 +850,7 @@ it('hides homeworks after the monitoring is deactivated', async () => {
   renderPage()
 
   await user.click(await screen.findByRole('tab', { name: '학습관리' }))
-  await user.click((await screen.findAllByRole('button', { name: /^과제 \d+개$/ }))[0])
+  await user.click((await screen.findAllByRole('button', { name: '숙제' }))[0])
   expect(await screen.findByText('메트로놈')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: '닫기' }))
   await user.click(screen.getByRole('button', { name: '싱글 학습 작업' }))
