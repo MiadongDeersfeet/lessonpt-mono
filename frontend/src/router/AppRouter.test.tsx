@@ -26,6 +26,14 @@ it('sends the landing choices to teacher login and student login', async () => {
   expect(await screen.findByRole('heading', { name: '학생 로그인' })).toBeTruthy()
 })
 
+it('opens teacher signup from the login screen', async () => {
+  const user = userEvent.setup()
+  renderRouter('/login')
+
+  await user.click(screen.getByRole('link', { name: '회원가입' }))
+  expect(await screen.findByRole('heading', { name: '강사 회원가입' })).toBeTruthy()
+})
+
 it('does not call the teacher profile from a student route', async () => {
   saveTokens({ accessToken: 'teacher-access', refreshToken: 'teacher-refresh', accessTokenExpiresIn: 60 })
   const fetchMock = vi.fn()

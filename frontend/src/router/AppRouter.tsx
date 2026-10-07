@@ -7,6 +7,7 @@ import { CurriculumListPage } from '../pages/CurriculumListPage.tsx'
 import { LandingPage } from '../pages/LandingPage.tsx'
 import { NotFoundPage } from '../pages/NotFoundPage.tsx'
 import { LoginPage } from '../pages/LoginPage.tsx'
+import { SignupPage } from '../pages/SignupPage.tsx'
 import { LocationListPage } from '../pages/LocationListPage.tsx'
 import { StudentDetailPage } from '../pages/StudentDetailPage.tsx'
 import { StudentAccessPage } from '../pages/StudentAccessPage.tsx'
@@ -28,6 +29,7 @@ export function AppRouter() {
       <Route path="/student" element={<StudentPortalPage />} />
       <Route element={<TeacherRoutes />}>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route element={<RequireTeacherAuth />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Navigate to="/students" replace />} />

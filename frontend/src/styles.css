@@ -314,6 +314,20 @@ a:hover { color: var(--accent-hover); }
   border-radius: var(--radius-control);
 }
 
+.login-card .lead {
+  margin: 0 0 12px;
+}
+
+.auth-switch {
+  margin: 4px 0 0;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.auth-switch a {
+  color: var(--accent);
+}
+
 .form-error { margin: 0; color: var(--danger); }
 .resource-panel { display: grid; gap: 12px; margin-top: 8px; }
 .resource-slot { display: grid; gap: 6px; }

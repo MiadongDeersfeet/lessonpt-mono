@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { ApiError } from '../api/apiClient.ts'
 import { useAuth } from '../auth/AuthContext.tsx'
 
 type LoginPhase = 'idle' | 'submitting' | 'invalid' | 'auth-failed' | 'server'
+type LoginLocationState = { notice?: string }
 
 export function LoginPage() {
   const { status, login } = useAuth()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phase, setPhase] = useState<LoginPhase>('idle')
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState(() => (location.state as LoginLocationState | null)?.notice ?? '')
 
   if (status === 'authenticated') {
     return <Navigate to="/students" replace />
@@ -70,6 +72,9 @@ export function LoginPage() {
         <button type="submit" className="button" disabled={phase === 'submitting' || status === 'loading'}>
           {phase === 'submitting' ? '로그인 중' : '로그인'}
         </button>
+        <p className="auth-switch">
+          계정이 없나요? <Link to="/signup">회원가입</Link>
+        </p>
       </form>
     </main>
   )

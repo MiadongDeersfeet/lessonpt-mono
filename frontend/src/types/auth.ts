@@ -3,6 +3,20 @@ export type LoginRequest = {
   password: string
 }
 
+export type SignupRequest = {
+  email: string
+  password: string
+  name: string
+}
+
+export type TeacherSignup = {
+  teacherId: number
+  email: string
+  name: string
+  phone: string | null
+  role: string
+}
+
 export type AuthTokenResponse = {
   accessToken: string
   refreshToken: string
