@@ -341,7 +341,7 @@ feature/* → dev → main
 
 CI와 CD 모두 빌드 JDK는 Java 21이다. OCI 호스트의 Java 버전은 저장소에 고정되어 있지 않다. 스모크 워크플로는 호스트에서 `java -version`을 출력할 뿐, 특정 버전을 검사하지 않는다.
 
-배포는 서버에서 소스를 빌드하지 않는다. GitHub Actions가 `lessonpt.jar`와 프론트 정적 파일을 만든 뒤 SSH로 복사한다. 호스트는 기존 JAR를 릴리스 디렉터리에 남기고, 프론트 디렉터리를 교체한 다음 `lessonpt` 서비스를 재시작한다. 90초 안에 `http://127.0.0.1:8080/actuator/health`가 `UP`이 아니면 이전 JAR와 프론트로 되돌린다. 성공 후에는 Nginx가 동작 중인지와 `http://127.0.0.1/` 응답을 확인한다. 직전 JAR는 최근 3개만 남긴다.
+배포는 서버에서 소스를 빌드하지 않는다. GitHub Actions가 `lessonpt.jar`와 프론트 정적 파일을 만든 뒤 SSH로 복사한다. 호스트는 기존 JAR를 릴리스 디렉터리에 남기고, 프론트 디렉터리를 교체한 다음 `lessonpt` 서비스를 재시작한다. 90초 안에 `http://127.0.0.1:8080/actuator/health`가 `UP`이 아니면 이전 JAR와 프론트로 되돌린다. 성공 후에는 Nginx가 동작 중인지 확인하고, `lessonpt.cloud`의 HTTPS 가상 호스트로 로컬 서버에 연결해 `/`와 `/signup` 응답이 방금 배포한 `index.html`과 일치하는지 검증한다. 인증서 검증을 유지하며 도메인 없는 기본 호스트의 404로 인한 오판을 방지한다. 직전 JAR는 최근 3개만 남긴다.
 
 GitHub Actions 시크릿은 `OCI_SSH_PRIVATE_KEY`, `OCI_HOST`, `OCI_USER`다. 호스트 서비스는 `LESSONPT_PROFILE=prod`와 `/etc/lessonpt/lessonpt.env`를 읽도록 스모크 검사가 확인한다. 애플리케이션이 배포 환경에서 요구하는 값은 데이터베이스 URL·계정·비밀번호, JWT 비밀, 메일 서버 정보, OCI 설정 파일 경로다.
 

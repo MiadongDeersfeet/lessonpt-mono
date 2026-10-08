@@ -234,7 +234,13 @@ jobs:
           echo "LESSONPT_BACKEND_HEALTH_OK"
           sudo systemctl is-active lessonpt
           sudo systemctl is-active nginx
-          curl -fsS http://127.0.0.1/ > /dev/null
+          # Use the production virtual host and verify the deployed SPA entry point.
+          for route in / /signup; do
+            curl -fsS --connect-timeout 5 --max-time 15 \
+              --resolve lessonpt.cloud:443:127.0.0.1 \
+              "https://lessonpt.cloud${route}" \
+              | cmp - /var/www/lessonpt/index.html
+          done
 
           trap - ERR
           echo "=== Successful deployment ==="
