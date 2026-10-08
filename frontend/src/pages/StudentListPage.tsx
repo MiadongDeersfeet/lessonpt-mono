@@ -5,6 +5,7 @@ import { createStudent, getStudentAccess, getStudentLearning, listStudents, rele
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
 import { ErrorState } from '../components/feedback/ErrorState.tsx'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
+import { ProgressValue } from '../components/student/ProgressValue.tsx'
 import { ReleaseStudentDialog } from '../components/student/ReleaseStudentDialog.tsx'
 import { StudentFormDialog } from '../components/student/StudentFormDialog.tsx'
 import { textOrDash } from '../student/display.ts'
@@ -165,7 +166,9 @@ export function StudentListPage() {
                 <td>{textOrDash(student.phone)}</td>
                 <td>{summary?.locations ?? '불러오는 중'}</td>
                 <td>{summary?.curricula ?? '불러오는 중'}</td>
-                <td>{summary?.progressLabel ?? '불러오는 중'}</td>
+                <td>
+                  {summary == null ? '불러오는 중' : summary.progress ? <ProgressValue progress={summary.progress} meter /> : '진행 없음'}
+                </td>
                 <td>{summary?.portalLabel ?? '불러오는 중'}</td>
                 <td>
                   {summary?.hasMemo ? (

@@ -42,10 +42,21 @@ a { color: var(--accent); }
 
 a:hover { color: var(--accent-hover); }
 
-.name-link,
-.name-link:hover {
+.name-link {
   color: inherit;
+  font-weight: 700;
   text-decoration: none;
+  text-underline-offset: 3px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: color var(--motion-feedback), background-color var(--motion-feedback);
+}
+.name-link:hover,
+.name-link:focus-visible {
+  color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: underline;
 }
 
 .back-link,
@@ -685,7 +696,8 @@ button:disabled { cursor: not-allowed; }
 }
 .lesson-toolbar .lesson-sheet,
 .lesson-toolbar .sheet { display: contents; }
-.lesson-toolbar .sheet-scroll { grid-column: 1 / -1; }
+.lesson-toolbar .sheet-scroll { grid-column: 1 / -1; overflow-x: hidden; }
+.lesson-sheet .content-table { width: 100% !important; min-width: 0 !important; max-width: 100%; }
 .lesson-toolbar .sheet-tools { padding-block: 0; }
 .lesson-toolbar .lesson-category { margin: 0; }
 .lesson-category { display: flex; align-items: baseline; gap: 8px; }
