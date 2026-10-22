@@ -1,0 +1,14 @@
+.git
+**/node_modules
+**/target
+**/dist
+**/.env
+**/.env.*
+**/application-local.yml
+**/*.log
+**/*.pem
+**/*.key
+**/*.p12
+**/*.sso
+**/*wallet*
+**/*Wallet*

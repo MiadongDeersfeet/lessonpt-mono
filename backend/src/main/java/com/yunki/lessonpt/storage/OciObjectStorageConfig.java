@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 /**
- * local에서만 OCI config 파일로 Object Storage 클라이언트를 연다.
+ * local 또는 명시적으로 활성화한 render에서 OCI config 파일로 클라이언트를 연다.
  * region과 key_file은 config 파일이 가지고, 값은 여기에 적지 않는다.
  */
 @Configuration
@@ -24,7 +24,7 @@ import org.springframework.context.annotation.Profile;
 public class OciObjectStorageConfig {
 
     @Bean(destroyMethod = "close")
-    @Profile("local")
+    @Profile("local | render")
     @ConditionalOnProperty(prefix = "lessonpt.storage", name = "provider", havingValue = "oci")
     ObjectStorage objectStorage(StorageProperties properties) throws IOException {
         StorageProperties.Oci oci = properties.getOci();
@@ -39,7 +39,7 @@ public class OciObjectStorageConfig {
     }
 
     @Bean
-    @Profile("!local")
+    @Profile("!local & !render")
     ObjectStorageGateway objectStorageGateway() {
         return new UnavailableObjectStorageGateway();
     }

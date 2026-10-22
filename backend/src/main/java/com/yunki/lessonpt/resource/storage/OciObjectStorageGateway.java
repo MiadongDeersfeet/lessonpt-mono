@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile("local | render")
 @ConditionalOnProperty(prefix = "lessonpt.storage", name = "provider", havingValue = "oci")
 public class OciObjectStorageGateway implements ObjectStorageGateway {
 
