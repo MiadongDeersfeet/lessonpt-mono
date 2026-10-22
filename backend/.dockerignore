@@ -1,0 +1,17 @@
+target
+.git
+.github
+*.md
+src/test
+src/main/resources/application-local.yml
+.env
+.env.*
+Wallet_*
+*.sso
+*.p12
+tnsnames.ora
+sqlnet.ora
+ojdbc.properties
+*.jks
+*.pem
+oci_api_key.pem

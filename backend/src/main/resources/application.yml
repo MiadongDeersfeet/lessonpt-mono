@@ -1,6 +1,10 @@
 # LessonPT 공통 설정.
 # 스키마 접속 정보는 프로파일 파일로 나누고, 비밀번호는 환경변수로만 받는다.
 
+server:
+  address: 0.0.0.0
+  port: ${PORT:8080}
+
 spring:
   application:
     name: lessonpt
@@ -35,6 +39,9 @@ lessonpt:
       config-file: ${LESSONPT_OCI_CONFIG_FILE:C:/Portfolio/Secret/config/config.txt}
       profile: ${LESSONPT_OCI_PROFILE:DEFAULT}
       bucket-name: ${LESSONPT_OCI_BUCKET_NAME:lessonpt-resources}
+  cors:
+    # 비어 있으면 교차 출처를 열지 않는다. Render Static Site는 프론트 URL을 넣는다.
+    allowed-origins: ${LESSONPT_CORS_ALLOWED_ORIGINS:}
 
 mybatis:
   # 도메인 Mapper XML은 기능을 추가할 때 mapper 아래에 둔다.

@@ -39,7 +39,7 @@ public class OciObjectStorageConfig {
     }
 
     @Bean
-    @Profile("!local")
+    @Profile("!local & !prod")
     ObjectStorageGateway objectStorageGateway() {
         return new UnavailableObjectStorageGateway();
     }

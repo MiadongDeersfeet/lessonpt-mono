@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: lessonpt-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: LESSONPT_PROFILE
+        value: prod
+      - key: LESSONPT_DB_URL
+        sync: false
+      - key: LESSONPT_DB_USERNAME
+        sync: false
+      - key: LESSONPT_DB_PASSWORD
+        sync: false
+      - key: LESSONPT_DB_EXPECTED_SCHEMA
+        value: DRUMMER_LMS
+      - key: LESSONPT_JWT_SECRET
+        sync: false
+      - key: LESSONPT_ORACLE_WALLET_B64
+        sync: false
+      - key: LESSONPT_OCI_USER_OCID
+        sync: false
+      - key: LESSONPT_OCI_TENANCY_OCID
+        sync: false
+      - key: LESSONPT_OCI_REGION
+        sync: false
+      - key: LESSONPT_OCI_FINGERPRINT
+        sync: false
+      - key: LESSONPT_OCI_API_PRIVATE_KEY
+        sync: false
+      - key: LESSONPT_OCI_BUCKET_NAME
+        value: lessonpt-resources
+      - key: LESSONPT_CORS_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: lessonpt-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_API_BASE_URL
+        sync: false

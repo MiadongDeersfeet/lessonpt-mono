@@ -1,0 +1,16 @@
+# Local and Render secrets — never commit
+.env
+.env.*
+!.env.example
+application-local.yml
+Wallet_*/
+Wallet_*.zip
+cwallet.sso
+ewallet.p12
+tnsnames.ora
+sqlnet.ora
+ojdbc.properties
+*.jks
+*.pem
+oci_api_key.pem
+/var/lessonpt/

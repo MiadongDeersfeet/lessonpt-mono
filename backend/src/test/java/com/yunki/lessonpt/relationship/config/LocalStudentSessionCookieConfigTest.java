@@ -22,7 +22,9 @@ class LocalStudentSessionCookieConfigTest {
         assertThat(documents[1]).contains("same-site: Lax");
         assertThat(documents[0].toLowerCase()).doesNotContain("domain:");
         assertThat(documents[1].toLowerCase()).doesNotContain("domain:");
-        assertThat(application.toLowerCase()).doesNotContain("cors");
+        assertThat(application).contains("allowed-origins: ${LESSONPT_CORS_ALLOWED_ORIGINS:}");
+        assertThat(application).doesNotContain("allowed-origins: \"*\"");
+        assertThat(application).doesNotContain("allowed-origins: '*'");
 
         String example = Files.readString(Path.of("src/main/resources/application-local.yml.example"));
         assertThat(example).contains("secure: false");

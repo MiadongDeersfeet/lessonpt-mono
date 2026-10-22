@@ -1,0 +1,17 @@
+# SMTP는 호스트가 있을 때만 활성화한다. 없으면 prod도 기동한다.
+# OCI의 /etc/lessonpt/lessonpt.env 에 SPRING_MAIL_HOST가 있으면 기존처럼 메일이 붙는다.
+
+spring:
+  config:
+    activate:
+      on-property: spring.mail.host
+  mail:
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
