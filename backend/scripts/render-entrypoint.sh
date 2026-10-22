@@ -4,45 +4,99 @@
 
 set -eu
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/rewrite-wallet-location.sh"
+
 RUNTIME_DIR="${LESSONPT_RUNTIME_DIR:-/var/lessonpt}"
 mkdir -p "$RUNTIME_DIR"
 chmod 700 "$RUNTIME_DIR" 2>/dev/null || true
 
-restore_wallet() {
-  if [ -n "${TNS_ADMIN:-}" ] && [ -f "${TNS_ADMIN}/tnsnames.ora" ]; then
+resolve_wallet_dir() {
+  root="$1"
+  if [ -f "$root/tnsnames.ora" ]; then
+    printf '%s' "$root"
     return 0
   fi
+  nested="$(find "$root" -name tnsnames.ora -type f -print -quit 2>/dev/null || true)"
+  if [ -n "$nested" ]; then
+    dirname "$nested"
+    return 0
+  fi
+  printf '%s' "$root"
+}
 
-  wallet_dir="${LESSONPT_ORACLE_WALLET_DIR:-$RUNTIME_DIR/wallet}"
+flatten_wallet_files() {
+  src="$1"
+  dest="$2"
+  if [ "$src" = "$dest" ]; then
+    return 0
+  fi
+  mkdir -p "$dest"
+  for item in "$src"/*; do
+    [ -f "$item" ] || continue
+    cp "$item" "$dest/"
+  done
+}
+
+log_wallet_files() {
+  dir="$1"
+  echo "wallet path=${dir}"
+  for name in tnsnames.ora sqlnet.ora cwallet.sso; do
+    if [ -f "${dir}/${name}" ]; then
+      echo "wallet file ${name}=present"
+    else
+      echo "wallet file ${name}=missing"
+    fi
+  done
+}
+
+align_jdbc_tns_admin() {
+  wallet_dir="$1"
+  url="${LESSONPT_DB_URL:-}"
+  [ -n "$url" ] || return 0
+  case "$url" in
+    *[Tt][Nn][Ss]_[Aa][Dd][Mm][Ii][Nn]=*)
+      aligned="$(printf '%s\n' "$url" | sed -E "s#([Tt][Nn][Ss]_[Aa][Dd][Mm][Ii][Nn]=)[^&]*#\1${wallet_dir}#")"
+      export LESSONPT_DB_URL="$aligned"
+      if [ "$aligned" != "$url" ]; then
+        echo "wallet jdbc TNS_ADMIN aligned"
+      fi
+      ;;
+  esac
+}
+
+restore_wallet() {
+  canonical="${LESSONPT_ORACLE_WALLET_DIR:-$RUNTIME_DIR/wallet}"
   archive="${LESSONPT_ORACLE_WALLET_ARCHIVE:-}"
   encoded="${LESSONPT_ORACLE_WALLET_B64:-}"
 
-  if [ -z "$archive" ] && [ -z "$encoded" ] && [ ! -f "$wallet_dir/tnsnames.ora" ]; then
+  if [ -z "$archive" ] && [ -z "$encoded" ] && [ ! -f "$canonical/tnsnames.ora" ] && [ -z "${TNS_ADMIN:-}" ]; then
     return 0
   fi
 
-  mkdir -p "$wallet_dir"
-  chmod 700 "$wallet_dir"
+  mkdir -p "$canonical"
+  chmod 700 "$canonical"
 
   if [ -n "$archive" ]; then
-    unzip -o -q "$archive" -d "$wallet_dir"
+    unzip -o -q "$archive" -d "$canonical"
   elif [ -n "$encoded" ]; then
     tmp="$(mktemp)"
     printf '%s' "$encoded" | base64 -d > "$tmp"
-    unzip -o -q "$tmp" -d "$wallet_dir"
+    unzip -o -q "$tmp" -d "$canonical"
     rm -f "$tmp"
   fi
 
-  if [ ! -f "$wallet_dir/tnsnames.ora" ]; then
-    nested="$(find "$wallet_dir" -name tnsnames.ora -type f -print -quit 2>/dev/null || true)"
-    if [ -n "$nested" ]; then
-      wallet_dir="$(dirname "$nested")"
-    fi
-  fi
+  found="$(resolve_wallet_dir "$canonical")"
+  flatten_wallet_files "$found" "$canonical"
+  wallet_dir="$canonical"
 
+  rewrite_wallet_location "$wallet_dir"
   chmod 700 "$wallet_dir"
   find "$wallet_dir" -type f -exec chmod 600 {} \;
   export TNS_ADMIN="$wallet_dir"
+  align_jdbc_tns_admin "$wallet_dir"
+  log_wallet_files "$wallet_dir"
 }
 
 write_oci_config() {
@@ -86,4 +140,7 @@ restore_wallet
 write_oci_config
 
 JAVA_OPTS="${JAVA_OPTS:--XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=25.0 -XX:+ExitOnOutOfMemoryError}"
+if [ -n "${TNS_ADMIN:-}" ]; then
+  JAVA_OPTS="$JAVA_OPTS -Doracle.net.tns_admin=${TNS_ADMIN}"
+fi
 exec java $JAVA_OPTS -jar /app/app.jar

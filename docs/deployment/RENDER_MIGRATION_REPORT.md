@@ -32,6 +32,7 @@
 - `server.address=0.0.0.0`, `server.port=${PORT:8080}` — Render `PORT`와 로컬 8080을 같이 쓴다.
 - prod에서 OCI config 파일이 있으면 local과 같은 파일 인증으로 Object Storage를 연다. 없으면 기존처럼 비가용.
 - 컨테이너 시작 시 Wallet/OCI config를 복원하는 스크립트. Git·이미지에 Secret 없음.
+- Wallet `sqlnet.ora`의 Windows `DIRECTORY`는 런타임 경로(`/var/lessonpt/wallet`)로만 고친다. `cwallet.sso` 등 키 파일은 수정하지 않는다.
 - SMTP는 `application-mail.yml`로 분리. `SPRING_MAIL_HOST`가 있을 때만 붙고, Render MVP 기동에는 필요 없다.
 
 ## 3. 새로 만든 파일

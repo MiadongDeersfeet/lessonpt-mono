@@ -51,7 +51,7 @@
 3. 택1:
    - zip을 Base64로 만들어 `LESSONPT_ORACLE_WALLET_B64`에 넣는다. Base64는 인코딩일 뿐 Secret으로 다룬다.
    - Render Secret File로 zip을 마운트하고 `LESSONPT_ORACLE_WALLET_ARCHIVE`에 경로를 넣는다.
-4. `LESSONPT_DB_URL`은 TNS 별칭과 `TNS_ADMIN`을 포함한다. entrypoint가 Wallet을 `/var/lessonpt/wallet`에 풀면 TNS_ADMIN을 그 경로로 잡는다.
+4. `LESSONPT_DB_URL`은 TNS 별칭과 `TNS_ADMIN=/var/lessonpt/wallet`을 쓴다. entrypoint가 Base64 Wallet을 그 경로에 풀고, `sqlnet.ora`의 Windows `WALLET_LOCATION`만 같은 경로로 고친다. 인증서·키 파일은 바꾸지 않는다.
 
 ## 7. OCI Object Storage
 

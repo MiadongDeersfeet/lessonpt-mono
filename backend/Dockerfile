@@ -15,13 +15,13 @@ RUN apt-get update \
     && useradd --system --uid 10001 --gid lessonpt --home-dir /var/lessonpt --create-home lessonpt
 WORKDIR /app
 COPY --from=build /src/target/lessonpt-0.0.1-SNAPSHOT.jar /app/app.jar
-COPY scripts/render-entrypoint.sh /app/render-entrypoint.sh
-RUN sed -i 's/\r$//' /app/render-entrypoint.sh \
-    && chmod 755 /app/render-entrypoint.sh \
+COPY scripts/ /app/scripts/
+RUN sed -i 's/\r$//' /app/scripts/*.sh \
+    && chmod 755 /app/scripts/*.sh \
     && chown -R lessonpt:lessonpt /app /var/lessonpt
 USER lessonpt
 ENV LESSONPT_PROFILE=prod \
     LESSONPT_RUNTIME_DIR=/var/lessonpt \
     PORT=8080
 EXPOSE 8080
-ENTRYPOINT ["/app/render-entrypoint.sh"]
+ENTRYPOINT ["/app/scripts/render-entrypoint.sh"]
