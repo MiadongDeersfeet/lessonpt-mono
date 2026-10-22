@@ -1,0 +1,25 @@
+# Activate together with prod. Existing OCI deployment using prod only is unchanged.
+server:
+  address: 127.0.0.1
+  port: 8080
+  tomcat:
+    threads:
+      max: 30
+      min-spare: 2
+    max-connections: 40
+    accept-count: 20
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.mail.autoconfigure.MailSenderAutoConfiguration
+  datasource:
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+      connection-timeout: 3000
+lessonpt:
+  storage:
+    oci:
+      config-file: ${LESSONPT_OCI_CONFIG_FILE:/etc/secrets/oci-config}
