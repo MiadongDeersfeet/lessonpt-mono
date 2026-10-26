@@ -3,7 +3,6 @@ package com.yunki.lessonpt.common.config;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
 
 import javax.sql.DataSource;
 
@@ -53,12 +52,17 @@ public class OracleDataSourceConfig {
         try {
             Path path = Path.of(walletDir);
             WalletLocationRewriter.rewriteIfNeeded(path);
+            Path sqlnet = path.resolve("sqlnet.ora");
+            boolean quoted = Files.isRegularFile(sqlnet)
+                    && WalletLocationRewriter.hasQuotedDirectory(Files.readString(sqlnet));
             log.info(
-                    "wallet path={} tnsnames={} sqlnet={} cwallet={}",
+                    "wallet path={} tnsnames={} sqlnet={} cwallet={} readable={} directory-quoted={}",
                     path.toAbsolutePath().normalize().toString().replace('\\', '/'),
                     Files.isRegularFile(path.resolve("tnsnames.ora")),
-                    Files.isRegularFile(path.resolve("sqlnet.ora")),
-                    Files.isRegularFile(path.resolve("cwallet.sso")));
+                    Files.isRegularFile(sqlnet),
+                    Files.isRegularFile(path.resolve("cwallet.sso")),
+                    Files.isReadable(path) && Files.isReadable(sqlnet) && Files.isReadable(path.resolve("cwallet.sso")),
+                    quoted);
             if (!WalletLocationRewriter.jdbcTnsAdminMatches(jdbcUrl, walletDir)) {
                 log.warn("wallet jdbc TNS_ADMIN differs from runtime wallet path");
             }
@@ -68,17 +72,6 @@ public class OracleDataSourceConfig {
     }
 
     static String tnsAdminFromUrl(String jdbcUrl) {
-        if (jdbcUrl == null) {
-            return null;
-        }
-        String marker = "tns_admin=";
-        int index = jdbcUrl.toLowerCase(Locale.ROOT).indexOf(marker);
-        if (index < 0) {
-            return null;
-        }
-        String rest = jdbcUrl.substring(index + marker.length());
-        int end = rest.indexOf('&');
-        String value = end < 0 ? rest : rest.substring(0, end);
-        return value.isBlank() ? null : value;
+        return WalletLocationRewriter.tnsAdminFromUrl(jdbcUrl);
     }
 }

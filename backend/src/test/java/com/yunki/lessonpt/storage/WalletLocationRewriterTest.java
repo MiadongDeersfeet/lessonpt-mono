@@ -7,8 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class WalletLocationRewriterTest {
@@ -19,48 +19,70 @@ class WalletLocationRewriterTest {
             """;
 
     @Test
-    void rewritesQuotedWindowsDirectory() {
+    void rewritesQuotedWindowsDirectoryWithoutQuotes() {
         String rewritten = WalletLocationRewriter.rewriteContent(WINDOWS_SQLNET, "/var/lessonpt/wallet");
-        assertThat(rewritten).contains("DIRECTORY = \"/var/lessonpt/wallet\"");
+        assertThat(rewritten).contains("DIRECTORY = /var/lessonpt/wallet");
+        assertThat(rewritten).doesNotContain("DIRECTORY = \"/var/lessonpt/wallet\"");
         assertThat(rewritten).doesNotContain("C:/Users");
         assertThat(rewritten).contains("SSL_SERVER_DN_MATCH = yes");
+    }
+
+    @Test
+    void stripsQuotesFromAlreadyLinuxDirectory() {
+        String original = "WALLET_LOCATION = (SOURCE = (METHOD = FILE) (METHOD_DATA = (DIRECTORY = \"/var/lessonpt/wallet\")))";
+        String rewritten = WalletLocationRewriter.rewriteContent(original, "/var/lessonpt/wallet");
+        assertThat(rewritten).contains("DIRECTORY = /var/lessonpt/wallet)");
+        assertThat(rewritten).doesNotContain("DIRECTORY = \"/var/lessonpt/wallet\"");
+        assertThat(WalletLocationRewriter.hasQuotedDirectory(original)).isTrue();
+        assertThat(WalletLocationRewriter.hasQuotedDirectory(rewritten)).isFalse();
     }
 
     @Test
     void rewritesBackslashWindowsDirectory() {
         String original = "DIRECTORY = C:\\Users\\anian\\OneDrive\\Desktop\\OCI-Wallet)";
         String rewritten = WalletLocationRewriter.rewriteContent(original, "/var/lessonpt/wallet");
-        assertThat(rewritten).contains("DIRECTORY = \"/var/lessonpt/wallet\"");
+        assertThat(rewritten).contains("DIRECTORY = /var/lessonpt/wallet)");
         assertThat(rewritten).doesNotContain("OneDrive");
     }
 
     @Test
-    void leavesLinuxDirectoryUnchanged() {
-        String original = "DIRECTORY = \"/var/lessonpt/wallet\")";
-        assertThat(WalletLocationRewriter.rewriteContent(original, "/other")).isEqualTo(original);
-        assertThat(WalletLocationRewriter.hasWindowsWalletDirectory(original)).isFalse();
+    void leavesUnquotedLinuxDirectoryUnchanged() {
+        String original = "DIRECTORY = /var/lessonpt/wallet)";
+        assertThat(WalletLocationRewriter.rewriteContent(original, "/var/lessonpt/wallet")).isEqualTo(original);
     }
 
     @Test
-    void rewritesSqlnetFileAndLeavesWalletBinary(@TempDir Path walletDir) throws Exception {
+    void rewritesOjdbcPropertiesDirectory() {
+        String original = "oracle.net.wallet_location=(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=\"/var/lessonpt/wallet\")))";
+        String rewritten = WalletLocationRewriter.rewriteContent(original, "/var/lessonpt/wallet");
+        assertThat(rewritten).contains("DIRECTORY=/var/lessonpt/wallet)");
+        assertThat(rewritten).doesNotContain("DIRECTORY=\"/var/lessonpt/wallet\"");
+    }
+
+    @Test
+    void rewritesQuotedLinuxSqlnetFileAndLeavesWalletBinary(@TempDir Path walletDir) throws Exception {
         Path sqlnet = walletDir.resolve("sqlnet.ora");
         Path sso = walletDir.resolve("cwallet.sso");
-        Files.writeString(sqlnet, WINDOWS_SQLNET);
+        Files.writeString(sqlnet, "DIRECTORY = \"/var/lessonpt/wallet\")\n");
         byte[] binary = {0x01, 0x02, 0x03, 0x04};
         Files.write(sso, binary);
 
         WalletLocationRewriter.rewriteIfNeeded(walletDir);
 
         String expected = walletDir.toAbsolutePath().normalize().toString().replace('\\', '/');
-        assertThat(Files.readString(sqlnet, StandardCharsets.UTF_8)).contains("DIRECTORY = \"" + expected + "\"");
-        assertThat(Files.readString(sqlnet)).doesNotContain("OneDrive").doesNotContain("OCI-Wallet");
+        String sqlnetText = Files.readString(sqlnet, StandardCharsets.UTF_8);
+        assertThat(sqlnetText).contains("DIRECTORY = " + expected);
+        assertThat(sqlnetText).doesNotContain("DIRECTORY = \"" + expected + "\"");
         assertThat(Files.readAllBytes(sso)).containsExactly(binary);
     }
 
     @Test
-    void jdbcTnsAdminMustMatchWalletDir() {
+    void jdbcTnsAdminMustMatchWalletDirAndIgnoreQuotes() {
         assertThat(WalletLocationRewriter.jdbcTnsAdminMatches(
                 "jdbc:oracle:thin:@dbname_high?TNS_ADMIN=/var/lessonpt/wallet",
+                "/var/lessonpt/wallet")).isTrue();
+        assertThat(WalletLocationRewriter.jdbcTnsAdminMatches(
+                "jdbc:oracle:thin:@dbname_high?TNS_ADMIN=\"/var/lessonpt/wallet\"",
                 "/var/lessonpt/wallet")).isTrue();
         assertThat(WalletLocationRewriter.jdbcTnsAdminMatches(
                 "jdbc:oracle:thin:@dbname_high?TNS_ADMIN=/var/lessonpt/wallet",
@@ -68,12 +90,14 @@ class WalletLocationRewriterTest {
     }
 
     @Test
-    void shellScriptRewritesWindowsSqlnet(@TempDir Path walletDir) throws Exception {
+    void shellScriptStripsQuotesFromLinuxDirectory(@TempDir Path walletDir) throws Exception {
         Path script = Path.of("scripts/rewrite-wallet-location.sh");
         Assumptions.assumeTrue(Files.isRegularFile(script), "rewrite script is present");
         String shell = resolveShell();
         Assumptions.assumeTrue(shell != null, "POSIX shell is available");
-        Files.writeString(walletDir.resolve("sqlnet.ora"), WINDOWS_SQLNET);
+        Files.writeString(
+                walletDir.resolve("sqlnet.ora"),
+                "WALLET_LOCATION = (SOURCE = (METHOD = FILE) (METHOD_DATA = (DIRECTORY = \"/var/lessonpt/wallet\")))\n");
         Files.write(walletDir.resolve("cwallet.sso"), new byte[] {9, 8, 7});
 
         Process process = new ProcessBuilder(shell, script.toAbsolutePath().toString(), walletDir.toString())
@@ -84,8 +108,9 @@ class WalletLocationRewriterTest {
 
         String sqlnet = Files.readString(walletDir.resolve("sqlnet.ora"));
         String expected = walletDir.toAbsolutePath().normalize().toString().replace('\\', '/');
-        assertThat(sqlnet).contains("DIRECTORY = \"" + expected + "\"");
-        assertThat(sqlnet).doesNotContain("OneDrive").doesNotContain("OCI-Wallet");
+        assertThat(sqlnet).contains("DIRECTORY = " + expected);
+        assertThat(sqlnet).doesNotContain("DIRECTORY = \"" + expected + "\"");
+        assertThat(sqlnet).doesNotContain("DIRECTORY = \"/var/lessonpt/wallet\"");
         assertThat(Files.readAllBytes(walletDir.resolve("cwallet.sso"))).containsExactly(9, 8, 7);
     }
 

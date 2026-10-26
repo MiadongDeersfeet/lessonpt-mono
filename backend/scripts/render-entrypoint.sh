@@ -49,6 +49,16 @@ log_wallet_files() {
       echo "wallet file ${name}=missing"
     fi
   done
+  if [ -r "$dir" ] && [ -r "${dir}/sqlnet.ora" ] && [ -r "${dir}/cwallet.sso" ]; then
+    echo "wallet readable=yes"
+  else
+    echo "wallet readable=no"
+  fi
+  if [ -f "${dir}/sqlnet.ora" ] && grep -Eq 'DIRECTORY[[:space:]]*=[[:space:]]*"' "${dir}/sqlnet.ora"; then
+    echo "wallet sqlnet directory-quoted=yes"
+  else
+    echo "wallet sqlnet directory-quoted=no"
+  fi
 }
 
 align_jdbc_tns_admin() {
