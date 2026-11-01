@@ -59,30 +59,28 @@ it('creates a student and shows the new row without another list request', async
 
   await user.click(await screen.findByRole('button', { name: '학생 추가' }))
   await user.type(screen.getByLabelText('이름'), '새학생')
-  await user.type(screen.getByLabelText('이메일'), 'new@lessonpt.test')
   await user.type(screen.getByLabelText('전화번호'), '010')
   await user.click(screen.getByRole('button', { name: '저장' }))
 
   expect(await screen.findByText('새학생')).toBeTruthy()
-  expect(createStudent).toHaveBeenCalledWith({ name: '새학생', email: 'new@lessonpt.test', phone: '010' })
+  expect(createStudent).toHaveBeenCalledWith({ name: '새학생', email: null, phone: '010' })
   expect(listStudents).toHaveBeenCalledTimes(1)
 })
 
-it('shows a validation message beside the email field', async () => {
+it('shows an accessible validation message beside the name field', async () => {
   const user = userEvent.setup()
   vi.mocked(createStudent).mockRejectedValue(
     new ApiError(400, 'COMMON_INVALID_INPUT', '요청 값이 올바르지 않습니다.', 'trace-9', [
-      { field: 'email', message: '이메일 형식이 올바르지 않습니다.' },
+      { field: 'name', message: '이름을 확인해 주세요.' },
     ]),
   )
   renderPage()
 
   await user.click(await screen.findByRole('button', { name: '학생 추가' }))
   await user.type(screen.getByLabelText('이름'), '새학생')
-  await user.type(screen.getByLabelText('이메일'), 'not-an-email')
   await user.click(screen.getByRole('button', { name: '저장' }))
 
-  expect(await screen.findByText('이메일 형식이 올바르지 않습니다.')).toBeTruthy()
+  expect(await screen.findByText('이름을 확인해 주세요.')).toBeTruthy()
   expect(screen.getByText('입력값을 확인해 주세요.')).toBeTruthy()
 })
 
@@ -159,14 +157,15 @@ it('shows location, curriculum, progress, portal, and a memo indicator on each r
   const studentLink = screen.getByRole('link', { name: '기존학생' })
   expect(studentLink.getAttribute('href')).toBe('/students/10')
   expect(studentLink.className).toContain('name-link')
-  expect(screen.getByRole('columnheader', { name: '이메일' })).toBeTruthy()
+  expect(screen.queryByRole('columnheader', { name: '이메일' })).toBeNull()
   expect(screen.getByRole('columnheader', { name: '전화번호' })).toBeTruthy()
   expect(screen.queryByRole('columnheader', { name: '연락' })).toBeNull()
-  expect(screen.getByText('student@lessonpt.test')).toBeTruthy()
+  expect(screen.queryByText('student@lessonpt.test')).toBeNull()
   expect(screen.getByText('Drum Basic')).toBeTruthy()
   expect(screen.getByText('32.0%')).toBeTruthy()
   expect(screen.getByText('32.0%').closest('.progress-meter')).toBeTruthy()
-  expect(screen.getByText('Portal 활성')).toBeTruthy()
+  expect(screen.queryByText('Portal 활성')).toBeNull()
+  expect(getStudentAccess).not.toHaveBeenCalled()
   expect(screen.getByLabelText('메모가 있습니다.').getAttribute('title')).toBe('메모가 있습니다.')
 })
 
@@ -177,3 +176,29 @@ function renderPage() {
     </MemoryRouter>,
   )
 }
+
+it('filters students and links directly to learning management', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('link', { name: '기존학생' })
+  expect(screen.getByRole('link', { name: '학습관리' }).getAttribute('href')).toBe('/students/10?tab=learning')
+  await user.type(screen.getByRole('searchbox'), '없는학생')
+  expect(screen.queryByRole('link', { name: '기존학생' })).toBeNull()
+  expect(screen.getByText('검색 결과가 없습니다.')).toBeTruthy()
+})
+
+it('protects unsaved input and keeps the form when discarding is cancelled', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(screen.getByRole('button', { name: '학생 추가' }))
+  expect(screen.queryByLabelText('이메일')).toBeNull()
+  await user.type(screen.getByLabelText('이름'), '작성중')
+  await user.keyboard('{Escape}')
+  expect(screen.getByRole('dialog', { name: '입력을 버릴까요?' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: '계속 입력' }))
+  expect((screen.getByLabelText('이름') as HTMLInputElement).value).toBe('작성중')
+  await user.click(screen.getByRole('button', { name: '취소' }))
+  await user.click(screen.getByRole('button', { name: '입력 버리기' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(createStudent).not.toHaveBeenCalled()
+})

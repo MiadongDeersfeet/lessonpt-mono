@@ -1,3 +1,4 @@
+import { Icon } from '../components/layout/Icon.tsx'
 import { useEffect, useState } from 'react'
 import { createLocation, deactivateLocation, listLocations, updateLocation } from '../api/locationApi.ts'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
@@ -91,7 +92,7 @@ export function LocationListPage() {
   return (
     <section className="page">
       <header className="page-header page-header-row">
-        <h1>출강처</h1>
+        <div><p className="eyebrow">LOCATIONS</p><h1>출강처</h1><p className="lead">수업이 이루어지는 공간을 관리하세요.</p></div>
         <button
           type="button"
           className="button"
@@ -100,7 +101,7 @@ export function LocationListPage() {
             setForm({ mode: 'create', location: null })
           }}
         >
-          출강처 추가
+          <Icon name="plus"/>출강처 추가
         </button>
       </header>
       {notice ? <p className="form-hint">{notice}</p> : null}
@@ -108,7 +109,7 @@ export function LocationListPage() {
       {!error && locations == null ? <LoadingState label="출강처 목록을 불러오는 중" /> : null}
       {locations?.length === 0 ? <EmptyState message="등록된 출강처가 없습니다." /> : null}
       {locations && locations.length > 0 ? (
-        <table className="data-table">
+        <table className="data-table directory-table">
           <thead>
             <tr>
               <th>순서</th>
@@ -120,10 +121,10 @@ export function LocationListPage() {
           <tbody>
             {locations.map((location) => (
               <tr key={location.locationId}>
-                <td>{location.displayOrder}</td>
-                <td>{location.name}</td>
-                <td>{textOrDash(location.address)}</td>
-                <td className="row-actions">
+                <td data-label="순서" className="directory-order">{String(location.displayOrder).padStart(2, '0')}</td>
+                <td data-label="이름" className="directory-name">{location.name}</td>
+                <td data-label="주소">{textOrDash(location.address)}</td>
+                <td data-label="작업" className="row-actions">
                   <button
                     type="button"
                     className="button button-quiet"
@@ -136,7 +137,7 @@ export function LocationListPage() {
                   </button>
                   <button
                     type="button"
-                    className="button button-quiet"
+                    className="button button-quiet button-destructive-quiet"
                     onClick={() => {
                       setReleaseError(null)
                       setReleaseTarget(location)

@@ -22,5 +22,7 @@ logging:
     com.yunki.lessonpt.common.health.SmokeMapper: info
 
 lessonpt:
+  student-portal:
+    enabled: ${LESSONPT_STUDENT_PORTAL_ENABLED:false}
   jwt:
     secret: ${LESSONPT_JWT_SECRET}

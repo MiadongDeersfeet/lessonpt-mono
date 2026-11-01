@@ -1,3 +1,4 @@
+import { AuthLayout } from '../components/layout/AuthLayout.tsx'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
@@ -12,6 +13,7 @@ export function LoginPage() {
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [phase, setPhase] = useState<LoginPhase>('idle')
   const [notice, setNotice] = useState(() => (location.state as LoginLocationState | null)?.notice ?? '')
 
@@ -42,10 +44,10 @@ export function LoginPage() {
   }
 
   return (
-    <main className="login-screen">
+    <AuthLayout>
       <form className="login-card" onSubmit={(event) => void onSubmit(event)}>
-        <p className="brand">LessonPT</p>
-        <h1>강사 로그인</h1>
+        <p className="eyebrow">TEACHER WORKSPACE</p>
+        <h1>강사 로그인</h1><p className="auth-intro">다시 만나 반갑습니다.<br/>오늘의 수업을 이어가 볼까요?</p>
         <label htmlFor="email">이메일</label>
         <input
           id="email"
@@ -56,14 +58,17 @@ export function LoginPage() {
           onChange={(event) => setEmail(event.target.value)}
         />
         <label htmlFor="password">비밀번호</label>
+        <div className="password-input-wrap">
         <input
           id="password"
           name="password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
+          <button type="button" className="password-toggle" aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? '숨김' : '표시'}</button>
+        </div>
         {notice ? (
           <p className={phase === 'server' || phase === 'auth-failed' ? 'form-error' : 'form-hint'} role="alert">
             {notice}
@@ -76,6 +81,6 @@ export function LoginPage() {
           계정이 없나요? <Link to="/signup">회원가입</Link>
         </p>
       </form>
-    </main>
+    </AuthLayout>
   )
 }

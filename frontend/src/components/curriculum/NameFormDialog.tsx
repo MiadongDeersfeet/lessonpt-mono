@@ -1,3 +1,4 @@
+import { Overlay } from '../layout/Overlay.tsx'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { fieldErrorMessage, formErrorMessage } from '../feedback/describeError.ts'
@@ -29,16 +30,8 @@ export function NameFormDialog({ title, initialName, submitting, error, onClose,
   const shown = error ?? (localError ? localError : null)
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <form
-        className="modal"
-        role="dialog"
-        aria-labelledby="name-form-title"
-        noValidate
-        onMouseDown={(event) => event.stopPropagation()}
-        onSubmit={submit}
-      >
-        <h2 id="name-form-title">{title}</h2>
+    <Overlay title={title} onClose={() => { if (!submitting) onClose() }} className="form-overlay">
+      <form className="overlay-body stack" noValidate onSubmit={submit}>
         <label htmlFor="record-name">이름</label>
         <input id="record-name" value={name} onChange={(event) => setName(event.target.value)} />
         <FieldMessage message={typeof shown === 'string' ? shown : fieldErrorMessage(shown, 'name')} />
@@ -52,7 +45,7 @@ export function NameFormDialog({ title, initialName, submitting, error, onClose,
           </button>
         </div>
       </form>
-    </div>
+    </Overlay>
   )
 }
 

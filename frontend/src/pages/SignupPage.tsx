@@ -1,3 +1,4 @@
+import { AuthLayout } from '../components/layout/AuthLayout.tsx'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
@@ -14,6 +15,7 @@ export function SignupPage() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [phase, setPhase] = useState<SignupPhase>('idle')
   const [notice, setNotice] = useState('')
@@ -69,11 +71,11 @@ export function SignupPage() {
   }
 
   return (
-    <main className="login-screen">
+    <AuthLayout>
       <form className="login-card" onSubmit={(event) => void onSubmit(event)}>
-        <p className="brand">LessonPT</p>
+        <p className="eyebrow">TEACHER WORKSPACE</p>
         <h1>강사 회원가입</h1>
-        <p className="lead">계정만 만들면 바로 로그인됩니다.</p>
+        <p className="lead">선생님의 새로운 워크스페이스를 시작하세요.</p>
         <label htmlFor="signup-email">이메일</label>
         <input
           id="signup-email"
@@ -93,23 +95,29 @@ export function SignupPage() {
           onChange={(event) => setName(event.target.value)}
         />
         <label htmlFor="signup-password">비밀번호</label>
+        <div className="password-input-wrap">
         <input
           id="signup-password"
           name="password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
+          <button type="button" className="password-toggle" aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? '숨김' : '표시'}</button>
+        </div>
         <label htmlFor="signup-password-confirm">비밀번호 확인</label>
+        <div className="password-input-wrap">
         <input
           id="signup-password-confirm"
           name="passwordConfirm"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           autoComplete="new-password"
           value={passwordConfirm}
           onChange={(event) => setPasswordConfirm(event.target.value)}
         />
+          <button type="button" className="password-toggle" aria-label={showPassword ? '비밀번호 확인 숨기기' : '비밀번호 확인 표시'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? '숨김' : '표시'}</button>
+        </div>
         {notice ? (
           <p className={phase === 'server' || phase === 'conflict' ? 'form-error' : 'form-hint'} role="alert">
             {notice}
@@ -122,6 +130,6 @@ export function SignupPage() {
           이미 계정이 있나요? <Link to="/login">로그인</Link>
         </p>
       </form>
-    </main>
+    </AuthLayout>
   )
 }

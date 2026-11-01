@@ -3,6 +3,7 @@ package com.yunki.lessonpt.common.config;
 import java.time.Clock;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,7 @@ import com.yunki.lessonpt.auth.mapper.TeacherAuthSessionMapper;
 import com.yunki.lessonpt.auth.security.AuthErrorWriter;
 import com.yunki.lessonpt.auth.security.JwtAuthenticationFilter;
 import com.yunki.lessonpt.auth.security.StudentSessionAuthenticationFilter;
+import com.yunki.lessonpt.auth.security.StudentPortalAvailabilityFilter;
 import com.yunki.lessonpt.relationship.config.StudentSessionProperties;
 import com.yunki.lessonpt.relationship.service.StudentAccessSessionService;
 import com.yunki.lessonpt.teacher.mapper.TeacherMapper;
@@ -68,7 +70,8 @@ public class SecurityConfig {
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             StudentSessionAuthenticationFilter studentSessionAuthenticationFilter,
-            AuthErrorWriter authErrorWriter) throws Exception {
+            AuthErrorWriter authErrorWriter,
+            @Value("${lessonpt.student-portal.enabled:true}") boolean studentPortalEnabled) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -96,7 +99,8 @@ public class SecurityConfig {
                                 StudentSessionAuthenticationFilter.STUDENT_AUTHORITY)
                         .anyRequest().authenticated())
                 .addFilterBefore(studentSessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, StudentSessionAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, StudentSessionAuthenticationFilter.class)
+                .addFilterBefore(new StudentPortalAvailabilityFilter(studentPortalEnabled), JwtAuthenticationFilter.class);
         return http.build();
     }
 }

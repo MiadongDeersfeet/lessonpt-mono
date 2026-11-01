@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api/apiClient.ts'
 import { listCategories, listContentDetails, listCurriculums } from '../api/curriculumApi.ts'
 import { listLocations } from '../api/locationApi.ts'
@@ -11,14 +11,13 @@ import { ErrorState } from '../components/feedback/ErrorState.tsx'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
 import { MoreMenu } from '../components/layout/MoreMenu.tsx'
 import { ProgressValue } from '../components/student/ProgressValue.tsx'
-import { StudentAccessSection } from '../components/student/StudentAccessSection.tsx'
 import { StudentLocationSection } from '../components/student/StudentLocationSection.tsx'
 import { StudentMonitoringPanel } from '../components/student/StudentMonitoringPanel.tsx'
 import type { ContentDetail, Curriculum } from '../types/curriculum.ts'
 import type { Location } from '../types/location.ts'
 import type { StudentLearningDetail, StudentUpdateBody } from '../types/student.ts'
 
-type Tab = 'profile' | 'learning' | 'access'
+type Tab = 'profile' | 'learning'
 
 const invalidStudent = new ApiError(404, 'COMMON_NOT_FOUND', '', null, [])
 
@@ -33,7 +32,8 @@ export function StudentDetailPage() {
   const [catalogError, setCatalogError] = useState<unknown>(null)
   const [curriculums, setCurriculums] = useState<Curriculum[] | null>(null)
   const [curriculumCatalogError, setCurriculumCatalogError] = useState<unknown>(null)
-  const [tab, setTab] = useState<Tab>('profile')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => searchParams.get('tab') === 'learning' ? 'learning' : 'profile')
   const [editingProfile, setEditingProfile] = useState(false)
   const [profileError, setProfileError] = useState<unknown>(null)
   const [profileSubmitting, setProfileSubmitting] = useState(false)
@@ -184,9 +184,6 @@ export function StudentDetailPage() {
         <button type="button" role="tab" aria-selected={tab === 'learning'} className="tab" onClick={() => setTab('learning')}>
           학습관리
         </button>
-        <button type="button" role="tab" aria-selected={tab === 'access'} className="tab" onClick={() => setTab('access')}>
-          접근설정
-        </button>
       </div>
       {invalid || error ? <ErrorState error={error ?? invalidStudent} /> : null}
       {!invalid && !error && detail == null ? <LoadingState label="학습 정보를 불러오는 중" /> : null}
@@ -202,7 +199,6 @@ export function StudentDetailPage() {
         />
       ) : null}
       {detail && tab === 'learning' ? <LearningTab detail={detail} onRefreshLearning={refreshLearning} /> : null}
-      {detail && tab === 'access' ? <StudentAccessSection studentId={studentId} email={detail.email} /> : null}
       {detail && editingProfile ? (
         <StudentFormDialog
           mode="edit"
@@ -242,9 +238,8 @@ export function StudentDetailPage() {
 }
 
 function identityLine(detail: StudentLearningDetail): string {
-  const email = detail.email && detail.email.trim() !== '' ? detail.email : '이메일 미등록'
   const phone = detail.phone && detail.phone.trim() !== '' ? detail.phone : '전화번호 미등록'
-  return `${email} · ${phone}`
+  return phone
 }
 
 function ProfileTab({

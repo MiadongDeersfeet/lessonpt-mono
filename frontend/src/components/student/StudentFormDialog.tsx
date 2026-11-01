@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import { Overlay } from '../layout/Overlay.tsx'
 import type { FormEvent } from 'react'
 import { fieldErrorMessage, formErrorMessage } from '../feedback/describeError.ts'
 import type { StudentCreateBody, StudentSummary, StudentUpdateBody } from '../../types/student.ts'
@@ -15,7 +16,6 @@ type Props = {
 
 export function StudentFormDialog({ mode, student, submitting, error, onClose, onCreate, onUpdate }: Props) {
   const [name, setName] = useState(student?.name ?? '')
-  const [email, setEmail] = useState(student?.email ?? '')
   const [phone, setPhone] = useState(student?.phone ?? '')
   const [localError, setLocalError] = useState('')
 
@@ -27,7 +27,7 @@ export function StudentFormDialog({ mode, student, submitting, error, onClose, o
       return
     }
     setLocalError('')
-    const body = { name: trimmedName, email: emptyToNull(email), phone: emptyToNull(phone) }
+    const body = { name: trimmedName, email: mode === 'edit' ? student?.email ?? null : null, phone: emptyToNull(phone) }
     if (mode === 'create') {
       onCreate(body)
       return
@@ -37,31 +37,24 @@ export function StudentFormDialog({ mode, student, submitting, error, onClose, o
     }
   }
 
+  const formId = useId()
+  const [discard, setDiscard] = useState(false)
+  const dirty = name !== (student?.name ?? '') || phone !== (student?.phone ?? '')
+  function requestClose() { if (!submitting) { if (dirty) setDiscard(true); else onClose() } }
   const shown = error ?? (localError ? localError : null)
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <form
-        className="modal"
-        role="dialog"
-        aria-labelledby="student-form-title"
-        noValidate
-        onMouseDown={(event) => event.stopPropagation()}
-        onSubmit={onSubmit}
-      >
-        <h2 id="student-form-title">{mode === 'create' ? '학생 추가' : '학생 수정'}</h2>
+    <Overlay title={mode === 'create' ? '학생 추가' : '학생 수정'} onClose={requestClose} className="student-form-overlay">
+      <form id={formId} className="overlay-body stack" noValidate onSubmit={onSubmit}>
         <label htmlFor="student-name">이름</label>
-        <input id="student-name" value={name} onChange={(event) => setName(event.target.value)} />
-        <FieldMessage message={typeof shown === 'string' ? shown : fieldErrorMessage(shown, 'name')} />
-        <label htmlFor="student-email">이메일</label>
-        <input id="student-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        <FieldMessage message={fieldErrorMessage(shown, 'email')} />
+        <input aria-invalid={Boolean(localError || fieldErrorMessage(shown, 'name'))} aria-describedby={localError || fieldErrorMessage(shown, 'name') ? 'student-name-error' : undefined} id="student-name" value={name} onChange={(event) => setName(event.target.value)} />
+        <FieldMessage id="student-name-error" message={typeof shown === 'string' ? shown : fieldErrorMessage(shown, 'name')} />
         <label htmlFor="student-phone">전화번호</label>
-        <input id="student-phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-        <FieldMessage message={fieldErrorMessage(shown, 'phone')} />
+        <input type="tel" autoComplete="tel" aria-describedby={fieldErrorMessage(shown, 'phone') ? 'student-phone-error' : undefined} id="student-phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
+        <FieldMessage id="student-phone-error" message={fieldErrorMessage(shown, 'phone')} />
         {shown && typeof shown !== 'string' ? <p className="form-error">{formErrorMessage(shown)}</p> : null}
         <div className="modal-actions">
-          <button type="button" className="button button-quiet" onClick={onClose} disabled={submitting}>
+          <button type="button" className="button button-quiet" onClick={requestClose} disabled={submitting}>
             취소
           </button>
           <button type="submit" className="button" disabled={submitting}>
@@ -69,15 +62,20 @@ export function StudentFormDialog({ mode, student, submitting, error, onClose, o
           </button>
         </div>
       </form>
-    </div>
+      {discard ? <Overlay title="입력을 버릴까요?" onClose={() => setDiscard(false)}><div className="overlay-body">
+        <p>저장하지 않은 입력이 사라집니다.</p><div className="row-actions">
+          <button type="button" className="button" onClick={() => setDiscard(false)}>계속 입력</button>
+          <button type="button" className="button button-danger" onClick={onClose}>입력 버리기</button>
+        </div></div></Overlay> : null}
+    </Overlay>
   )
 }
 
-function FieldMessage({ message }: { message: string | null }) {
+function FieldMessage({ message, id }: { message: string | null; id: string }) {
   if (!message) {
     return null
   }
-  return <p className="field-error">{message}</p>
+  return <p id={id} className="field-error" role="alert">{message}</p>
 }
 
 function emptyToNull(value: string): string | null {

@@ -59,10 +59,11 @@ export function QuickContentForm({ curriculumId, categoryId, onCreated, onClose 
   const message = validation || fieldErrorMessage(error, 'name') || fieldErrorMessage(error, 'targetBpm') || fieldErrorMessage(error, 'youtubeUrl') || (error ? formErrorMessage(error) : null)
   return (
     <>
-      <form id={formId} className="sr-only" noValidate onSubmit={(event) => void submit(event)} />
       <tr className="content-draft">
         <td data-label="순서" />
         <td data-label="이름">
+      <form id={formId} className="sr-only" noValidate onSubmit={(event) => void submit(event)} />
+
           <label className="sr-only" htmlFor={`${formId}-name`}>이름</label>
           <input ref={input} id={`${formId}-name`} form={formId} value={name} onChange={(event) => setName(event.target.value)} aria-describedby={message ? `${formId}-error` : undefined} />
         </td>

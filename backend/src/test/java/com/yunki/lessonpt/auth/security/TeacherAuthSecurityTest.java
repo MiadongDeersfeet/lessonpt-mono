@@ -53,6 +53,7 @@ import com.yunki.lessonpt.teacher.service.TeacherService;
 
 @SpringBootTest(properties = {
         "spring.profiles.active=context",
+        "lessonpt.student-portal.enabled=false",
         "lessonpt.jwt.secret=01234567890123456789012345678901"
 })
 @AutoConfigureMockMvc
@@ -134,6 +135,16 @@ class TeacherAuthSecurityTest {
 
     @MockitoBean
     private TeacherStudentLocationMapper teacherStudentLocationMapper;
+
+    @Test
+    void pausedPortalRejectsOtpAndExistingSessionReads() throws Exception {
+        mockMvc.perform(post("/api/v1/student-login/otp")
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("STUDENT_PORTAL_PAUSED"));
+        mockMvc.perform(get("/api/v1/student/me"))
+                .andExpect(status().isServiceUnavailable());
+    }
 
     @Test
     void passwordEncoderBeanIsBcryptAndSignupStoresHash() {

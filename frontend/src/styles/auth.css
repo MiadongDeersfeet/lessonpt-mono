@@ -1,0 +1,42 @@
+/* A calm studio identity, separate from the working application. */
+.auth-shell { display: grid; grid-template-columns: minmax(0,1fr) minmax(460px, .86fr); min-height: 100dvh; background: var(--surface); }
+.auth-story { display: flex; flex-direction: column; position: relative; min-height: 100dvh; padding: 48px 56px 32px; background: #163d3c; color: #f5f8ee; overflow: hidden; }
+.auth-brand { align-self: flex-start; text-decoration: none; }
+.auth-story .brand-lockup { color: #f5f8ee; }
+.auth-story .brand-symbol { color: #c8dca9; }
+.auth-story .brand-symbol path { stroke: #163d3c; }
+.auth-story-content { width: 100%; max-width: 560px; margin: auto; padding: 64px 0; }
+.auth-story .eyebrow { margin-bottom: 24px; color: #c8dca9; font-size: 10px; letter-spacing: .12em; }
+.auth-story h2 { margin: 0; font-size: clamp(32px,3.6vw,54px); letter-spacing: -.065em; font-weight: 520; line-height: 1.4; }
+.auth-description { margin: 24px 0 0; color: #bdceca; font-size: 14px; line-height: 1.95; }
+.auth-footnote { margin: 0; color: #bdceca; font-size: 11px; letter-spacing: .04em; }
+.rhythm-art { position: relative; height: 160px; margin-top: 64px; padding-top: 42px; }
+.rhythm-caption { position: absolute; top: 0; color: #bdceca; font-size: 8px; letter-spacing: .14em; }
+.rhythm-lines { display: grid; gap: 15px; }
+.rhythm-lines i { display: block; height: 1px; background: #52736b; }
+.rhythm-notes { position: absolute; left: 15%; right: 8%; top: 60px; display: flex; justify-content: space-between; }
+.rhythm-notes b { position: relative; width: 21px; height: 14px; border-radius: 50%; background: #c8dca9; transform: rotate(-22deg); }
+.rhythm-notes b::after { content: ''; position: absolute; right: 0; bottom: 6px; height: 42px; width: 2px; background: #c8dca9; transform: rotate(22deg); transform-origin: bottom; }
+.rhythm-notes b:nth-child(2) { top: 30px; }
+.rhythm-notes b:nth-child(3) { top: 15px; }
+.rhythm-time { position: absolute; left: 0; top: 55px; font-size: 24px; font-weight: 350; letter-spacing: -.08em; color: #bdceca; }
+.auth-form-side { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 44px 32px; }
+.login-card { display: grid; width: min(370px,100%); gap: 10px; background: var(--surface); }
+.login-card .eyebrow { margin-bottom: 4px; }
+.login-card h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.06em; }
+.auth-intro, .login-card .lead { margin: 6px 0 24px; color: var(--text-secondary); font-size: 13px; line-height: 1.85; }
+.login-card label { margin-top: 8px; font-size: 12px; }
+.login-card input { width: 100%; min-height: 50px; }
+.login-card > .button { width: 100%; min-height: 50px; margin-top: 14px; }
+.login-card .auth-switch { padding-top: 24px; margin-top: 18px; border-top: 1px solid var(--divider); text-align: center; font-size: 12px; color: var(--text-secondary); }
+.auth-switch a { margin-left: 8px; font-weight: 650; }
+.auth-fineprint { margin: 48px 0 0; color: var(--text-secondary); font-size: 10px; }
+.auth-mobile-brand { display: none; }
+.login-screen { display: grid; place-items: center; min-height: 100dvh; padding: 24px; }
+.login-screen .login-card { padding: 32px; width: min(460px,100%); border: 1px solid var(--border); border-radius: var(--radius-panel); }
+.login-screen .login-card p { margin: 8px 0; }
+
+.password-input-wrap { position: relative; display: flex; align-items: center; }
+.password-input-wrap input { padding-right: 60px; }
+.password-toggle { position: absolute; right: 4px; min-width: 48px; min-height: 44px; padding: 8px; border: 0; border-radius: 7px; background: transparent; color: var(--accent); font-size: 11px; font-weight: 600; }
+.password-toggle:hover { background: var(--accent-soft); }

@@ -1,7 +1,7 @@
+import { Icon } from '../components/layout/Icon.tsx'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ApiError } from '../api/apiClient.ts'
-import { createStudent, getStudentAccess, getStudentLearning, listStudents, releaseStudent, updateStudent } from '../api/studentApi.ts'
+import { createStudent, getStudentLearning, listStudents, releaseStudent, updateStudent } from '../api/studentApi.ts'
 import { EmptyState } from '../components/feedback/EmptyState.tsx'
 import { ErrorState } from '../components/feedback/ErrorState.tsx'
 import { LoadingState } from '../components/feedback/LoadingState.tsx'
@@ -10,7 +10,7 @@ import { ReleaseStudentDialog } from '../components/student/ReleaseStudentDialog
 import { StudentFormDialog } from '../components/student/StudentFormDialog.tsx'
 import { textOrDash } from '../student/display.ts'
 import { summarizeStudent, type StudentListSummary } from '../student/listSummary.ts'
-import type { StudentAccess, StudentCreateBody, StudentSummary, StudentUpdateBody } from '../types/student.ts'
+import type { StudentCreateBody, StudentSummary, StudentUpdateBody } from '../types/student.ts'
 
 type FormState = { mode: 'create'; student: null } | { mode: 'edit'; student: StudentSummary }
 
@@ -24,6 +24,7 @@ export function StudentListPage() {
   const [releaseTarget, setReleaseTarget] = useState<StudentSummary | null>(null)
   const [releaseError, setReleaseError] = useState<unknown>(null)
   const [releaseSubmitting, setReleaseSubmitting] = useState(false)
+  const [query, setQuery] = useState('')
   const [summaries, setSummaries] = useState<Record<number, StudentListSummary>>({})
 
   useEffect(() => {
@@ -50,22 +51,15 @@ export function StudentListPage() {
       return
     }
     let active = true
-    Promise.all(
-      students.map(async (student) => {
-        const [learning, access] = await Promise.all([
-          getStudentLearning(student.studentId).catch(() => null),
-          getStudentAccess(student.studentId).catch((error: unknown): StudentAccess | null | 'error' =>
-            error instanceof ApiError && error.status === 404 && error.code === 'COMMON_NOT_FOUND' ? null : 'error',
-          ),
-        ])
-        const portalActive = access === 'error' ? null : access?.status === 'ACTIVE'
-        return [student.studentId, summarizeStudent(learning, portalActive)] as const
-      }),
-    ).then((rows) => {
-      if (active) {
-        setSummaries(Object.fromEntries(rows))
+    const queue = [...students]
+    async function worker() {
+      while (active && queue.length) {
+        const student = queue.shift()!
+        const learning = await getStudentLearning(student.studentId).catch(() => null)
+        if (active) setSummaries(current => ({ ...current, [student.studentId]: summarizeStudent(learning, null) }))
       }
-    })
+    }
+    void Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker))
     return () => {
       active = false
     }
@@ -119,10 +113,14 @@ export function StudentListPage() {
     }
   }
 
+  const filtered = students?.filter(student => {
+    const text = `${student.name} ${student.phone ?? ''} ${summaries[student.studentId]?.locations ?? ''}`.toLocaleLowerCase()
+    return text.includes(query.trim().toLocaleLowerCase())
+  })
   return (
     <section className="page">
       <header className="page-header page-header-row">
-        <h1>학생</h1>
+        <div><p className="eyebrow">STUDENTS</p><h1>학생</h1><p className="lead">학생의 성장과 다음 수업을 한눈에 확인하세요.</p></div>
         <button
           type="button"
           className="button"
@@ -131,53 +129,55 @@ export function StudentListPage() {
             setForm({ mode: 'create', student: null })
           }}
         >
-          학생 추가
+          <Icon name="plus"/>학생 추가
         </button>
       </header>
+      <div className="student-search"><label htmlFor="student-search">학생 찾기</label>
+        <div className="search-input-wrap"><Icon name="search"/><input id="student-search" type="search" placeholder="이름, 전화번호, 출강처" value={query} onChange={event => setQuery(event.target.value)} /></div>
+        <p className="form-hint" role="status">{students ? `${filtered?.length ?? 0}명 / 전체 ${students.length}명` : '학생을 불러오는 중'}</p>
+      </div>
+      {students && students.length > 0 && filtered?.length === 0 ? <EmptyState message="검색 결과가 없습니다." /> : null}
       {notice ? <p className="form-hint">{notice}</p> : null}
       {error ? <ErrorState error={error} /> : null}
       {!error && students == null ? <LoadingState label="학생 목록을 불러오는 중" /> : null}
       {students?.length === 0 ? <EmptyState message="등록된 학생이 없습니다." /> : null}
-      {students && students.length > 0 ? (
+      {filtered && filtered.length > 0 ? (
         <div className="student-list-scroll">
-        <table className="data-table">
+        <table className="data-table student-table">
           <thead>
             <tr>
               <th>학생</th>
-              <th>이메일</th>
               <th>전화번호</th>
               <th>출강처</th>
               <th>커리큘럼</th>
               <th>진행</th>
-              <th>Portal</th>
               <th>메모</th>
               <th>작업</th>
             </tr>
           </thead>
           <tbody>
-            {students.map((student) => {
+            {filtered.map((student) => {
               const summary = summaries[student.studentId]
               return (
               <tr key={student.studentId}>
-                <td>
-                  <Link className="name-link" to={`/students/${student.studentId}`}>{student.name}</Link>
+                <td data-label="학생" className="student-name-cell">
+                  <Link className="name-link student-name-link" to={`/students/${student.studentId}`}><span className="student-avatar" aria-hidden="true">{student.name.slice(0,1)}</span><span>{student.name}</span></Link>
                 </td>
-                <td>{textOrDash(student.email)}</td>
-                <td>{textOrDash(student.phone)}</td>
-                <td>{summary?.locations ?? '불러오는 중'}</td>
-                <td>{summary?.curricula ?? '불러오는 중'}</td>
-                <td>
+                <td data-label="전화번호">{textOrDash(student.phone)}</td>
+                <td data-label="출강처">{summary?.locations ?? '불러오는 중'}</td>
+                <td data-label="커리큘럼">{summary?.curricula ?? '불러오는 중'}</td>
+                <td data-label="진행">
                   {summary == null ? '불러오는 중' : summary.progress ? <ProgressValue progress={summary.progress} meter /> : '진행 없음'}
                 </td>
-                <td>{summary?.portalLabel ?? '불러오는 중'}</td>
-                <td>
+                <td data-label="메모">
                   {summary?.hasMemo ? (
                     <span className="memo-indicator" title="메모가 있습니다." aria-label="메모가 있습니다.">● 메모 있음</span>
                   ) : summary ? (
                     <span className="quiet">메모 없음</span>
                   ) : null}
                 </td>
-                <td className="row-actions">
+                <td data-label="작업" className="row-actions">
+                  <Link className="button" to={`/students/${student.studentId}?tab=learning`}>학습관리<Icon name="arrow"/></Link>
                   <button
                     type="button"
                     className="button button-quiet"
@@ -190,7 +190,7 @@ export function StudentListPage() {
                   </button>
                   <button
                     type="button"
-                    className="button button-quiet"
+                    className="button button-quiet button-destructive-quiet"
                     onClick={() => {
                       setReleaseError(null)
                       setReleaseTarget(student)

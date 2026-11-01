@@ -1,3 +1,4 @@
+import { Overlay } from '../layout/Overlay.tsx'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { fieldErrorMessage, formErrorMessage } from '../feedback/describeError.ts'
@@ -39,16 +40,8 @@ export function LocationFormDialog({ mode, location, submitting, error, onClose,
   const shown = error ?? (localError ? localError : null)
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <form
-        className="modal"
-        role="dialog"
-        aria-labelledby="location-form-title"
-        noValidate
-        onMouseDown={(event) => event.stopPropagation()}
-        onSubmit={onSubmit}
-      >
-        <h2 id="location-form-title">{mode === 'create' ? '출강처 추가' : '출강처 수정'}</h2>
+    <Overlay title={mode === 'create' ? '출강처 추가' : '출강처 수정'} onClose={() => { if (!submitting) onClose() }} className="form-overlay">
+      <form className="overlay-body stack" noValidate onSubmit={onSubmit}>
         <label htmlFor="location-name">이름</label>
         <input id="location-name" value={name} onChange={(event) => setName(event.target.value)} />
         <FieldMessage message={typeof shown === 'string' ? shown : fieldErrorMessage(shown, 'name')} />
@@ -65,7 +58,7 @@ export function LocationFormDialog({ mode, location, submitting, error, onClose,
           </button>
         </div>
       </form>
-    </div>
+    </Overlay>
   )
 }
 

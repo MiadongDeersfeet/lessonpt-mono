@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ApiError } from '../api/apiClient.ts'
 import type { Monitoring, StudentLearningDetail } from '../types/student.ts'
+import { StudentAccessSection } from '../components/student/StudentAccessSection.tsx'
 import { StudentDetailPage } from './StudentDetailPage.tsx'
 
 vi.mock('../api/studentApi.ts', () => ({
@@ -872,12 +873,10 @@ const activeAccess = {
 }
 
 it('shows an active portal invitation from the access response', async () => {
-  const user = userEvent.setup()
   vi.mocked(getStudentLearning).mockResolvedValue({ ...emptyLearning, email: 'student@example.com' })
   vi.mocked(getStudentAccess).mockResolvedValue(activeAccess)
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
 
   expect(await screen.findByText('상태: 활성')).toBeTruthy()
   expect(screen.getByText(`${window.location.origin}/student/access/new-key`)).toBeTruthy()
@@ -885,12 +884,10 @@ it('shows an active portal invitation from the access response', async () => {
 })
 
 it('treats a missing access response as no active permission', async () => {
-  const user = userEvent.setup()
   vi.mocked(getStudentLearning).mockResolvedValue({ ...emptyLearning, email: 'student@example.com' })
   vi.mocked(getStudentAccess).mockRejectedValue(new ApiError(404, 'COMMON_NOT_FOUND', '요청한 대상을 찾을 수 없습니다.', null, []))
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
 
   expect(await screen.findByText('상태: 접근 권한 없음')).toBeTruthy()
   expect(screen.queryByText('요청한 대상을 찾을 수 없습니다.')).toBeNull()
@@ -901,9 +898,8 @@ it('opens access and builds the invitation from the response key and current ori
   vi.mocked(getStudentLearning).mockResolvedValue({ ...emptyLearning, email: 'student@example.com' })
   vi.mocked(getStudentAccess).mockRejectedValue(new ApiError(404, 'COMMON_NOT_FOUND', '요청한 대상을 찾을 수 없습니다.', null, []))
   vi.mocked(createStudentAccess).mockResolvedValue(activeAccess)
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
   await user.click(await screen.findByRole('button', { name: '접근 권한 열기' }))
 
   expect(createStudentAccess).toHaveBeenCalledWith(41)
@@ -917,9 +913,8 @@ it('copies the invitation link that stays on screen', async () => {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
   vi.mocked(getStudentLearning).mockResolvedValue({ ...emptyLearning, email: 'student@example.com' })
   vi.mocked(getStudentAccess).mockResolvedValue(activeAccess)
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
   await user.click(await screen.findByRole('button', { name: '초대 링크 복사' }))
 
   expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/student/access/new-key`)
@@ -932,9 +927,8 @@ it('removes the invitation after access is deactivated', async () => {
   vi.mocked(getStudentLearning).mockResolvedValue({ ...emptyLearning, email: 'student@example.com' })
   vi.mocked(getStudentAccess).mockResolvedValue(activeAccess)
   vi.mocked(deleteStudentAccess).mockResolvedValue(undefined)
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
   await user.click(await screen.findByRole('button', { name: '접근 해제' }))
   const dialog = await screen.findByRole('dialog')
   expect(dialog.textContent).toContain('학생 세션도 종료됩니다')
@@ -951,9 +945,8 @@ it('shows the backend conflict message when opening access fails', async () => {
   vi.mocked(getStudentLearning).mockResolvedValue({ ...emptyLearning, email: 'student@example.com' })
   vi.mocked(getStudentAccess).mockRejectedValue(new ApiError(404, 'COMMON_NOT_FOUND', '요청한 대상을 찾을 수 없습니다.', null, []))
   vi.mocked(createStudentAccess).mockRejectedValue(new ApiError(409, 'COMMON_CONFLICT', '요청이 현재 상태와 충돌합니다.', 'trace-a', []))
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
   await user.click(await screen.findByRole('button', { name: '접근 권한 열기' }))
 
   expect(await screen.findByText('요청이 현재 상태와 충돌합니다.')).toBeTruthy()
@@ -961,12 +954,10 @@ it('shows the backend conflict message when opening access fails', async () => {
 })
 
 it('shows a load error that is not a missing access', async () => {
-  const user = userEvent.setup()
   vi.mocked(getStudentLearning).mockResolvedValue({ ...emptyLearning, email: 'student@example.com' })
   vi.mocked(getStudentAccess).mockRejectedValue(new ApiError(500, 'INTERNAL', '서버 오류', null, []))
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
 
   expect(await screen.findByText('잠시 후 다시 시도해 주세요.')).toBeTruthy()
   expect(screen.queryByText('상태: 접근 권한 없음')).toBeNull()
@@ -980,9 +971,8 @@ it('disables the open button while the access request is in flight', async () =>
   vi.mocked(createStudentAccess).mockImplementation(() => new Promise((resolve) => {
     release = resolve
   }))
-  renderPage()
+  render(<StudentAccessSection studentId={41} email="student@example.com" />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
   await user.click(await screen.findByRole('button', { name: '접근 권한 열기' }))
 
   expect((await screen.findByRole('button', { name: '접근 권한 열기' }) as HTMLButtonElement).disabled).toBe(true)
@@ -991,12 +981,10 @@ it('disables the open button while the access request is in flight', async () =>
 })
 
 it('asks for an email before opening access', async () => {
-  const user = userEvent.setup()
   vi.mocked(getStudentLearning).mockResolvedValue(emptyLearning)
   vi.mocked(getStudentAccess).mockRejectedValue(new ApiError(404, 'COMMON_NOT_FOUND', '요청한 대상을 찾을 수 없습니다.', null, []))
-  renderPage()
+  render(<StudentAccessSection studentId={41} email={null} />)
 
-  await user.click(await screen.findByRole('tab', { name: '접근설정' }))
 
   expect(await screen.findByText('학생 이메일을 먼저 등록해 주세요.')).toBeTruthy()
   expect((screen.getByRole('button', { name: '접근 권한 열기' }) as HTMLButtonElement).disabled).toBe(true)
@@ -1009,7 +997,7 @@ it('shows identity without a dash and keeps assignment closed until asked', asyn
   renderPage()
 
   expect(await screen.findByRole('heading', { name: '기존학생' })).toBeTruthy()
-  expect(screen.getByText('ani.ana.yungi@gmail.com · 전화번호 미등록')).toBeTruthy()
+  expect(screen.getByText('전화번호 미등록')).toBeTruthy()
   expect(screen.queryByText('학습 현황')).toBeNull()
   expect(screen.queryByLabelText('배정할 커리큘럼 (연습실)')).toBeNull()
   expect(screen.queryByLabelText('배정할 출강처')).toBeNull()
@@ -1072,3 +1060,11 @@ function renderPage() {
     </MemoryRouter>,
   )
 }
+
+it('hides portal controls from the teacher student detail', async () => {
+  vi.mocked(getStudentLearning).mockResolvedValue(emptyLearning)
+  renderPage()
+  await screen.findByRole('heading', { name: '기존학생' })
+  expect(screen.queryByRole('tab', { name: '접근설정' })).toBeNull()
+  expect(getStudentAccess).not.toHaveBeenCalled()
+})

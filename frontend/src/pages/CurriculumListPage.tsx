@@ -1,3 +1,4 @@
+import { Icon } from '../components/layout/Icon.tsx'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { createCurriculum, deactivateCurriculum, listCurriculums, updateCurriculum } from '../api/curriculumApi.ts'
@@ -93,7 +94,7 @@ export function CurriculumListPage() {
   return (
     <section className="page">
       <header className="page-header page-header-row">
-        <h1>커리큘럼</h1>
+        <div><p className="eyebrow">CURRICULUM</p><h1>커리큘럼</h1><p className="lead">체계적인 수업을 만드는 나만의 학습 과정.</p></div>
         <button
           type="button"
           className="button"
@@ -102,7 +103,7 @@ export function CurriculumListPage() {
             setForm({ mode: 'create' })
           }}
         >
-          커리큘럼 추가
+          <Icon name="plus"/>커리큘럼 추가
         </button>
       </header>
       {notice ? <p className="form-hint">{notice}</p> : null}
@@ -110,7 +111,7 @@ export function CurriculumListPage() {
       {!error && curriculums == null ? <LoadingState label="커리큘럼 목록을 불러오는 중" /> : null}
       {curriculums?.length === 0 ? <EmptyState message="등록된 커리큘럼이 없습니다." /> : null}
       {curriculums && curriculums.length > 0 ? (
-        <table className="data-table">
+        <table className="data-table directory-table">
           <thead>
             <tr>
               <th>순서</th>
@@ -121,11 +122,11 @@ export function CurriculumListPage() {
           <tbody>
             {curriculums.map((curriculum) => (
               <tr key={curriculum.curriculumId}>
-                <td>{curriculum.displayOrder}</td>
-                <td>
+                <td data-label="순서" className="directory-order">{String(curriculum.displayOrder).padStart(2, '0')}</td>
+                <td data-label="이름" className="directory-name">
                   <Link className="name-link" to={`/curriculums/${curriculum.curriculumId}`}>{curriculum.name}</Link>
                 </td>
-                <td className="row-actions">
+                <td data-label="작업" className="row-actions">
                   <button
                     type="button"
                     className="button button-quiet"
@@ -138,7 +139,7 @@ export function CurriculumListPage() {
                   </button>
                   <button
                     type="button"
-                    className="button button-quiet"
+                    className="button button-quiet button-destructive-quiet"
                     onClick={() => {
                       setReleaseError(null)
                       setReleaseTarget(curriculum)

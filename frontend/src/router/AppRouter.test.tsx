@@ -12,18 +12,18 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it('sends the landing choices to teacher login and student login', async () => {
-  const user = userEvent.setup()
+it('opens teacher login directly at the root', async () => {
   renderRouter('/')
-
-  await user.click(screen.getByRole('link', { name: /선생님으로 시작하기/ }))
   expect(await screen.findByRole('heading', { name: '강사 로그인' })).toBeTruthy()
+  expect(screen.queryByRole('link', { name: /학생으로 시작하기/ })).toBeNull()
+})
 
-  cleanup()
-  const nextUser = userEvent.setup()
-  renderRouter('/')
-  await nextUser.click(screen.getByRole('link', { name: /학생으로 시작하기/ }))
-  expect(await screen.findByRole('heading', { name: '학생 로그인' })).toBeTruthy()
+it.each(['/student', '/student/login', '/student/access/old-key', '/student/verify', '/student/relationships'])('pauses student entry %s without API requests', async path => {
+  const fetchMock = vi.fn()
+  vi.stubGlobal('fetch', fetchMock)
+  renderRouter(path)
+  expect(await screen.findByRole('heading', { name: '학생 서비스 운영 중단' })).toBeTruthy()
+  expect(fetchMock).not.toHaveBeenCalled()
 })
 
 it('opens teacher signup from the login screen', async () => {
@@ -40,7 +40,7 @@ it('does not call the teacher profile from a student route', async () => {
   vi.stubGlobal('fetch', fetchMock)
   renderRouter('/student/login')
 
-  expect(await screen.findByRole('heading', { name: '학생 로그인' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { name: '학생 서비스 운영 중단' })).toBeTruthy()
   expect(fetchMock).not.toHaveBeenCalled()
   expect(sessionStorage.getItem('lessonpt.teacher.accessToken')).toBe('teacher-access')
 })
@@ -92,7 +92,7 @@ it('shows a not found page for an unknown route and returns home', async () => {
   const home = screen.getByRole('link', { name: '홈으로 이동' })
   expect(home.getAttribute('href')).toBe('/')
   await user.click(home)
-  expect(await screen.findByRole('heading', { name: 'LessonPT' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { name: '강사 로그인' })).toBeTruthy()
 })
 
 it('keeps an unknown student id on the existing student route', async () => {
@@ -114,3 +114,14 @@ function renderRouter(path: string) {
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
 }
+
+it('lets teachers show and hide the password without submitting', async () => {
+  const user = userEvent.setup()
+  renderRouter('/login')
+  const input = screen.getByLabelText('비밀번호')
+  expect(input.getAttribute('type')).toBe('password')
+  await user.click(screen.getByRole('button', { name: '비밀번호 표시' }))
+  expect(input.getAttribute('type')).toBe('text')
+  await user.click(screen.getByRole('button', { name: '비밀번호 숨기기' }))
+  expect(input.getAttribute('type')).toBe('password')
+})
